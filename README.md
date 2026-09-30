@@ -1,4 +1,4 @@
-## Web-Based Scavenger Language Game
+## Lost In Translation
 
 [Team Contract](docs/contract/499_team7_contract.pdf)
 
