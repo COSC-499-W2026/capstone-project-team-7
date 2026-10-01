@@ -6,7 +6,7 @@ A web-based language learning scavenger hunt game that combines language listeni
 
 ## Overview
 
-Lost In Translation is designed for beginner language learners to practice recognizing numbers and simple location-based instructions in a real-world environment.
+(Game name) is designed for beginner language learners to practice recognizing numbers and simple location-based instructions in a real-world environment.
 
 Players listen to audio instructions, navigate to locations, and verify their answers using GPS and image recognition.
 
@@ -42,10 +42,9 @@ Players can also select from multiple difficulty levels.
 | Component | Technology |
 |---|---|
 | Frontend | React, TypeScript |
-| Backend | Python, FastAPI |
+| Backend | Python |
 | Authentication | Firebase Authentication |
-| Database | PostgreSQL |
-| Local Development | Docker Desktop, Docker Compose |
+| Database | SQL |
 | Frontend Testing | Vitest, React Testing Library |
 | Backend Testing | PyTest |
 
@@ -121,9 +120,9 @@ will need separate configuration.
 
 ## System Architecture
 
-Lost In Translation uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python/FastAPI backend** to handle application logic and services.
+(Game Name) uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
 
-The planned authentication service is **Firebase Authentication**, while **PostgreSQL** will store structured application data such as users, classes, game progress, points, and leaderboard information. The current Docker starter connects the frontend, backend, and database; authentication and game features will be added as development progresses.
+**Firebase Authentication** manages user authentication, while a **SQL database** stores structured application data such as users, classes, game progress, points, and leaderboard information.
 
 ## User Roles
 
@@ -166,7 +165,7 @@ Testing focuses on:
 
 ## Project Goals
 
-Lost In Translation aims to make language practice more interactive, contextual, and engaging by moving listening and vocabulary exercises beyond traditional screen-based quizzes.
+(Game Name) aims to make language practice more interactive, contextual, and engaging by moving listening and vocabulary exercises beyond traditional screen-based quizzes.
 
 ## Team
 
@@ -175,3 +174,5 @@ Lost In Translation aims to make language practice more interactive, contextual,
 - Madiba Burks Magara
 - Ashish Nayak
 - Dan Rukundo
+
+
