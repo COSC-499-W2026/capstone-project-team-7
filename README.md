@@ -75,8 +75,7 @@ The starter page shows “Connected and ready.” when the frontend can reach
 FastAPI and FastAPI can query PostgreSQL. Firebase authentication and game
 features are not implemented in this starter.
 
-Compose runs React/Vite, FastAPI, and PostgreSQL 18. It waits for the database
-and API health checks before starting dependent services. The frontend forwards
+Compose runs React/Vite, FastAPI, and PostgreSQL 18. The frontend forwards
 `/api` requests to the backend through Vite's development proxy. PostgreSQL is
 available to the backend at `db:5432` inside Docker.
 
