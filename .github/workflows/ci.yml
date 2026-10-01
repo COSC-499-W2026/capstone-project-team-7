@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
   pull_request:
-    branches: [main]
+    branches: [dev]
 
 jobs:
   backend:
@@ -16,4 +16,4 @@ jobs:
           python-version: "3.13"
       - run: pip install -r src/backend/requirements.txt
       - run: pip install pytest httpx
-      - run: python -m pytest tests/backend
+      - run: python -m pytest tests/backend 
