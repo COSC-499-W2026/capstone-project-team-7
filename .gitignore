@@ -1,11 +1,38 @@
+# OS / editor
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+
+# Environment / secrets
 .env
 .env.*
 !.env.example
-venv/
-.venv/
+
+# Python (backend)
 __pycache__/
 *.py[cod]
+venv/
+.venv/
+env/
 .pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Node (frontend)
 node_modules/
 dist/
+dist-ssr/
+*.local
+.vite/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs
+*.log
