@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,13 +32,27 @@ jobs:
 
       - name: Save report into repo (only after tests pass)
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          PR_JSON=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/pulls)
+          PR_NUM=$(echo "$PR_JSON" | jq -r '.[0].number // empty')
+          BRANCH=$(echo "$PR_JSON" | jq -r '.[0].head.ref // empty')
+
+          if [ -z "$PR_NUM" ]; then
+            NAME="commit-${GITHUB_SHA::7}"
+          else
+            SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^A-Za-z0-9._-]/-/g')
+            NAME="pr-${PR_NUM}-${SAFE_BRANCH}"
+          fi
+
           mkdir -p test-reports
-          cp test-results/report.html test-reports/report.html
-          cp test-results/results.xml test-reports/results.xml
+          cp test-results/report.html "test-reports/${NAME}.html"
+          cp test-results/results.xml "test-reports/${NAME}.xml"
+
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add test-reports
-          git commit -m "Update CI test report [skip ci]" || echo "Nothing to commit"
+          git commit -m "Add CI test report ${NAME} [skip ci]" || echo "Nothing to commit"
           git pull --rebase
           git push
