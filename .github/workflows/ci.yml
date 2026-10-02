@@ -9,8 +9,6 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,7 +18,6 @@ jobs:
       - run: pip install pytest httpx pytest-html
       - run: >
           python -m pytest tests/backend
-          --junitxml=test-results/results.xml
           --html=test-results/report.html --self-contained-html
 
       - uses: actions/upload-artifact@v4
@@ -28,16 +25,3 @@ jobs:
         with:
           name: backend-test-results
           path: test-results/
-
-      - name: Save report into repo (only after tests pass)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-        run: |
-          mkdir -p test-reports
-          cp test-results/report.html test-reports/report.html
-          cp test-results/results.xml test-reports/results.xml
-          git config user.name "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
-          git add test-reports
-          git commit -m "Update CI test report [skip ci]" || echo "Nothing to commit"
-          git pull --rebase
-          git push
