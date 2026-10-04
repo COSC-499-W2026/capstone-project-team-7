@@ -31,7 +31,7 @@ Players can also select from multiple difficulty levels.
 - Image recognition for room and office numbers
 - Timed game sessions
 - Pause, resume, and reset functionality
-- Points, badges, and leaderboards
+- Points, badges, and class leaderboards
 - Student progress tracking
 - Teacher class dashboards and roster management
 - Post-game session summaries and debriefs
@@ -44,7 +44,7 @@ Players can also select from multiple difficulty levels.
 | Frontend | React, TypeScript |
 | Backend | Python |
 | Authentication | Firebase Authentication |
-| Database | SQL |
+| Database | PostgreSQL 17 |
 | Frontend Testing | Vitest, React Testing Library |
 | Backend Testing | PyTest |
 
@@ -53,6 +53,45 @@ Players can also select from multiple difficulty levels.
 (Game Name) uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
 
 **Firebase Authentication** manages user authentication, while a **SQL database** stores structured application data such as users, classes, game progress, points, and leaderboard information.
+
+## Run the Backend and PostgreSQL Locally
+
+Install Python 3.13 and Docker Desktop, and start Docker Desktop. From the repository root:
+
+```sh
+cp .env.example .env
+docker compose up -d --wait
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r src/backend/requirements.txt
+python src/backend/migrate.py
+uvicorn main:app --app-dir src/backend --reload
+```
+
+Visit `http://localhost:8000/docs` for the API docs. `GET /api/health/db` checks the database connection.
+The migration command creates the tables and seeds the six languages and three difficulty levels.
+It is safe to run again; future changes belong in new numbered SQL migration files.
+
+Database connection settings are in `.env` (ignored by Git). When changing the database port or credentials,
+update `DATABASE_URL` and `TEST_DATABASE_URL` to match. Docker keeps data in a named volume;
+`docker compose stop` stops the database without deleting data. On an existing volume, changing
+`POSTGRES_PASSWORD` in `.env` does not change the database password.
+
+Open a PostgreSQL shell:
+
+```sh
+docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Run backend and PostgreSQL integration tests with the database running:
+
+```sh
+python -m pytest tests/backend -q
+```
+
+Integration tests use `TEST_DATABASE_URL` and create a temporary schema, leaving application data untouched.
+Without that variable, database integration tests are skipped. CI runs them against PostgreSQL 17.
+See [the database design](docs/design/database.md) for tables, relationships, defaults, and backend usage.
 
 ## User Roles
 
@@ -64,7 +103,7 @@ Students can:
 - Participate in scavenger-hunt sessions
 - Complete location-based challenges
 - Earn points and achievements
-- View their progress and leaderboard standing
+- View their progress and class leaderboard standing
 
 ### Teachers
 
@@ -104,5 +143,3 @@ Testing focuses on:
 - Madiba Burks Magara
 - Ashish Nayak
 - Dan Rukundo
-
-
