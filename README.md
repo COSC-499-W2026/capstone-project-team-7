@@ -79,6 +79,52 @@ Teachers can:
 
 Administrators manage user accounts and support system maintenance.
 
+## Running the frontend with Docker
+
+Install Docker Desktop and start it, then run from the repository root:
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:5173. The React/TypeScript frontend uses Vite, and
+edits in `src/frontend/src` reload in the browser automatically.
+Stop the containers with `Ctrl+C`, or run `docker compose down`.
+
+After changing frontend dependencies, run `docker compose run --rm frontend npm ci`
+to update the dependency volume, then rebuild with `docker compose up --build`.
+
+To run locally without Docker (Node.js 22.12+):
+
+```bash
+cd src/frontend
+npm ci
+npm run dev
+```
+
+To serve the production build with Nginx:
+
+```bash
+docker build --target production -t lost-in-translation-frontend src/frontend
+docker run --rm -p 8080:80 lost-in-translation-frontend
+```
+
+Open http://localhost:8080.
+
+### Adding the backend later
+
+Docker Compose can run a backend alongside the frontend as another service.
+The development frontend already forwards browser requests to `/api/...` to
+port 8000 on your host, where the existing FastAPI app can run.
+When adding a `backend` service, set the frontend's `API_PROXY_TARGET` to
+`http://backend:8000` in `compose.yaml`. The backend must listen on `0.0.0.0`.
+Frontend code should use relative URLs such as `fetch('/api/hello')`.
+
+For production, add an `/api/` proxy to the backend in
+`src/frontend/nginx.conf`; the current production configuration returns 503
+for API requests until a backend is configured. Never put backend secrets
+in frontend code or Vite environment variables.
+
 ## Testing
 
 The project uses:
@@ -104,5 +150,3 @@ Testing focuses on:
 - Madiba Burks Magara
 - Ashish Nayak
 - Dan Rukundo
-
-
