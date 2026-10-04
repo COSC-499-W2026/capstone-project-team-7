@@ -1,26 +1,34 @@
 services:
   db:
-    # Use the same PostgreSQL major version locally and in CI.
     image: postgres:17
     environment:
-      # Compose reads these values from the repository's .env file.
-      # PostgreSQL uses them to initialize an empty data volume on first startup.
       POSTGRES_DB: ${POSTGRES_DB:-lost_in_translation}
       POSTGRES_USER: ${POSTGRES_USER:-lit_app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env first}
     ports:
-      # Bind to this computer only; POSTGRES_PORT can change the host-side port.
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      # Persist database files across container restarts and recreation.
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      # $$ lets the container shell expand these variables rather than Compose.
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  frontend:
+    build:
+      context: ./src/frontend
+      target: development
+    ports:
+      - "5173:5173"
+    environment:
+      API_PROXY_TARGET: ${API_PROXY_TARGET:-http://host.docker.internal:8000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./src/frontend:/app
+      - frontend_node_modules:/app/node_modules
+
 volumes:
-  # Docker manages this volume separately from the db container.
   postgres_data:
+  frontend_node_modules:
