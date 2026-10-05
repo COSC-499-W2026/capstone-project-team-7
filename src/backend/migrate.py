@@ -5,7 +5,7 @@ from hashlib import sha256
 from pathlib import Path
 
 import psycopg
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 MIGRATIONS_DIR = Path(__file__).with_name('migrations')
 
@@ -42,7 +42,7 @@ def apply_migrations(connection, directory=MIGRATIONS_DIR):
 
 
 if __name__ == '__main__':
-    load_dotenv(Path(__file__).resolve().parents[2] / '.env')
+    load_dotenv(find_dotenv())
     url = os.getenv('DATABASE_URL')
     if not url:
         raise SystemExit('Set DATABASE_URL or configure it in the repository .env file.')

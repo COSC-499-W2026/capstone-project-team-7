@@ -2,6 +2,11 @@ services:
   backend:
     build:
       context: ./src/backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lit_app}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-lost_in_translation}
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
     healthcheck:
