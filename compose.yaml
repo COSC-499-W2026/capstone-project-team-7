@@ -1,4 +1,20 @@
 services:
+  backend:
+    build:
+      context: ./src/backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lit_app}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-lost_in_translation}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/hello')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
   db:
     image: postgres:17
     environment:
@@ -22,9 +38,10 @@ services:
     ports:
       - "5173:5173"
     environment:
-      API_PROXY_TARGET: ${API_PROXY_TARGET:-http://host.docker.internal:8000}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      API_PROXY_TARGET: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
     volumes:
       - ./src/frontend:/app
       - frontend_node_modules:/app/node_modules

@@ -1,16 +1,14 @@
 """PostgreSQL connections shared by backend services."""
 
 import os
-from pathlib import Path
 
 import psycopg
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from psycopg.rows import dict_row
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-# Find .env even when the backend is launched from a different working directory.
+# Walk up from this file to find the repo .env; in Docker there is none and compose supplies settings.
 # Existing environment variables, including CI settings, take precedence.
-load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(find_dotenv())
 
 
 def get_connection():
