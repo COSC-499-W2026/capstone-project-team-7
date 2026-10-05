@@ -31,7 +31,7 @@ Players can also select from multiple difficulty levels.
 - Image recognition for room and office numbers
 - Timed game sessions
 - Pause, resume, and reset functionality
-- Points, badges, and leaderboards
+- Points, badges, and class leaderboards
 - Student progress tracking
 - Teacher class dashboards and roster management
 - Post-game session summaries and debriefs
@@ -43,15 +43,73 @@ Players can also select from multiple difficulty levels.
 |---|---|
 | Frontend | React, TypeScript |
 | Backend | Python |
-| Authentication |  Hashed Password |
-| Database | SQL |
+| Authentication | Backend-managed email/password authentication (planned) |
+| Database | PostgreSQL 17 |
 | Frontend Testing | Vitest, React Testing Library |
 | Backend Testing | PyTest |
 
 ## System Architecture
 
+[View the system architecture diagram](docs/design/system_architecture.png).
+
+The diagram shows the proposed architecture for **Lost In Translation**, hosted on UBC servers. Students, teachers, and administrators access the application through a web browser on mobile or desktop devices over HTTPS.
+
+- **Frontend (React + TypeScript):** Provides authentication screens, the game interface with maps, audio, and camera access, teacher and administrator dashboards, profiles, rewards, progress views, and the chatbot interface.
+- **Backend (Python):** Receives requests through an HTTPS REST API and handles authorization, game sessions, GPS validation, room-number recognition, audio, chatbot integration, class management, and points and rewards. The diagram specifies JWT and role-based access; Firebase Authentication is the authentication provider listed in the tech stack.
+- **Data layer:** Uses PostgreSQL for users, classes, game sessions, progress, locations, and rewards. File storage holds audio, images, and uploaded photos, while backup storage supports recovery and log archives.
+- **External services:** Provide maps and geolocation, OCR for room numbers, AI-generated learning tips and quiz questions, and account emails and notifications.
+
+The frontend sends game actions and user input to the backend, which coordinates data storage and external services and returns results to the interface. This diagram describes the intended system; hosting, storage, and service integrations are planned components rather than confirmation of the current deployment.
 Lost In Translation! uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
 
+The **Python backend** will manage authentication, while **PostgreSQL** stores application data.
+The initial schema includes student, teacher and administrator accounts with a required `password`
+field for an encoded password hash, languages, classes and enrollments. Signup/login and password
+hashing are separate backend work. See [database setup and design](docs/design/database.md)
+for migrations and integration tests.
+The **Python backend** will manage authentication, while **PostgreSQL** stores structured application data such as users, classes, game progress, points, and leaderboard information. Every account type (student, teacher, and administrator) will have a required `password` field storing a password hash. Authentication endpoints and account tables are added in subsequent PRs.
+
+## Run the Backend and PostgreSQL Locally
+
+Install Python 3.13 and Docker Desktop, and start Docker Desktop. From the repository root:
+
+```sh
+cp .env.example .env
+docker compose up -d --wait db
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r src/backend/requirements.txt
+uvicorn main:app --app-dir src/backend --reload
+```
+
+Visit `http://localhost:8000/docs` for the API docs. `GET /api/health/db` checks the database connection.
+This setup starts PostgreSQL and connects the backend. Application tables and migrations are added separately.
+
+Database connection settings are in `.env` (ignored by Git). When changing the database port or credentials,
+update `DATABASE_URL` to match. Docker keeps data in a named volume;
+`docker compose stop` stops the database without deleting data. On an existing volume, changing
+`POSTGRES_PASSWORD` in `.env` does not change the database password.
+
+Open a PostgreSQL shell:
+
+```sh
+docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Run the backend API tests:
+
+```sh
+python -m pytest tests/backend -q
+```
+
+CI starts a disposable PostgreSQL database for the backend job and tests a real connection through
+the health route. Locally, that integration test runs when `DATABASE_URL` is configured; otherwise
+it is skipped. The other health-route tests simulate missing configuration and connection failures.
+No tests require application tables.
+
+The next PR, **Adding the database schema**, is outlined in
+[the schema plan](docs/design/database-schema-plan.md). Keep each PR below 500 total added and
+deleted lines, measured against its target branch, including documentation and tests.
 Our Data Flow Diagrams (DFDs) document how data moves through the system and how the different components interact with each other.
 
 ### Level 0 DFD
@@ -83,7 +141,7 @@ Students can:
 - Participate in scavenger-hunt sessions
 - Complete location-based challenges
 - Earn points and achievements
-- View their progress and leaderboard standing
+- View their progress and class leaderboard standing
 
 ### Teachers
 
