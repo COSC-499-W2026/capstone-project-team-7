@@ -50,7 +50,7 @@ Players can also select from multiple difficulty levels.
 
 ## System Architecture
 
-(Game Name) uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
+Lost In Translation! uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
 
 The **Python backend** will manage authentication, while **PostgreSQL** stores structured application data such as users, classes, game progress, points, and leaderboard information. Every account type (student, teacher, and administrator) will have a required `password` field storing a password hash. Authentication endpoints and account tables are added in subsequent PRs.
 
@@ -95,6 +95,26 @@ No tests require application tables.
 The next PR, **Adding the database schema**, is outlined in
 [the schema plan](docs/design/database-schema-plan.md). Keep each PR below 500 total added and
 deleted lines, measured against its target branch, including documentation and tests.
+Our Data Flow Diagrams (DFDs) document how data moves through the system and how the different components interact with each other.
+
+### Level 0 DFD
+
+The Level 0 DFD provides a high-level overview of the system. It shows the system as a single process and focuses on the main external entities that interact with it and the data exchanged between them.
+
+[View the Level 0 DFD](./docs/design/DFDs/dfd-level0.png)
+
+### Level 1 DFD
+
+The Level 1 DFD provides a more detailed view of the system by breaking the main system process into its major functional areas. To keep the diagram readable, the Level 1 DFD is divided into separate diagrams based on the main areas of functionality:
+
+- **Authentication**: User authentication and account-related data flows. [Authentication DFD](./docs/design/DFDs/auth-dfd.png)
+- **Class**: Data flows related to classes and class management. [Class DFD](./docs/design/DFDs/class-dfd.png)
+- **Game**: Data flows related to game functionality.  [Game DFD](./docs/design/DFDs/game-dfd.png)
+- **Levels**: Data flows related to levels and level progression.  [Levels DFD](./docs/design/DFDs/levels-dfd.png)
+- **User**: Data flows related to user information and user-related functionality.  [User DFD](./docs/design/DFDs/user-dfd.png)
+
+The main DFD: [DFD](./docs/design/DFDs/main-dfd-level1.png)
+The Level 1 DFD is broken into these smaller diagrams for readability while maintaining consistency with the overall system design.
 
 ## User Roles
 
@@ -155,17 +175,7 @@ Open http://localhost:8080.
 
 ### Adding the backend later
 
-Docker Compose can run a backend alongside the frontend as another service.
-The development frontend already forwards browser requests to `/api/...` to
-port 8000 on your host, where the existing FastAPI app can run.
-When adding a `backend` service, set the frontend's `API_PROXY_TARGET` to
-`http://backend:8000` in `compose.yaml`. The backend must listen on `0.0.0.0`.
-Frontend code should use relative URLs such as `fetch('/api/hello')`.
 
-For production, add an `/api/` proxy to the backend in
-`src/frontend/nginx.conf`; the current production configuration returns 503
-for API requests until a backend is configured. Never put backend secrets
-in frontend code or Vite environment variables.
 
 ## Testing
 
@@ -183,7 +193,7 @@ Testing focuses on:
 
 ## Project Goals
 
-(Game Name) aims to make language practice more interactive, contextual, and engaging by moving listening and vocabulary exercises beyond traditional screen-based quizzes.
+Lost In Translation! aims to make language practice more interactive, contextual, and engaging by moving listening and vocabulary exercises beyond traditional screen-based quizzes.
 
 ## Team
 
