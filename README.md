@@ -31,7 +31,7 @@ Players can also select from multiple difficulty levels.
 - Image recognition for room and office numbers
 - Timed game sessions
 - Pause, resume, and reset functionality
-- Points, badges, and leaderboards
+- Points, badges, and class leaderboards
 - Student progress tracking
 - Teacher class dashboards and roster management
 - Post-game session summaries and debriefs
@@ -57,6 +57,49 @@ The initial schema includes student, teacher and administrator accounts with a r
 field for an encoded password hash, languages, classes and enrollments. Signup/login and password
 hashing are separate backend work. See [database setup and design](docs/design/database.md)
 for migrations and integration tests.
+The **Python backend** will manage authentication, while **PostgreSQL** stores structured application data such as users, classes, game progress, points, and leaderboard information. Every account type (student, teacher, and administrator) will have a required `password` field storing a password hash. Authentication endpoints and account tables are added in subsequent PRs.
+
+## Run the Backend and PostgreSQL Locally
+
+Install Python 3.13 and Docker Desktop, and start Docker Desktop. From the repository root:
+
+```sh
+cp .env.example .env
+docker compose up -d --wait db
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r src/backend/requirements.txt
+uvicorn main:app --app-dir src/backend --reload
+```
+
+Visit `http://localhost:8000/docs` for the API docs. `GET /api/health/db` checks the database connection.
+This setup starts PostgreSQL and connects the backend. Application tables and migrations are added separately.
+
+Database connection settings are in `.env` (ignored by Git). When changing the database port or credentials,
+update `DATABASE_URL` to match. Docker keeps data in a named volume;
+`docker compose stop` stops the database without deleting data. On an existing volume, changing
+`POSTGRES_PASSWORD` in `.env` does not change the database password.
+
+Open a PostgreSQL shell:
+
+```sh
+docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Run the backend API tests:
+
+```sh
+python -m pytest tests/backend -q
+```
+
+CI starts a disposable PostgreSQL database for the backend job and tests a real connection through
+the health route. Locally, that integration test runs when `DATABASE_URL` is configured; otherwise
+it is skipped. The other health-route tests simulate missing configuration and connection failures.
+No tests require application tables.
+
+The next PR, **Adding the database schema**, is outlined in
+[the schema plan](docs/design/database-schema-plan.md). Keep each PR below 500 total added and
+deleted lines, measured against its target branch, including documentation and tests.
 Our Data Flow Diagrams (DFDs) document how data moves through the system and how the different components interact with each other.
 
 ### Level 0 DFD
@@ -88,7 +131,7 @@ Students can:
 - Participate in scavenger-hunt sessions
 - Complete location-based challenges
 - Earn points and achievements
-- View their progress and leaderboard standing
+- View their progress and class leaderboard standing
 
 ### Teachers
 

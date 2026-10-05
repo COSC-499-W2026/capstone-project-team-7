@@ -38,6 +38,7 @@ jobs:
           python -m pytest tests/backend
           --html=test-results/report.html --self-contained-html
 
+      # Keep reports available for download even when a test fails.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
