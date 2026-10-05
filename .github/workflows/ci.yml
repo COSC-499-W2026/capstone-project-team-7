@@ -18,8 +18,7 @@ jobs:
         image: postgres:17
         env:
           # Disposable CI credentials; these do not connect to the local app database.
-          POSTGRES_DB: lit_test
-          POSTGRES_USER: lit_test
+          POSTGRES_DB: lit_test          POSTGRES_USER: lit_test
           POSTGRES_PASSWORD: lit_test_password
         ports:
           # Expose the service to Python commands running on the GitHub runner.
@@ -43,7 +42,6 @@ jobs:
       # Run the API tests, producing XML and HTML reports.
       - run: >
           python -m pytest tests/backend
-          --junitxml=test-results/results.xml
           --html=test-results/report.html --self-contained-html
 
       # Keep reports available for download even when a test fails.
@@ -53,15 +51,19 @@ jobs:
           name: backend-test-results
           path: test-results/
 
-      - name: Save report into repo (only after tests pass)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-        run: |
-          mkdir -p test-reports
-          cp test-results/report.html test-reports/report.html
-          cp test-results/results.xml test-reports/results.xml
-          git config user.name "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
-          git add test-reports
-          git commit -m "Update CI test report [skip ci]" || echo "Nothing to commit"
-          git pull --rebase
-          git push
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+        
