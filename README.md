@@ -130,9 +130,21 @@ docker run --rm -p 8080:80 lost-in-translation-frontend
 
 Open http://localhost:8080.
 
-### Adding the backend later
+### Backend with Docker Compose
 
+`docker compose up --build` starts both the frontend and FastAPI backend as
+separate containers. Compose waits for the backend health check before starting
+the frontend. Open http://localhost:5173 to see `Backend says: Hello World`.
+Vite forwards `/api/` requests to `http://backend:8000` on the Compose network.
+The backend is also available at http://localhost:8000/api/hello, with API docs
+at http://localhost:8000/docs. Stop both services with `docker compose down`.
 
+If an older standalone backend container is using port 8000, stop it first
+with `docker stop capstone-backend`.
+
+This connection applies to the development Compose setup. The standalone
+production Nginx image still needs an `/api/` proxy configured in
+`src/frontend/nginx.conf` to connect to a backend.
 
 ## Testing
 
