@@ -9,6 +9,29 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    permissions:
+      # The final step commits updated test reports to the dev branch.
+      contents: write
+    # GitHub starts a fresh PostgreSQL container for this job and removes it afterward.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          # Disposable CI credentials; these do not connect to the local app database.
+          POSTGRES_DB: lit_test          POSTGRES_USER: lit_test
+          POSTGRES_PASSWORD: lit_test_password
+        ports:
+          # Expose the service to Python commands running on the GitHub runner.
+          - 5432:5432
+        # Wait for PostgreSQL to accept connections before running the job's steps.
+        options: >-
+          --health-cmd "pg_isready -U lit_test -d lit_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The backend uses this URL to connect to the disposable test database.
+      DATABASE_URL: postgresql://lit_test:lit_test_password@localhost:5432/lit_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,10 +39,12 @@ jobs:
           python-version: "3.13"
       - run: pip install -r src/backend/requirements.txt
       - run: pip install pytest httpx pytest-html
+      # Run the API tests, producing XML and HTML reports.
       - run: >
           python -m pytest tests/backend
           --html=test-results/report.html --self-contained-html
 
+      # Keep reports available for download even when a test fails.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
