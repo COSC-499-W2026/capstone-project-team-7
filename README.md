@@ -31,7 +31,7 @@ Players can also select from multiple difficulty levels.
 - Image recognition for room and office numbers
 - Timed game sessions
 - Pause, resume, and reset functionality
-- Points, badges, and leaderboards
+- Points, badges, and class leaderboards
 - Student progress tracking
 - Teacher class dashboards and roster management
 - Post-game session summaries and debriefs
@@ -43,8 +43,8 @@ Players can also select from multiple difficulty levels.
 |---|---|
 | Frontend | React, TypeScript |
 | Backend | Python |
-| Authentication | Firebase Authentication |
-| Database | SQL |
+| Authentication | Backend-managed accounts with password hashes in PostgreSQL |
+| Database | PostgreSQL 17 |
 | Frontend Testing | Vitest, React Testing Library |
 | Backend Testing | PyTest |
 
@@ -52,7 +52,25 @@ Players can also select from multiple difficulty levels.
 
 (Game Name) uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
 
-**Firebase Authentication** manages user authentication, while a **SQL database** stores structured application data such as users, classes, game progress, points, and leaderboard information.
+**PostgreSQL** stores account password hashes alongside users, classes, game progress, points, and leaderboard information. The backend authentication implementation must hash passwords before storing them and verify them during login. Existing Firebase IDs are retained as optional legacy identifiers.
+
+## Run the Backend and PostgreSQL Locally
+
+Install Python 3.13 and Docker Desktop, and start Docker Desktop. From the repository root:
+
+```sh
+cp .env.example .env
+docker compose up -d --wait
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r src/backend/requirements.txt
+python src/backend/migrate.py
+uvicorn main:app --app-dir src/backend --reload
+```
+
+Visit `http://localhost:8000/docs` for the API docs. `GET /api/health/db` checks the database connection.
+The migration command creates the tables and seeds the six languages and three difficulty levels.
+It is safe to run again; future changes belong in new numbered SQL migration files.
 
 ## User Roles
 
@@ -64,7 +82,7 @@ Students can:
 - Participate in scavenger-hunt sessions
 - Complete location-based challenges
 - Earn points and achievements
-- View their progress and leaderboard standing
+- View their progress and class leaderboard standing
 
 ### Teachers
 
