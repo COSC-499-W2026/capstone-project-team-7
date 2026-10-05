@@ -64,16 +64,14 @@ docker compose up -d --wait
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r src/backend/requirements.txt
-python src/backend/migrate.py
 uvicorn main:app --app-dir src/backend --reload
 ```
 
 Visit `http://localhost:8000/docs` for the API docs. `GET /api/health/db` checks the database connection.
-The migration command creates the tables and seeds the six languages and three difficulty levels.
-It is safe to run again; future changes belong in new numbered SQL migration files.
+This setup starts PostgreSQL and connects the backend. Application tables and migrations are added separately.
 
 Database connection settings are in `.env` (ignored by Git). When changing the database port or credentials,
-update `DATABASE_URL` and `TEST_DATABASE_URL` to match. Docker keeps data in a named volume;
+update `DATABASE_URL` to match. Docker keeps data in a named volume;
 `docker compose stop` stops the database without deleting data. On an existing volume, changing
 `POSTGRES_PASSWORD` in `.env` does not change the database password.
 
@@ -83,15 +81,14 @@ Open a PostgreSQL shell:
 docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
-Run backend and PostgreSQL integration tests with the database running:
+Run the backend API tests:
 
 ```sh
 python -m pytest tests/backend -q
 ```
 
-Integration tests use `TEST_DATABASE_URL` and create a temporary schema, leaving application data untouched.
-Without that variable, database integration tests are skipped. CI runs them against PostgreSQL 17.
-See [the database design](docs/design/database.md) for tables, relationships, defaults, and backend usage.
+CI starts a disposable PostgreSQL database for the backend job. The health-route tests simulate
+missing configuration and connection failures; they do not require application tables.
 
 ## User Roles
 

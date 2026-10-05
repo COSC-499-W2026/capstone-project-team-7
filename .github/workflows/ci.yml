@@ -31,10 +31,8 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      # The migration command and backend use DATABASE_URL.
+      # The backend uses this URL to connect to the disposable test database.
       DATABASE_URL: postgresql://lit_test:lit_test_password@localhost:5432/lit_test
-      # Integration tests create and remove a temporary schema in this database.
-      TEST_DATABASE_URL: postgresql://lit_test:lit_test_password@localhost:5432/lit_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,9 +40,7 @@ jobs:
           python-version: "3.13"
       - run: pip install -r src/backend/requirements.txt
       - run: pip install pytest httpx pytest-html
-      # Apply the same versioned schema and catalog seeds used in local development.
-      - run: python src/backend/migrate.py
-      # Run API and database tests, producing XML and HTML reports.
+      # Run the API tests, producing XML and HTML reports.
       - run: >
           python -m pytest tests/backend
           --junitxml=test-results/results.xml
