@@ -1,4 +1,4 @@
-"""PostgreSQL connections shared by the API and migration command."""
+"""PostgreSQL connections shared by backend services."""
 
 import os
 from pathlib import Path

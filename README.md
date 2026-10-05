@@ -43,7 +43,7 @@ Players can also select from multiple difficulty levels.
 |---|---|
 | Frontend | React, TypeScript |
 | Backend | Python |
-| Authentication | Firebase Authentication |
+| Authentication | Backend-managed email/password authentication (planned) |
 | Database | PostgreSQL 17 |
 | Frontend Testing | Vitest, React Testing Library |
 | Backend Testing | PyTest |
@@ -52,7 +52,7 @@ Players can also select from multiple difficulty levels.
 
 (Game Name) uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
 
-**Firebase Authentication** manages user authentication, while a **SQL database** stores structured application data such as users, classes, game progress, points, and leaderboard information.
+The **Python backend** will manage authentication, while **PostgreSQL** stores structured application data such as users, classes, game progress, points, and leaderboard information. Every account type (student, teacher, and administrator) will have a required `password` field storing a password hash. Authentication endpoints and account tables are added in subsequent PRs.
 
 ## Run the Backend and PostgreSQL Locally
 
@@ -60,7 +60,7 @@ Install Python 3.13 and Docker Desktop, and start Docker Desktop. From the repos
 
 ```sh
 cp .env.example .env
-docker compose up -d --wait
+docker compose up -d --wait db
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r src/backend/requirements.txt
@@ -87,8 +87,14 @@ Run the backend API tests:
 python -m pytest tests/backend -q
 ```
 
-CI starts a disposable PostgreSQL database for the backend job. The health-route tests simulate
-missing configuration and connection failures; they do not require application tables.
+CI starts a disposable PostgreSQL database for the backend job and tests a real connection through
+the health route. Locally, that integration test runs when `DATABASE_URL` is configured; otherwise
+it is skipped. The other health-route tests simulate missing configuration and connection failures.
+No tests require application tables.
+
+The next PR, **Adding the database schema**, is outlined in
+[the schema plan](docs/design/database-schema-plan.md). Keep each PR below 500 total added and
+deleted lines, measured against its target branch, including documentation and tests.
 
 ## User Roles
 
