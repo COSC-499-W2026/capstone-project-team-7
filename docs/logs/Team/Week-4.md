@@ -33,17 +33,13 @@ By cross-reading each other's PRs and , we found these problems:
 - **Overlapping edits to the same files.** Dan's Docker branch was built on top of Ashish's earlier React commits and edited some of the same React files, which caused merge conflicts on #13. Ashish resolved them, and the frontend now includes the call to the backend. To reduce this, we agreed to branch from the latest `dev` and tell each other before touching shared files.
 - **PR size.** Most of our PRs this week are an appropriate size. The ones that look large are inflated by auto-generated files: `package-lock.json` (and `package.json` changes from installing dependencies) account for most of the lines in #13 and #19. For example, about 288 of the 318 changed lines in #19 are the lock file. The hand-written changes in those PRs are small.
 
-## DFD
-
-
-
-
-## Architecture diagram
-
+## Things Changed in DFD and Architecture Diagram
+After discussing internally and with Dr. Hui, we have removed firebase auth from the scope and the diagrams. Rather than relying on another external system, we will implement this ourselves. This makes the system more consolidated and less reliant on multiple systems. 
+With this change, our database structure has been modified as well as we now collect user information such as emails and passwords. The password information will be hashed in our database. 
 
 
 
 
 ## Collaboration process
 
-- We changed our collaboration process so that `dev` is protected, so changes need a PR and approval, and PRs target `dev` instead of `main`. The reason we did this is because #11 was merged without review and had to be reverted in #14; several PRs needed their base changed from `main` to `dev`. 
+- We changed our collaboration process so that `dev` is protected, so changes need a PR and two reviewers before merging. 
