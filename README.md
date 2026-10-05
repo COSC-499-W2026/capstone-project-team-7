@@ -43,16 +43,35 @@ Players can also select from multiple difficulty levels.
 |---|---|
 | Frontend | React, TypeScript |
 | Backend | Python |
-| Authentication | Firebase Authentication |
+| Authentication |  Hashed Password |
 | Database | SQL |
 | Frontend Testing | Vitest, React Testing Library |
 | Backend Testing | PyTest |
 
 ## System Architecture
 
-(Game Name) uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
+Lost In Translation! uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
 
-**Firebase Authentication** manages user authentication, while a **SQL database** stores structured application data such as users, classes, game progress, points, and leaderboard information.
+Our Data Flow Diagrams (DFDs) document how data moves through the system and how the different components interact with each other.
+
+### Level 0 DFD
+
+The Level 0 DFD provides a high-level overview of the system. It shows the system as a single process and focuses on the main external entities that interact with it and the data exchanged between them.
+
+[View the Level 0 DFD](./docs/design/DFDs/dfd-level0.png)
+
+### Level 1 DFD
+
+The Level 1 DFD provides a more detailed view of the system by breaking the main system process into its major functional areas. To keep the diagram readable, the Level 1 DFD is divided into separate diagrams based on the main areas of functionality:
+
+- **Authentication**: User authentication and account-related data flows. [Authentication DFD](./docs/design/DFDs/auth-dfd.png)
+- **Class**: Data flows related to classes and class management. [Class DFD](./docs/design/DFDs/class-dfd.png)
+- **Game**: Data flows related to game functionality.  [Game DFD](./docs/design/DFDs/game-dfd.png)
+- **Levels**: Data flows related to levels and level progression.  [Levels DFD](./docs/design/DFDs/levels-dfd.png)
+- **User**: Data flows related to user information and user-related functionality.  [User DFD](./docs/design/DFDs/user-dfd.png)
+
+The main DFD: [DFD](./docs/design/DFDs/main-dfd-level1.png)
+The Level 1 DFD is broken into these smaller diagrams for readability while maintaining consistency with the overall system design.
 
 ## User Roles
 
@@ -79,6 +98,42 @@ Teachers can:
 
 Administrators manage user accounts and support system maintenance.
 
+## Running the frontend with Docker
+
+Install Docker Desktop and start it, then run from the repository root:
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:5173. The React/TypeScript frontend uses Vite, and
+edits in `src/frontend/src` reload in the browser automatically.
+Stop the containers with `Ctrl+C`, or run `docker compose down`.
+
+After changing frontend dependencies, run `docker compose run --rm frontend npm ci`
+to update the dependency volume, then rebuild with `docker compose up --build`.
+
+To run locally without Docker (Node.js 22.12+):
+
+```bash
+cd src/frontend
+npm ci
+npm run dev
+```
+
+To serve the production build with Nginx:
+
+```bash
+docker build --target production -t lost-in-translation-frontend src/frontend
+docker run --rm -p 8080:80 lost-in-translation-frontend
+```
+
+Open http://localhost:8080.
+
+### Adding the backend later
+
+
+
 ## Testing
 
 The project uses:
@@ -95,7 +150,7 @@ Testing focuses on:
 
 ## Project Goals
 
-(Game Name) aims to make language practice more interactive, contextual, and engaging by moving listening and vocabulary exercises beyond traditional screen-based quizzes.
+Lost In Translation! aims to make language practice more interactive, contextual, and engaging by moving listening and vocabulary exercises beyond traditional screen-based quizzes.
 
 ## Team
 
@@ -104,5 +159,3 @@ Testing focuses on:
 - Madiba Burks Magara
 - Ashish Nayak
 - Dan Rukundo
-
-
