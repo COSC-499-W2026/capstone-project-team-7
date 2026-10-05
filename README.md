@@ -43,8 +43,8 @@ Players can also select from multiple difficulty levels.
 |---|---|
 | Frontend | React, TypeScript |
 | Backend | Python |
-| Authentication | Firebase Authentication |
-| Database | SQL |
+| Authentication | Backend-managed email/password authentication (planned) |
+| Database | PostgreSQL 17 |
 | Frontend Testing | Vitest, React Testing Library |
 | Backend Testing | PyTest |
 
@@ -52,7 +52,11 @@ Players can also select from multiple difficulty levels.
 
 (Game Name) uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
 
-**Firebase Authentication** manages user authentication, while a **SQL database** stores structured application data such as users, classes, game progress, points, and leaderboard information.
+The **Python backend** will manage authentication, while **PostgreSQL** stores application data.
+The initial schema includes student, teacher and administrator accounts with a required `password`
+field for an encoded password hash, languages, classes and enrollments. Signup/login and password
+hashing are separate backend work. See [database setup and design](docs/design/database.md)
+for migrations and integration tests.
 
 ## User Roles
 

@@ -9,6 +9,23 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: lit_test
+          POSTGRES_USER: lit_test
+          POSTGRES_PASSWORD: lit_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lit_test -d lit_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://lit_test:lit_test_password@localhost:5432/lit_test
+      TEST_DATABASE_URL: postgresql://lit_test:lit_test_password@localhost:5432/lit_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,6 +33,7 @@ jobs:
           python-version: "3.13"
       - run: pip install -r src/backend/requirements.txt
       - run: pip install pytest httpx pytest-html
+      - run: python src/backend/migrate.py
       - run: >
           python -m pytest tests/backend
           --html=test-results/report.html --self-contained-html
@@ -41,4 +59,3 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
-        
