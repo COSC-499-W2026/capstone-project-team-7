@@ -52,6 +52,11 @@ Players can also select from multiple difficulty levels.
 
 Lost In Translation! uses a **React/TypeScript frontend** to provide the interactive game interface and a **Python backend** to handle application logic and services.
 
+The **Python backend** will manage authentication, while **PostgreSQL** stores application data.
+The initial schema includes student, teacher and administrator accounts with a required `password`
+field for an encoded password hash, languages, classes and enrollments. Signup/login and password
+hashing are separate backend work. See [database setup and design](docs/design/database.md)
+for migrations and integration tests.
 The **Python backend** will manage authentication, while **PostgreSQL** stores structured application data such as users, classes, game progress, points, and leaderboard information. Every account type (student, teacher, and administrator) will have a required `password` field storing a password hash. Authentication endpoints and account tables are added in subsequent PRs.
 
 ## Run the Backend and PostgreSQL Locally
