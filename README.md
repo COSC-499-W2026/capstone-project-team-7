@@ -55,7 +55,7 @@ Players can also select from multiple difficulty levels.
 The diagram shows the proposed architecture for **Lost In Translation**, hosted on UBC servers. Students, teachers, and administrators access the application through a web browser on mobile or desktop devices over HTTPS.
 
 - **Frontend (React + TypeScript):** Provides authentication screens, the game interface with maps, audio, and camera access, teacher and administrator dashboards, profiles, rewards, progress views, and the chatbot interface.
-- **Backend (Python):** Receives requests through an HTTPS REST API and handles authorization, game sessions, GPS validation, room-number recognition, audio, chatbot integration, class management, and points and rewards. The diagram specifies JWT and role-based access; Firebase Authentication is the authentication provider listed in the tech stack.
+- **Backend (Python):** Receives requests through an HTTPS REST API and handles authorization, game sessions, GPS validation, room-number recognition, audio, chatbot integration, class management, and points and rewards. The diagram specifies JWT and role-based access; manual authentication using hashed passwords in PostgreSQL
 - **Data layer:** Uses PostgreSQL for users, classes, game sessions, progress, locations, and rewards. File storage holds audio, images, and uploaded photos, while backup storage supports recovery and log archives.
 - **External services:** Provide maps and geolocation, OCR for room numbers, AI-generated learning tips and quiz questions, and account emails and notifications.
 
@@ -68,6 +68,25 @@ field for an encoded password hash, languages, classes and enrollments. Signup/l
 hashing are separate backend work. See [database setup and design](docs/design/database.md)
 for migrations and integration tests.
 The **Python backend** will manage authentication, while **PostgreSQL** stores structured application data such as users, classes, game progress, points, and leaderboard information. Every account type (student, teacher, and administrator) will have a required `password` field storing a password hash. Authentication endpoints and account tables are added in subsequent PRs.
+
+### Level 0 DFD
+
+The Level 0 DFD provides a high-level overview of the system. It shows the system as a single process and focuses on the main external entities that interact with it and the data exchanged between them.
+
+[View the Level 0 DFD](./docs/design/DFDs/dfd-level0.png)
+
+### Level 1 DFD
+
+The Level 1 DFD provides a more detailed view of the system by breaking the main system process into its major functional areas. To keep the diagram readable, the Level 1 DFD is divided into separate diagrams based on the main areas of functionality:
+
+- **Authentication**: User authentication and account-related data flows. [Authentication DFD](./docs/design/DFDs/auth-dfd.png)
+- **Class**: Data flows related to classes and class management. [Class DFD](./docs/design/DFDs/class-dfd.png)
+- **Game**: Data flows related to game functionality.  [Game DFD](./docs/design/DFDs/game-dfd.png)
+- **Levels**: Data flows related to levels and level progression.  [Levels DFD](./docs/design/DFDs/levels-dfd.png)
+- **User**: Data flows related to user information and user-related functionality.  [User DFD](./docs/design/DFDs/user-dfd.png)
+
+The main DFD: [DFD](./docs/design/DFDs/main-dfd-level1.png)
+The Level 1 DFD is broken into these smaller diagrams for readability while maintaining consistency with the overall system design.
 
 ## Run the Backend and PostgreSQL Locally
 
@@ -112,24 +131,6 @@ The next PR, **Adding the database schema**, is outlined in
 deleted lines, measured against its target branch, including documentation and tests.
 Our Data Flow Diagrams (DFDs) document how data moves through the system and how the different components interact with each other.
 
-### Level 0 DFD
-
-The Level 0 DFD provides a high-level overview of the system. It shows the system as a single process and focuses on the main external entities that interact with it and the data exchanged between them.
-
-[View the Level 0 DFD](./docs/design/DFDs/dfd-level0.png)
-
-### Level 1 DFD
-
-The Level 1 DFD provides a more detailed view of the system by breaking the main system process into its major functional areas. To keep the diagram readable, the Level 1 DFD is divided into separate diagrams based on the main areas of functionality:
-
-- **Authentication**: User authentication and account-related data flows. [Authentication DFD](./docs/design/DFDs/auth-dfd.png)
-- **Class**: Data flows related to classes and class management. [Class DFD](./docs/design/DFDs/class-dfd.png)
-- **Game**: Data flows related to game functionality.  [Game DFD](./docs/design/DFDs/game-dfd.png)
-- **Levels**: Data flows related to levels and level progression.  [Levels DFD](./docs/design/DFDs/levels-dfd.png)
-- **User**: Data flows related to user information and user-related functionality.  [User DFD](./docs/design/DFDs/user-dfd.png)
-
-The main DFD: [DFD](./docs/design/DFDs/main-dfd-level1.png)
-The Level 1 DFD is broken into these smaller diagrams for readability while maintaining consistency with the overall system design.
 
 ## User Roles
 
