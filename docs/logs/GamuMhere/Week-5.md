@@ -36,4 +36,4 @@ Team 7 | Repo: capstone-project-team-7 | PRs this week: #43 (password hashing) m
 - Extra checks: `test_hash_is_not_plaintext` confirms the stored value is not the real password, and `test_same_password_hashes_differ` confirms the random salt works.
 - These are unit tests. Integration tests are not required yet because the users table and the signup/login endpoints belong to other PRs.
 - Tests are in `tests/backend/test_hash_passwords.py`.
-- Regression: no existing files were changed apart from adding one line to `requirements.txt`. Backend CI run: (CI Run)[https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/37566144985/job/112614196375?pr=43]
+- Regression: no existing files were changed apart from adding one line to `requirements.txt`. Backend CI run: [CI run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/37566144985/job/112614196375?pr=43)
