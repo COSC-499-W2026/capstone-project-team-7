@@ -85,6 +85,19 @@ def test_unknown_email_gets_same_error_as_wrong_password(monkeypatch):
     assert connection.sessions == []
 
 
+def test_password_over_bcrypt_limit_is_rejected(monkeypatch):
+    # The stored hash matches the first 72 bytes, so bcrypt truncation alone would let this in.
+    long_password = "a" * (auth.MAX_PASSWORD_BYTES + 1)
+    connection = FakeConnection({"id": uuid4(), "password": hash_password(long_password[:-1]), "role": "student"})
+    monkeypatch.setattr(auth, "get_connection", connection)
+
+    response = login(password=long_password)
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid credentials"}
+    assert connection.sessions == []
+
+
 @pytest.mark.parametrize("body", [{}, {"email": "user@example.com"}, {"password": PASSWORD}])
 def test_missing_fields_are_rejected(body):
     assert client.post("/api/auth/login", json=body).status_code == 422

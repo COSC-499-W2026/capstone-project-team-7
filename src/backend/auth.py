@@ -16,6 +16,8 @@ router = APIRouter(prefix="/api/auth")
 
 SESSION_COOKIE = "session"
 SESSION_LIFETIME = timedelta(days=7)
+MAX_PASSWORD_BYTES = 72 # bcrypt only uses the first 72 bytes of a password.
+
 # The frontend sends each role to its own dashboard after login.
 DASHBOARDS = {
     "student": "/student/dashboard",
@@ -38,7 +40,11 @@ def login(credentials: LoginRequest, response: Response):
                 (credentials.email.strip(),),
             ).fetchone()
             # Unknown email and wrong password get the same error so emails cannot be probed.
-            if user is None or not verify_password(credentials.password, user["password"]):
+            if (
+                user is None
+                or len(credentials.password.encode("utf-8")) > MAX_PASSWORD_BYTES
+                or not verify_password(credentials.password, user["password"])
+            ):
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             token = secrets.token_urlsafe(32)
             connection.execute(
