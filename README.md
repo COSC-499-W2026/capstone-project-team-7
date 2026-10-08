@@ -133,6 +133,22 @@ The Level 1 DFD is broken into these smaller diagrams for readability while main
 
 ## User Roles
 
+### Teacher signup API
+
+`POST /api/auth/teacher/signup` accepts JSON fields `email`, `username`,
+`password`, `first_name`, and `last_name`. Passwords must contain at least
+8 characters and at most 72 UTF-8 bytes. Names and usernames cannot be blank.
+
+Administrators must add the teacher's lowercase email to PostgreSQL's
+`authorized_teacher_emails` table before signup. Successful signup returns
+HTTP 201 with `id` and `role: "teacher"`; both account records are saved in
+one transaction. Unauthorized emails receive HTTP 403 with
+`{"detail": "Error, unauthorized account"}`. Duplicate emails/usernames
+receive HTTP 409, invalid fields HTTP 422, and database failures HTTP 503.
+
+This endpoint checks the allowlist; it does not verify email ownership or
+issue a login session. Class access is handled separately.
+
 ### Students
 
 Students can:

@@ -4,8 +4,10 @@ import psycopg
 from fastapi import FastAPI, HTTPException
 
 from database import get_connection
+from teacher_signup import router as teacher_signup_router
 
 app = FastAPI()
+app.include_router(teacher_signup_router)
 
 
 @app.get("/api/hello")
