@@ -18,11 +18,12 @@ HASHED = hash_password(PASSWORD)
 
 
 class FakeConnection:
-    """Stands in for get_connection(); returns `user` for the lookup and records session inserts."""
+    """Stands in for get_connection(); returns `user` for the lookup and records session inserts and deletes."""
 
     def __init__(self, user):
         self.user = user
         self.sessions = []
+        self.deleted = []
 
     def __call__(self):
         return self
@@ -36,6 +37,8 @@ class FakeConnection:
     def execute(self, query, params):
         if query.startswith("INSERT INTO sessions"):
             self.sessions.append(params)
+        elif query.startswith("DELETE FROM sessions"):
+            self.deleted.append(params)
         return self
 
     def fetchone(self):
@@ -114,6 +117,31 @@ def test_database_unavailable_returns_503(monkeypatch, error):
     assert response.json() == {"detail": "Database unavailable"}
 
 
+def logout(token="session-token"):
+    # Sent as a header because the secure cookie is not resent to TestClient's http:// base URL.
+    return client.post("/api/auth/logout", headers={"Cookie": f"{auth.SESSION_COOKIE}={token}"})
+
+
+def test_logout_deletes_session_and_clears_cookie(monkeypatch):
+    connection = FakeConnection({"user_id": uuid4()})
+    monkeypatch.setattr(auth, "get_connection", connection)
+
+    response = logout()
+
+    assert response.status_code == 200
+    assert connection.deleted == [(sha256(b"session-token").hexdigest(),)]
+    assert response.headers["set-cookie"].startswith(f'{auth.SESSION_COOKIE}=""')
+
+
+def test_logout_with_invalidated_token_is_unauthorized(monkeypatch):
+    monkeypatch.setattr(auth, "get_connection", FakeConnection(None))
+
+    response = logout()
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Unauthorized"}
+
+
 @pytest.mark.skipif(not os.getenv("DATABASE_URL"), reason="DATABASE_URL is not configured")
 def test_login_against_database():
     email = uuid4().hex + "@Example.com"
@@ -133,6 +161,8 @@ def test_login_against_database():
             ).fetchall()
         token = response.cookies[auth.SESSION_COOKIE]
         assert sessions == [{"token_hash": sha256(token.encode()).hexdigest()}]
+        assert logout(token).status_code == 200
+        assert logout(token).status_code == 401
     finally:
         with get_connection() as connection:
             connection.execute("DELETE FROM users WHERE id = %s", (user_id,))
