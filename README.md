@@ -133,6 +133,19 @@ The Level 1 DFD is broken into these smaller diagrams for readability while main
 
 ## User Roles
 
+### Teacher signup API
+
+`POST /api/auth/teacher/signup` accepts `email`, `username`, `password`, `first_name`, and `last_name`.
+Passwords require 8+ characters and at most 72 UTF-8 bytes; names/usernames cannot be blank.
+Allowlist the lowercase email in `authorized_teacher_emails` first; success returns 201 with `id` and `role: "teacher"`, saving both records atomically.
+Errors: 403 `"Error, unauthorized account"`, 409 duplicate identity, 422 invalid input, 503 database failure.
+Signup does not verify email ownership, issue a session, or grant class access.
+
+To test locally, start PostgreSQL, install backend dependencies, and export `TEST_DATABASE_URL` with your credentials/port (5433 for the local override).
+Run `python -m pytest tests/backend/test_teacher_signup.py -v`.
+Integration tests create/migrate/drop a temporary schema (requires schema creation permission); they skip without the URL.
+For manual testing, run `python src/backend/migrate.py`, allowlist an email, and submit signup at `http://localhost:8000/docs`.
+
 ### Students
 
 Students can:
