@@ -73,3 +73,39 @@ Team 7 | Repo: capstone-project-team-7 | PRs this week: #43 (password hashing) m
 - The first three tests use a small fake database connection, so they run anywhere, including CI.
 - Tests are in `tests/backend/test_admin.py`.
 - Regression: the only existing file changed is `main.py` (2 lines added). Backend CI run: [ADD CI RUN LINK]
+
+
+## PR #52: Seed script to create the initial admin account (branch `39-create-initial-admin-accounts`, into `dev`)
+
+**Size:** 2 files changed, +110 / -0 lines (`src/backend/utils/seed_admin.py` added, `tests/backend/test_seed_admin.py` added). No existing files were edited.
+
+- As part of the admin account requirement (task #39), the system needs a way to create the very first admin. Signup only creates students and teachers, and the admin endpoints (such as reassigning a class) can only be used by someone who is already logged in as an admin, so without a first admin none of them can be used for real. Our client will also be an admin at handover, so she needs an account that exists before she ever touches the API.
+- Therefore, I implemented `seed_admin(connection, email, password, username)` in `src/backend/utils/seed_admin.py`, which creates one admin account with a hashed password, and a small command-line part that reads `ADMIN_EMAIL`, `ADMIN_PASSWORD` and optionally `ADMIN_USERNAME` from the `.env` and runs it (`cd src/backend && python -m utils.seed_admin`). If an admin already exists, it does nothing, so running it twice is safe.
+
+**Review receipts**
+
+- I made this a script that someone with access to the server runs, not an API endpoint. A public "create admin" endpoint would be a security risk, because anyone on the internet could call it. Adding more admins later will be done by an existing admin through a separate, logged-in-only endpoint.
+- The email and password come from environment variables and not from the code, so no admin password is ever committed to GitHub.
+- The script checks whether any admin exists (not whether this email exists), so it only ever creates the first admin. It also takes a database lock so two runs at the same time cannot create two admins.
+- The password is hashed with our existing `hash_password`, and the 72-byte password limit reuses `MAX_PASSWORD_BYTES` from `auth.py` instead of copying the number, so the limit stays in one place. I only import it and did not change login code.
+- The database logic is in its own function, separate from the part that reads environment variables, which makes it easy to test. The PR has no workarounds or temporary code.
+- [Add feedback from your reviewer and what you changed. Add any PRs you reviewed for teammates, with the PR number and what you found.]
+
+**Architecture receipts**
+
+- `seed_admin.py` is in `src/backend/utils/` because the PR rules say utility files go under `src/`, and `pytest.ini` points Python at `src/backend`, so it runs with `python -m utils.seed_admin` from that folder. The test is in `tests/backend/` as required.
+- In the DFD, this sits outside the public API. The person setting up the system runs the script, it reads the admin email and password from the environment, passes the password through `hash_password`, and writes one `users` row with role `admin` in PostgreSQL. The plain password is never saved.
+- That admin can then log in through the existing login endpoint and use the admin-only endpoints, like reassigning a class (#42) and the upcoming add admin and delete teacher endpoints.
+- No existing code was edited, and no new migration was needed.
+
+**Clean Code Check**
+
+- I re-read the script and the tests for hardcoded values, duplicate code, dead code, deep nesting and unrelated responsibilities. The file is 37 lines, `seed_admin` does one job, and the only default value is the username `admin`, which can be changed with `ADMIN_USERNAME` in .env.
+
+**Testing receipts**
+
+- Happy path: `test_creates_admin_that_can_log_in` runs the script, checks exactly one admin exists, and then logs in through `/api/auth/login` with that email and password, expecting a 200 with role `admin` and the admin dashboard redirect.
+- Negative cases: `test_second_run_does_not_create_duplicate_admin` runs it twice (the second time with a different email) and confirms the second run returns False and there is still only one admin. `test_password_over_bcrypt_limit_is_rejected` confirms a password over 72 bytes raises an error.
+- The first two tests are integration tests that run in a temporary database schema, so they never touch real accounts, and they are skipped if `TEST_DATABASE_URL` is not set. The third test needs no database.
+- Tests are in `tests/backend/test_seed_admin.py`.
+- Regression: no existing files were changed. Backend CI run: [ADD CI RUN LINK]
