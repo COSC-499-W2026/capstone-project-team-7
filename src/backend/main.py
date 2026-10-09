@@ -3,11 +3,13 @@ import logging
 import psycopg
 from fastapi import FastAPI, HTTPException
 
+from admin import router as admin_router
 from auth import router as auth_router
 from database import get_connection
 
 app = FastAPI()
 app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 @app.get("/api/hello")
