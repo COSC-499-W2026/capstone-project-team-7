@@ -142,6 +142,29 @@ def test_logout_with_invalidated_token_is_unauthorized(monkeypatch):
     assert response.json() == {"detail": "Unauthorized"}
 
 
+def test_logout_without_cookie_is_unauthorized(monkeypatch):
+    # Sends a logout request with no cookie and checks for 401 and nothing deleted
+    connection = FakeConnection({"user_id": uuid4()})
+    monkeypatch.setattr(auth, "get_connection", connection)
+
+    response = client.post("/api/auth/logout")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Unauthorized"}
+    assert connection.deleted == []
+
+
+def test_logout_database_unavailable_returns_503(monkeypatch):
+    #makes database conn fail and checks for 503
+    def unavailable():
+        raise psycopg.OperationalError("connection failed")
+
+    monkeypatch.setattr(auth, "get_connection", unavailable)
+    response = logout()
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
 @pytest.mark.skipif(not os.getenv("DATABASE_URL"), reason="DATABASE_URL is not configured")
 def test_login_against_database():
     email = uuid4().hex + "@Example.com"
