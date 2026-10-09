@@ -38,13 +38,20 @@ def signup_database(monkeypatch):
             connection.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
 
 
-def test_authorized_teacher_signup_persists_account(signup_database):
+@pytest.mark.parametrize("changes", [
+    {},
+    {"email": " Teacher@Example.com "},
+    {"username": " teacher ", "first_name": " Test ", "last_name": " Teacher "},
+    {"password": "é" * 36},
+], ids=["standard", "normalized-email", "trimmed-details", "72-byte-password"])
+def test_authorized_teacher_signup_persists_account(signup_database, changes):
+    info = {**INFO, **changes}
     with psycopg.connect(signup_database) as connection:
         connection.execute(
             "INSERT INTO authorized_teacher_emails (email) VALUES (%s)", (INFO["email"],)
         )
 
-    response = client.post(URL, json={**INFO, "email": " Teacher@Example.com "})
+    response = client.post(URL, json=info)
     assert response.status_code == 201, response.text
     user_id = UUID(response.json()["id"])
     assert response.json() == {"id": str(user_id), "role": "teacher"}
@@ -59,14 +66,36 @@ def test_authorized_teacher_signup_persists_account(signup_database):
     for field in ("email", "username", "first_name", "last_name"):
         assert user[field] == INFO[field]
     assert user["role"] == "teacher"
-    assert user["password"] != INFO["password"]
-    assert verify_password(INFO["password"], user["password"])
+    assert user["password"] != info["password"]
+    assert verify_password(info["password"], user["password"])
     assert teacher == {"user_id": user_id, "role": "teacher"}
 
 
+def test_unauthorized_signup_creates_no_account(signup_database):
+    response = client.post(URL, json=INFO)
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Error, unauthorized account"}
+    with psycopg.connect(signup_database) as connection:
+        assert connection.execute("SELECT count(*) FROM users").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM teachers").fetchone()[0] == 0
+
+
+def test_duplicate_signup_returns_conflict(signup_database):
+    with psycopg.connect(signup_database) as connection:
+        connection.execute(
+            "INSERT INTO authorized_teacher_emails (email) VALUES (%s)", (INFO["email"],)
+        )
+    assert client.post(URL, json=INFO).status_code == 201
+    response = client.post(URL, json=INFO)
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Email or username already in use"}
+    with psycopg.connect(signup_database) as connection:
+        assert connection.execute("SELECT count(*) FROM users").fetchone()[0] == 1
+        assert connection.execute("SELECT count(*) FROM teachers").fetchone()[0] == 1
+
+
 @pytest.mark.parametrize("changes", [
-    {"email": "invalid"}, {"username": " "}, {"username": "x" * 51},
-    {"first_name": " "}, {"last_name": ""}, {"password": "short"},
+    {"email": "invalid"}, {"username": " "}, {"password": "short"},
     {"password": "é" * 37}, {"role": "admin"},
 ])
 def test_invalid_signup_does_not_open_database(monkeypatch, changes):

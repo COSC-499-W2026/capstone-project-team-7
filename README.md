@@ -135,35 +135,16 @@ The Level 1 DFD is broken into these smaller diagrams for readability while main
 
 ### Teacher signup API
 
-`POST /api/auth/teacher/signup` accepts JSON fields `email`, `username`,
-`password`, `first_name`, and `last_name`. Passwords must contain at least
-8 characters and at most 72 UTF-8 bytes. Names and usernames cannot be blank.
+`POST /api/auth/teacher/signup` accepts `email`, `username`, `password`, `first_name`, and `last_name`.
+Passwords require 8+ characters and at most 72 UTF-8 bytes; names/usernames cannot be blank.
+Allowlist the lowercase email in `authorized_teacher_emails` first; success returns 201 with `id` and `role: "teacher"`, saving both records atomically.
+Errors: 403 `"Error, unauthorized account"`, 409 duplicate identity, 422 invalid input, 503 database failure.
+Signup does not verify email ownership, issue a session, or grant class access.
 
-Administrators must add the teacher's lowercase email to PostgreSQL's
-`authorized_teacher_emails` table before signup. Successful signup returns
-HTTP 201 with `id` and `role: "teacher"`; both account records are saved in
-one transaction. Unauthorized emails receive HTTP 403 with
-`{"detail": "Error, unauthorized account"}`. Duplicate emails/usernames
-receive HTTP 409, invalid fields HTTP 422, and database failures HTTP 503.
-
-This endpoint checks the allowlist; it does not verify email ownership or
-issue a login session. Class access is handled separately.
-
-#### Test successful teacher signup locally
-
-With PostgreSQL running and Python dependencies installed, run from the repo root:
-
-```sh
-export TEST_DATABASE_URL='postgresql://lit_app:lit_local_password@localhost:5432/lost_in_translation'
-python -m pytest tests/backend/test_teacher_signup.py -v
-```
-
-Adjust credentials and port to your setup (5433 for the local Docker configuration).
-The happy-path test checks HTTP 201, both saved account records, and password hashing.
-It applies migrations in a temporary schema and removes it afterward; the database user
-needs permission to create schemas. Without `TEST_DATABASE_URL`, it is skipped; CI runs it.
-For manual testing, apply migrations, add the email to `authorized_teacher_emails`,
-then submit signup at `http://localhost:8000/docs`; expect HTTP 201, or 409 on repeat signup.
+To test locally, start PostgreSQL, install backend dependencies, and export `TEST_DATABASE_URL` with your credentials/port (5433 for the local override).
+Run `python -m pytest tests/backend/test_teacher_signup.py -v`.
+Integration tests create/migrate/drop a temporary schema (requires schema creation permission); they skip without the URL.
+For manual testing, run `python src/backend/migrate.py`, allowlist an email, and submit signup at `http://localhost:8000/docs`.
 
 ### Students
 
