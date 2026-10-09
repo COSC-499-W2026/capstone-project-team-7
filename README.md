@@ -149,6 +149,22 @@ receive HTTP 409, invalid fields HTTP 422, and database failures HTTP 503.
 This endpoint checks the allowlist; it does not verify email ownership or
 issue a login session. Class access is handled separately.
 
+#### Test successful teacher signup locally
+
+With PostgreSQL running and Python dependencies installed, run from the repo root:
+
+```sh
+export TEST_DATABASE_URL='postgresql://lit_app:lit_local_password@localhost:5432/lost_in_translation'
+python -m pytest tests/backend/test_teacher_signup.py -v
+```
+
+Adjust credentials and port to your setup (5433 for the local Docker configuration).
+The happy-path test checks HTTP 201, both saved account records, and password hashing.
+It applies migrations in a temporary schema and removes it afterward; the database user
+needs permission to create schemas. Without `TEST_DATABASE_URL`, it is skipped; CI runs it.
+For manual testing, apply migrations, add the email to `authorized_teacher_emails`,
+then submit signup at `http://localhost:8000/docs`; expect HTTP 201, or 409 on repeat signup.
+
 ### Students
 
 Students can:
