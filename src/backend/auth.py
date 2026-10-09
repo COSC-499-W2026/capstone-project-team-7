@@ -1,4 +1,4 @@
-"""Login: check credentials and start a cookie session."""
+"""Login and logout: start and end cookie sessions."""
 
 import logging
 import secrets
@@ -6,7 +6,7 @@ from datetime import timedelta
 from hashlib import sha256
 
 import psycopg
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from database import get_connection
@@ -64,3 +64,23 @@ def login(credentials: LoginRequest, response: Response):
         samesite="lax",
     )
     return {"role": user["role"], "redirect_to": DASHBOARDS[user["role"]]}
+
+
+@router.post("/logout")
+def logout(request: Request, response: Response):
+    token = request.cookies.get(SESSION_COOKIE)
+    try:
+        with get_connection() as connection:
+            # Deleting the row invalidates the token; a missing or expired session is unauthorized.
+            session = token and connection.execute(
+                "DELETE FROM sessions WHERE token_hash = %s AND expires_at > now() RETURNING user_id",
+                (sha256(token.encode()).hexdigest(),),
+            ).fetchone()
+    except (psycopg.Error, RuntimeError):
+        logging.getLogger(__name__).warning("Logout failed: database unavailable")
+        raise HTTPException(status_code=503, detail="Database unavailable") from None
+    if not session:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    response.delete_cookie(SESSION_COOKIE, httponly=True, secure=True, samesite="lax")
+    return {"status": "logged out"}
