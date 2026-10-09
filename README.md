@@ -146,6 +146,13 @@ Run `python -m pytest tests/backend/test_teacher_signup.py -v`.
 Integration tests create/migrate/drop a temporary schema (requires schema creation permission); they skip without the URL.
 For manual testing, run `python src/backend/migrate.py`, allowlist an email, and submit signup at `http://localhost:8000/docs`.
 
+### Teacher class access API
+
+After login, `GET /api/teacher/classes` lists assigned classes; `GET /api/teacher/classes/{uuid}` returns one assigned class.
+Both use the existing `session` cookie: 401 for missing/invalid/expired sessions, 403 for non-teachers, 404 for unassigned/missing classes, and 503 for database failures.
+Responses include `id`, `name`, `language_code`, and `class_code`; no assigned classes returns `[]`. Use HTTPS for the Secure login cookie.
+Run `python -m pytest tests/backend/test_teacher_access.py -v` with `TEST_DATABASE_URL` set; integration tests use temporary schemas and real login.
+
 ### Students
 
 Students can:
