@@ -96,6 +96,15 @@ Open a PostgreSQL shell:
 docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
+`registration.create_student` saves validated signup fields in PostgreSQL with role `student`
+and the existing bcrypt password hash. User and student rows commit together; duplicate
+email, username or student number raises `DuplicateStudentAccount` without leaving partial data.
+Registration tests use a temporary schema in `TEST_DATABASE_URL` (or local `DATABASE_URL`).
+The signup HTTP endpoint will be added in a separate PR.
+After PR 1 is merged, pass its validated request directly with
+`create_student(**request.model_dump())`. Schema/service compatibility tests run when
+`StudentSignupRequest` is available, including preserved passwords and normalized emails.
+
 Run the backend API tests:
 
 ```sh
