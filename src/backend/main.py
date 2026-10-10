@@ -3,6 +3,7 @@ import logging
 import psycopg
 from fastapi import FastAPI, HTTPException
 
+from admin import router as admin_router
 from auth import router as auth_router
 from database import get_connection
 from teacher_signup import router as teacher_signup_router
@@ -13,6 +14,7 @@ app = FastAPI()
 app.include_router(teacher_signup_router)
 app.include_router(auth_router)
 app.include_router(teacher_approval_router)
+app.include_router(admin_router)
 app.include_router(teacher_access_router)
 
 
