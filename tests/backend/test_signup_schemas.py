@@ -28,6 +28,12 @@ def test_valid_signup_normalizes_profile_but_preserves_password(signup):
     assert signup["password"] not in repr(request)
 
 
+@pytest.mark.parametrize("email", ["Ada@example.com", "ada@example.com", " ADA@EXAMPLE.COM "])
+def test_email_case_variants_normalize_to_same_address(signup, email):
+    signup["email"] = email
+    assert StudentSignupRequest(**signup).email == "ada@example.com"
+
+
 @pytest.mark.parametrize("field", [
     "email", "password", "first_name", "last_name", "student_number", "username",
 ])

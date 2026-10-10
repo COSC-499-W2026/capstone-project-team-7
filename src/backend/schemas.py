@@ -17,6 +17,11 @@ class StudentSignupRequest(BaseModel):
     student_number: Annotated[RequiredText, Field(max_length=30)]
     username: Annotated[RequiredText, Field(max_length=50)]
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.lower()
+
     @field_validator("password")
     @classmethod
     def validate_password(cls, value: str) -> str:

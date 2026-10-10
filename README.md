@@ -98,6 +98,7 @@ docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 
 `StudentSignupRequest` in `src/backend/schemas.py` validates email, password, first/last
 name, student number and username. Profile text is trimmed; passwords are preserved.
+The full email address is lowercased to match case-insensitive account lookups and uniqueness.
 The signup password policy is at least 8 characters, not all whitespace, and at most
 72 UTF-8 bytes to match bcrypt. Usernames allow up to 50 characters and student numbers
 up to 30, matching PostgreSQL. Unknown fields (including `role`) are rejected.
