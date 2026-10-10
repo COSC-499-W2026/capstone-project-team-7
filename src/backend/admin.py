@@ -1,14 +1,13 @@
 """Admin: reassign a class to a different approved teacher."""
 
 import logging
-from hashlib import sha256
 from uuid import UUID
 
 import psycopg
-from fastapi import APIRouter, Cookie, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from auth import SESSION_COOKIE
+from auth import current_user
 from database import get_connection
 
 router = APIRouter(prefix="/api/admin")
@@ -19,21 +18,8 @@ def database_unavailable():
     return HTTPException(status_code=503, detail="Database unavailable")
 
 
-def require_admin(token: str | None = Cookie(default=None, alias=SESSION_COOKIE)):
-    """Only let requests with an unexpired admin session through."""
-    if token is None:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        with get_connection() as connection:
-            user = connection.execute(
-                """SELECT users.role FROM sessions JOIN users ON users.id = sessions.user_id
-                WHERE sessions.token_hash = %s AND sessions.expires_at > now()""",
-                (sha256(token.encode()).hexdigest(),),
-            ).fetchone()
-    except (psycopg.Error, RuntimeError):
-        raise database_unavailable() from None
-    if user is None:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+def require_admin(user=Depends(current_user)):
+    """Only let logged-in admins through; current_user already rejects missing or expired sessions."""
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Forbidden")
 

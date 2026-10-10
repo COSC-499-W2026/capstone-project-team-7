@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import admin
+import auth
 from database import get_connection
 
 app = FastAPI()
@@ -38,6 +39,12 @@ class FakeConnection:
         return self.rows.pop(0)
 
 
+def use_connection(monkeypatch, connection):
+    # The session check runs through auth.current_user, the reassignment through admin.
+    monkeypatch.setattr(auth, "get_connection", connection)
+    monkeypatch.setattr(admin, "get_connection", connection)
+
+
 def reassign(email="teacher@example.com", token="admin-token"):
     client.cookies.set("session", token)
     return client.patch(f"/api/admin/classes/{uuid4()}/teacher", json={"teacher_email": email})
@@ -47,7 +54,7 @@ def test_admin_reassigns_class_to_approved_teacher(monkeypatch):
     teacher_id = uuid4()
     # Rows: admin session, approved teacher, updated class.
     connection = FakeConnection({"role": "admin"}, {"user_id": teacher_id}, {"id": uuid4(), "teacher_id": teacher_id})
-    monkeypatch.setattr(admin, "get_connection", connection)
+    use_connection(monkeypatch, connection)
 
     response = reassign()
 
@@ -57,7 +64,7 @@ def test_admin_reassigns_class_to_approved_teacher(monkeypatch):
 
 def test_unapproved_teacher_is_rejected_and_class_unchanged(monkeypatch):
     connection = FakeConnection({"role": "admin"}, None)
-    monkeypatch.setattr(admin, "get_connection", connection)
+    use_connection(monkeypatch, connection)
 
     response = reassign(email="not-approved@example.com")
 
@@ -68,7 +75,7 @@ def test_unapproved_teacher_is_rejected_and_class_unchanged(monkeypatch):
 
 @pytest.mark.parametrize("session,status", [(None, 401), ({"role": "teacher"}, 403)])
 def test_only_logged_in_admins_can_reassign(monkeypatch, session, status):
-    monkeypatch.setattr(admin, "get_connection", FakeConnection(session))
+    use_connection(monkeypatch, FakeConnection(session))
     assert reassign().status_code == status
 
 
