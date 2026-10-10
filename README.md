@@ -155,6 +155,12 @@ Missing, invalid, or expired sessions return 401; non-admins get 403; duplicate 
 get 409; invalid input gets 422; database failures get 503. Approval enables teacher signup.
 No schema migration is required. Integration tests use `TEST_DATABASE_URL` and temporary schemas:
 `python -m pytest tests/backend/test_teacher_approval.py -v`.
+### Current user API
+
+`GET /api/auth/me` reads the `session` cookie and returns 200 with `email`, `first_name`, `role`, and `redirect_to`; it does not return the password hash.
+A missing, expired, or logged-out session returns 401 `"Unauthorized"`; 503 if the database is down.
+Protected routes reuse the same check with `Depends(current_user)` from `auth.py`.
+
 ### Teacher class access API
 
 After login, `GET /api/teacher/classes` lists assigned classes; `GET /api/teacher/classes/{uuid}` returns one assigned class.

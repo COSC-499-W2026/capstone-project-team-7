@@ -1,4 +1,4 @@
-"""Login and logout: start and end cookie sessions."""
+"""Login, logout and the current user: start, end and read cookie sessions."""
 
 import logging
 import secrets
@@ -6,7 +6,7 @@ from datetime import timedelta
 from hashlib import sha256
 
 import psycopg
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from database import get_connection
@@ -24,6 +24,10 @@ DASHBOARDS = {
     "teacher": "/teacher/dashboard",
     "admin": "/admin/dashboard",
 }
+
+
+def hash_token(token):
+    return sha256(token.encode()).hexdigest()
 
 
 class LoginRequest(BaseModel):
@@ -49,7 +53,7 @@ def login(credentials: LoginRequest, response: Response):
             token = secrets.token_urlsafe(32)
             connection.execute(
                 "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (%s, %s, now() + %s)",
-                (sha256(token.encode()).hexdigest(), user["id"], SESSION_LIFETIME),
+                (hash_token(token), user["id"], SESSION_LIFETIME),
             )
     except (psycopg.Error, RuntimeError):
         logging.getLogger(__name__).warning("Login failed: database unavailable")
@@ -74,7 +78,7 @@ def logout(request: Request, response: Response):
             # Deleting the row invalidates the token; a missing or expired session is unauthorized.
             session = token and connection.execute(
                 "DELETE FROM sessions WHERE token_hash = %s AND expires_at > now() RETURNING user_id",
-                (sha256(token.encode()).hexdigest(),),
+                (hash_token(token),),
             ).fetchone()
     except (psycopg.Error, RuntimeError):
         logging.getLogger(__name__).warning("Logout failed: database unavailable")
@@ -84,3 +88,36 @@ def logout(request: Request, response: Response):
 
     response.delete_cookie(SESSION_COOKIE, httponly=True, secure=True, samesite="lax")
     return {"status": "logged out"}
+
+
+def current_user(request: Request):
+    """Dependency for protected routes: the logged-in user, or 401 "Unauthorized"."""
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        with get_connection() as connection:
+            user = connection.execute(
+                """
+                SELECT users.id, users.email, users.first_name, users.role
+                FROM sessions JOIN users ON users.id = sessions.user_id
+                WHERE sessions.token_hash = %s AND sessions.expires_at > now()
+                """,
+                (hash_token(token),),
+            ).fetchone()
+    except (psycopg.Error, RuntimeError):
+        logging.getLogger(__name__).warning("Session check failed: database unavailable")
+        raise HTTPException(status_code=503, detail="Database unavailable") from None
+    if user is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return user
+
+
+@router.get("/me", summary="The logged-in user and their dashboard")
+def me(user=Depends(current_user)):
+    return {
+        "email": user["email"],
+        "first_name": user["first_name"],
+        "role": user["role"],
+        "redirect_to": DASHBOARDS[user["role"]],
+    }

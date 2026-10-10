@@ -165,6 +165,60 @@ def test_logout_database_unavailable_returns_503(monkeypatch):
     assert response.json() == {"detail": "Database unavailable"}
 
 
+def me(token="session-token"):
+    return client.get("/api/auth/me", headers={"Cookie": f"{auth.SESSION_COOKIE}={token}"})
+
+
+@pytest.mark.parametrize("role", ["student", "teacher", "admin"])
+def test_me_with_valid_session_returns_user(monkeypatch, role):
+    # The fake row carries a hash to prove the endpoint picks fields rather than echoing the row.
+    user = {"id": uuid4(), "email": "user@example.com", "first_name": "Ada", "role": role, "password": HASHED}
+    monkeypatch.setattr(auth, "get_connection", FakeConnection(user))
+
+    response = me()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "email": "user@example.com",
+        "first_name": "Ada",
+        "role": role,
+        "redirect_to": auth.DASHBOARDS[role],
+    }
+    assert HASHED not in response.text #also checks that password not in response
+
+
+def test_me_without_cookie_is_unauthorized(monkeypatch):
+    def not_called():
+        raise AssertionError("no cookie should not reach the database")
+
+    monkeypatch.setattr(auth, "get_connection", not_called)
+
+    response = client.get("/api/auth/me")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Unauthorized"}
+
+
+def test_me_with_unknown_or_expired_session_is_unauthorized(monkeypatch):
+    # The query filters out expired and deleted sessions, so the database returns no row.
+    monkeypatch.setattr(auth, "get_connection", FakeConnection(None))
+
+    response = me()
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Unauthorized"}
+
+
+def test_me_database_unavailable_returns_503(monkeypatch):
+    def unavailable():
+        raise psycopg.OperationalError("connection failed")
+
+    monkeypatch.setattr(auth, "get_connection", unavailable)
+    response = me()
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
 @pytest.mark.skipif(not os.getenv("DATABASE_URL"), reason="DATABASE_URL is not configured")
 def test_login_against_database():
     email = uuid4().hex + "@Example.com"
@@ -186,6 +240,39 @@ def test_login_against_database():
         assert sessions == [{"token_hash": sha256(token.encode()).hexdigest()}]
         assert logout(token).status_code == 200
         assert logout(token).status_code == 401
+    finally:
+        with get_connection() as connection:
+            connection.execute("DELETE FROM users WHERE id = %s", (user_id,))
+
+
+@pytest.mark.skipif(not os.getenv("DATABASE_URL"), reason="DATABASE_URL is not configured")
+def test_me_against_database():
+    email = uuid4().hex + "@example.com"
+    with get_connection() as connection:
+        user_id = connection.execute('''
+            INSERT INTO users (email, username, password, first_name, last_name, role)
+            VALUES (%s, %s, %s, 'Test', 'User', 'student') RETURNING id
+        ''', (email, uuid4().hex, HASHED)).fetchone()["id"]
+        connection.execute(
+            "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (%s, %s, now() - interval '1 second')",
+            (sha256(b"expired-token").hexdigest(), user_id),
+        )
+    try:
+        assert me("expired-token").status_code == 401
+
+        token = login(email=email).cookies[auth.SESSION_COOKIE]
+        response = me(token)
+        assert response.status_code == 200
+        assert response.json() == {
+            "email": email,
+            "first_name": "Test",
+            "role": "student",
+            "redirect_to": "/student/dashboard",
+        }
+        assert HASHED not in response.text
+
+        assert logout(token).status_code == 200
+        assert me(token).status_code == 401
     finally:
         with get_connection() as connection:
             connection.execute("DELETE FROM users WHERE id = %s", (user_id,))
