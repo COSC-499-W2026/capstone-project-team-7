@@ -50,6 +50,12 @@ The initial admin is created through a setup script rather than a public signup 
 
 We updated our system architecture to reflect these authentication and administration changes and merged the updated architecture into `dev`.
 
+![Updated system architecture for the web-based language scavenger hunt game](../../design/system_architecture.png)
+
+The updated diagram shows the planned UBC server environment with a React and TypeScript frontend, a Python and FastAPI backend, and a PostgreSQL data layer. Students, teachers, and administrators use a browser or PWA on mobile or desktop devices over HTTPS. The frontend includes authentication, the game interface, teacher and admin tools, rewards, and progress views. Backend services cover authentication and role-based access, game sessions, GPS validation, room-number OCR, language audio, class and user management, rewards, and progress tracking. A separate email service sends password reset emails.
+
+The diagram labels frontend-to-backend communication as REST/JSON with JWT. This week's implemented authentication uses session cookies; JWT represents the design shown in the diagram and should be reconciled with the implementation. The diagram also includes planned game and reward services beyond this week's merged account and administration work.
+
 ## Collaboration process and next steps
 
 The team continued using PR review for feature integration and added a shared PR template (#51). The supplied lists mark all eleven merged PRs as approved. Merge conflicts in shared files highlight the need to check that all router imports, registrations, and documentation survive integration.
