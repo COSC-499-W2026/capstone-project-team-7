@@ -99,7 +99,7 @@ def test_signup_cannot_accept_client_role(accounts, signup):
 
 @pytest.mark.parametrize("password", [" password123 ", "a" * 72, "é" * 36])
 def test_signup_schema_integrates_with_service(accounts, signup, password):
-    schemas = pytest.importorskip("schemas", reason="Signup schema arrives with PR 1")
+    schemas = pytest.importorskip("schemas", reason="Signup schema is not available")
     request = schemas.StudentSignupRequest(**{
         **signup, "password": password, "email": " ADA@EXAMPLE.COM ", "first_name": " Ada ",
     })
