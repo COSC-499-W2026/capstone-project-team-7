@@ -146,6 +146,15 @@ Run `python -m pytest tests/backend/test_teacher_signup.py -v`.
 Integration tests create/migrate/drop a temporary schema (requires schema creation permission); they skip without the URL.
 For manual testing, run `python src/backend/migrate.py`, allowlist an email, and submit signup at `http://localhost:8000/docs`.
 
+### Teacher approvals API
+
+An administrator can approve teacher signup with `POST /api/admin/approved-teachers`
+and JSON `{"email": "teacher@example.com"}`, using the existing `session` cookie.
+Emails are trimmed and lowercased. Success returns 201 with `email` and `approved: true`.
+Missing, invalid, or expired sessions return 401; non-admins get 403; duplicate approvals
+get 409; invalid input gets 422; database failures get 503. Approval enables teacher signup.
+No schema migration is required. Integration tests use `TEST_DATABASE_URL` and temporary schemas:
+`python -m pytest tests/backend/test_teacher_approval.py -v`.
 ### Current user API
 
 `GET /api/auth/me` reads the `session` cookie and returns 200 with `email`, `first_name`, `role`, and `redirect_to`; it does not return the password hash.
