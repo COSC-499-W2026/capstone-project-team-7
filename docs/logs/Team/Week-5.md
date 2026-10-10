@@ -18,8 +18,6 @@ Authors: Ashish, Dan, Gamu, Madiba
 | [#58](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/58) | Dan (danruk) | Admin approval of teacher signup emails | Merged |
 | [#61](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/61) | Madiba (KoesOremus) | Student registration service | Merged |
 
-Individual reviewer names are not recorded because the supplied PR list does not show them.
-
 ## Goal and work distribution
 
 - Following last week's stack setup, our goal was to begin the account and authentication features and connect them to PostgreSQL.
@@ -50,7 +48,7 @@ This week's work implements the backend authentication approach agreed last week
 
 The initial admin is created through a setup script rather than a public signup endpoint. That account can use the admin-only approval and class reassignment features. Class reassignment changes the class's teacher reference while preserving student enrollment. Teacher signup establishes an account; class access is handled separately.
 
-These changes implement the authentication and administration parts of the planned architecture. This log does not record a new diagram revision.
+We updated our system architecture to reflect these authentication and administration changes and merged the updated architecture into `dev`.
 
 ## Collaboration process and next steps
 
