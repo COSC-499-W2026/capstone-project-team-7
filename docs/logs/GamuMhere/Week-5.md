@@ -1,6 +1,6 @@
 # Week 5 Individual Log: Gamu
 
-Team 7 | Repo: capstone-project-team-7 | PRs this week: #43 (password hashing) merged into dev; # () merged into dev
+Team 7 | Repo: capstone-project-team-7 | PRs this week: #43 (password hashing) merged into dev; #49 (Admins reassign class teachers) merged into dev; #52 (create initial admin account) merged into dev
 
 ---
 
@@ -42,8 +42,8 @@ Team 7 | Repo: capstone-project-team-7 | PRs this week: #43 (password hashing) m
 
 **Size:** 3 files changed, +195 / -0 lines (`src/backend/admin.py` added, `tests/backend/test_admin.py` added, `src/backend/main.py` updated with 2 lines).
 
-- As part of the admin requirement (task #42), an admin must be able to move a class from one teacher to another. In the event a teacher leaves the school, so reassigning keeps the class, its enrollments and student progress safe.
-- Therefore, I implemented `PATCH /api/admin/classes/{class_id}/teacher` in `src/backend/admin.py`. It takes a `teacher_email`, checks that the new teacher has a teacher account and is on the approved teacher email list, and then changes only `classes.teacher_id`. I also added `require_admin`, which only lets requests with a valid, unexpired admin session through (401 if not logged in, 403 if not an admin).
+- As part of the admin requirement (task #42), an admin must be able to move a class from one teacher to another. In the event a teacher leaves the school, reassigning keeps the class, its enrollments and student progress safe.
+- Therefore, I implemented `PATCH /api/admin/classes/{class_id}/teacher` in `src/backend/admin.py`. It takes a `teacher_email`, checks that the new teacher has a teacher account and is on the approved teacher email list, and then changes only `classes.teacher_id`. For the admin check, I added a small require_admin function that uses Ashish's shared current_user check from PR #57 to find out who is logged in (401 if not logged in), and then only lets admins through (403 if not an admin).
 
 **Review receipts**
 
@@ -51,19 +51,18 @@ Team 7 | Repo: capstone-project-team-7 | PRs this week: #43 (password hashing) m
 - The new teacher is checked before the update runs, so an unapproved teacher gets a 400 "Invalid teacher" and the class is left unchanged. A missing class gets a 404.
 - The update only touches `teacher_id`. Enrollments point at the class and not at the teacher, so students keep their class and progress.
 - Database errors return a clear 503 instead of crashing the app.
-- `require_admin` reuses the login code's `SESSION_COOKIE` and the `sessions` table, so I did not need to edit any of the login code.
-- The file is short (68 lines), each function does one job, and there is no temporary code.
-- [Add feedback from your reviewer and what you changed. Add any PRs you reviewed for teammates, with the PR number and what you found.]
+- At first, require_admin had its own login check: it read the session cookie and looked it up in the sessions table itself. After Ashish's PR #57 added a shared current_user check, I changed require_admin to use Depends(current_user) and only check that the role is admin. This keeps the login check in one place, so if the way sessions work ever changes, it only needs fixing once. I did not need to edit any of the login code to do this.
+The file is short (55 lines), each function does one job, and there is no temporary code.
 
 **Architecture receipts**
 
 - `admin.py` is a new FastAPI router in `src/backend/`, the same style as the auth router, and the test is in `tests/backend/` as required. The only existing file I touched is `main.py`, with one import and one `app.include_router(...)` line.
-- In the DFD, this sits inside the backend admin process. The admin's request carries a session cookie, `require_admin` checks it against the `sessions` and `users` tables, then the endpoint looks up the new teacher in `teachers` and `authorized_teacher_emails`, and updates one row in `classes` in PostgreSQL. Nothing else is written.
+- In the DFD, this sits inside the backend admin process. The admin’s request carries a session cookie. The shared current_user check from #57 looks it up in the sessions and users tables, and require_admin confirms the role is admin, then the endpoint looks up the new teacher in `teachers` and `authorized_teacher_emails`, and updates one row in `classes` in PostgreSQL. Nothing else is written.
 - It uses the shared `get_connection()` from `database.py` and the existing tables, so no new migration was needed.
 
 **Clean Code Check**
 
-- I re-read `admin.py` and the tests for hardcoded values, duplicate code, dead code, deep nesting and unrelated responsibilities. The file is short and the two main pieces (`require_admin` and `reassign_class`) each do one job. The SQL has comments explaining the two rules (approved teacher, only the teacher changes). All files are well under 500 lines.
+- I re-read admin.py and the tests for hardcoded values, duplicate code, dead code, deep nesting and unrelated responsibilities. The file is short and the two main pieces (require_admin and reassign_class) each do one job. Reusing current_user means there is no copied session-checking code. The SQL has comments explaining the two rules (approved teacher, only the teacher changes). All files are well under 500 lines.
 
 **Testing receipts**
 
@@ -72,7 +71,7 @@ Team 7 | Repo: capstone-project-team-7 | PRs this week: #43 (password hashing) m
 - Integration: `test_reassign_against_database` uses the real PostgreSQL database. It checks that an unapproved teacher is rejected, that the email match ignores upper or lower case, that the class really moves to the new teacher, and that the student's enrollment is still there. It cleans up its test data and is skipped if `DATABASE_URL` is not set.
 - The first three tests use a small fake database connection, so they run anywhere, including CI.
 - Tests are in `tests/backend/test_admin.py`.
-- Regression: the only existing file changed is `main.py` (2 lines added). Backend CI run: [ADD CI RUN LINK]
+- Regression: the only existing file changed is `main.py` (2 lines added). Backend CI run: [CI RUN](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/38018957284/job/114115468746)
 
 
 ## PR #52: Seed script to create the initial admin account (branch `39-create-initial-admin-accounts`, into `dev`)
@@ -89,7 +88,6 @@ Team 7 | Repo: capstone-project-team-7 | PRs this week: #43 (password hashing) m
 - The script checks whether any admin exists (not whether this email exists), so it only ever creates the first admin. It also takes a database lock so two runs at the same time cannot create two admins.
 - The password is hashed with our existing `hash_password`, and the 72-byte password limit reuses `MAX_PASSWORD_BYTES` from `auth.py` instead of copying the number, so the limit stays in one place. I only import it and did not change login code.
 - The database logic is in its own function, separate from the part that reads environment variables, which makes it easy to test. The PR has no workarounds or temporary code.
-- [Add feedback from your reviewer and what you changed. Add any PRs you reviewed for teammates, with the PR number and what you found.]
 
 **Architecture receipts**
 
@@ -106,6 +104,26 @@ Team 7 | Repo: capstone-project-team-7 | PRs this week: #43 (password hashing) m
 
 - Happy path: `test_creates_admin_that_can_log_in` runs the script, checks exactly one admin exists, and then logs in through `/api/auth/login` with that email and password, expecting a 200 with role `admin` and the admin dashboard redirect.
 - Negative cases: `test_second_run_does_not_create_duplicate_admin` runs it twice (the second time with a different email) and confirms the second run returns False and there is still only one admin. `test_password_over_bcrypt_limit_is_rejected` confirms a password over 72 bytes raises an error.
-- The first two tests are integration tests that run in a temporary database schema, so they never touch real accounts, and they are skipped if `TEST_DATABASE_URL` is not set. The third test needs no database.
+- The first two tests are integration tests that run in a temporary database schema, so they never touch real accounts. The third test needs no database.
 - Tests are in `tests/backend/test_seed_admin.py`.
-- Regression: no existing files were changed. Backend CI run: [ADD CI RUN LINK]
+- Regression: no existing files were changed. Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/38020357899/job/114119787837)
+
+## Code reviews for teammates
+
+**PR #57: Add current-user endpoint (Ashish)**
+
+- I reviewed the new `current_user` check and `GET /api/auth/me`. It returns 401 for a missing, expired or logged-out session and 503 if the database is down, and it never sends back the password hash. The tests cover every case from issue #48.
+- I pointed out a few small things: a test name in the PR description didn't match the real test, one integration test still wrote `sha256(...)` directly instead of the new `hash_token()` helper, and `DASHBOARDS[user["role"]]` would crash with a 500 if a user ever had a role not in that list.
+- This review is how I noticed my own `require_admin` in #49 repeated the same session lookup. After #57 was merged, I switched `require_admin` to use `Depends(current_user)`, so the login check now lives in one place.
+
+**PR #58: Admins approve teacher signup emails (Dan)**
+
+- I reviewed the new `POST /api/admin/approved-teachers` endpoint. The email is cleaned up (trimmed and lowercased), extra fields like `"role"` are blocked, and the tests check that rejected requests never save anything to the database.
+- I suggested that its own session lookup could be replaced with `current_user` from #57, the same change I made in my own code, so the team doesn't keep separate copies of the login check.
+- I also flagged that #57 and #58 both added a README section at the same spot, so whichever merged second would have a merge conflict.
+
+**PR #61: Student registration service (KoesOremus)**
+
+- I reviewed `create_student`, which saves the `users` and `students` rows together (both or neither), always sets the role to `student`, and raises a clear error for a duplicate email, username or student number. The test with two signups at the same moment confirms only one account is created.
+- I suggested linking "PR 1" and "PR 3" by their real PR numbers, moving the README text out of the Docker setup section into its own heading, and removing a leftover empty template from the PR description.
+- I also noted that the future signup endpoint (PR 3) will need to turn duplicate errors into 409 and database errors into 503, to match login, `/me` and teacher approval.
