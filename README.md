@@ -153,6 +153,12 @@ Both use the existing `session` cookie: 401 for missing/invalid/expired sessions
 Responses include `id`, `name`, `language_code`, and `class_code`; no assigned classes returns `[]`. Use HTTPS for the Secure login cookie.
 Run `python -m pytest tests/backend/test_teacher_access.py -v` with `TEST_DATABASE_URL` set; integration tests use temporary schemas and real login.
 
+### Current user API
+
+`GET /api/auth/me` reads the `session` cookie and returns 200 with `email`, `first_name`, `role`, and `redirect_to`; it does not return the password hash.
+A missing, expired, or logged-out session returns 401 `"Unauthorized"`; 503 if the database is down.
+Protected routes reuse the same check with `Depends(current_user)` from `auth.py`.
+
 ### Students
 
 Students can:
