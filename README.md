@@ -258,14 +258,25 @@ production Nginx image still needs an `/api/` proxy configured in
 
 ### Student registration
 
+`POST /api/auth/student/signup` accepts `email`, `password`, `first_name`, `last_name`,
+`student_number`, and `username`. All fields are required. Emails are validated and
+lowercased; profile text is trimmed. Passwords keep their original whitespace and require
+at least 8 characters, some non-whitespace text, and at most 72 UTF-8 bytes.
+Usernames allow up to 50 characters and student numbers up to 30. Extra fields are rejected.
+
+Success returns **201** with `{"id": "<user UUID>", "role": "student"}`.
+The frontend can then send the student to login; signup does not create a session.
+Errors: **409** `"Account details already in use"` for duplicate email, username or student
+number; **422** for invalid input; **503** `"Database unavailable"` for database failures.
+
 `registration.create_student` saves validated signup fields in PostgreSQL with role `student`
 and the existing bcrypt password hash. User and student rows commit together; duplicate
 email, username or student number raises `DuplicateStudentAccount` without leaving partial data.
 Registration tests use a temporary schema in `TEST_DATABASE_URL` (or local `DATABASE_URL`).
-The signup HTTP endpoint is not yet implemented.
-When the signup schema is available, pass its validated request directly with
-`create_student(**request.model_dump())`. Schema/service compatibility tests run when
-`StudentSignupRequest` is available, including preserved passwords and normalized emails.
+The endpoint passes validated fields with `create_student(**request.model_dump())`.
+After installing backend dependencies and running `python src/backend/migrate.py`, try
+signup through `http://localhost:8000/docs`. Run endpoint tests with
+`python -m pytest tests/backend/test_student_signup.py -q`.
 
 ## Testing
 
