@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
+import auth
 import teacher_access
 from database import get_connection
 from main import app
@@ -116,5 +117,59 @@ def test_database_failure_is_safe(client, monkeypatch):
     monkeypatch.setattr(teacher_access, "get_connection", unavailable)
     client.cookies.set("session", "test-token")
     response = client.get(URL)
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
+def test_teacher_creates_class(access_db, client):
+    login(client, "teacher2")
+    response = client.post(URL, json={"name": "  French 101  ", "language_code": "fr"})
+    assert response.status_code == 201
+    classroom = response.json()
+    assert classroom == {"id": classroom["id"], "name": "French 101", "language_code": "fr",
+                         "class_code": classroom["class_code"]}
+    assert len(classroom["class_code"]) == 12
+    assert classroom in client.get(URL).json()
+
+
+@pytest.mark.parametrize("body", [
+    {"name": "   ", "language_code": "fr"},
+    {"language_code": "fr"},
+    {"name": "French 101"},
+    {"name": "French 101", "language_code": "xx"},
+    {"name": "French 101", "language_code": "toolong"},
+])
+def test_create_class_rejects_bad_input(access_db, client, body):
+    login(client)
+    assert client.post(URL, json=body).status_code == 422
+    assert len(client.get(URL).json()) == 1
+
+
+@pytest.mark.parametrize("role,status", [(None, 401), ("student", 403), ("admin", 403)])
+def test_create_class_requires_teacher(access_db, client, role, status):
+    if role:
+        login(client, role)
+    assert client.post(URL, json={"name": "French 101", "language_code": "fr"}).status_code == status
+    with get_connection() as db:
+        assert db.execute("SELECT count(*) AS n FROM classes").fetchone()["n"] == 2
+
+
+def test_create_class_database_failure_is_safe(client, monkeypatch):
+    def unavailable():
+        raise psycopg.OperationalError("private database details")
+    # The session check runs through auth.current_user.
+    monkeypatch.setattr(auth, "get_connection", unavailable)
+    client.cookies.set("session", "test-token")
+    response = client.post(URL, json={"name": "French 101", "language_code": "fr"})
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
+def test_create_class_insert_failure_is_safe(access_db, client, monkeypatch):
+    login(client)
+    def unavailable():
+        raise psycopg.OperationalError("private database details")
+    monkeypatch.setattr(teacher_access, "get_connection", unavailable)
+    response = client.post(URL, json={"name": "French 101", "language_code": "fr"})
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
