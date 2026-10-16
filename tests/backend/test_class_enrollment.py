@@ -102,3 +102,70 @@ def test_enrollment_database_failure_is_safe(enroll_db, client, monkeypatch):
     response = enroll(client, enroll_db)
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
+
+
+def remove(client, class_id, student_id):
+    return client.delete(URL.format(class_id) + "/" + str(student_id))
+
+
+@pytest.fixture
+def enrolled_student(enroll_db, client):
+    login(client)
+    student_id = enroll(client, enroll_db).json()["student_id"]
+    client.cookies.clear()
+    return student_id
+
+
+def test_teacher_removes_enrolled_student(enroll_db, enrolled_student, client):
+    login(client)
+    response = remove(client, enroll_db, enrolled_student)
+    assert response.status_code == 204
+    assert response.content == b""
+    assert enrollments() == []
+    with get_connection() as db:
+        assert db.execute("SELECT 1 FROM students WHERE user_id = %s", (enrolled_student,)).fetchone()
+        assert db.execute("SELECT 1 FROM users WHERE id = %s", (enrolled_student,)).fetchone()
+
+
+def test_removing_student_not_enrolled_is_not_found(enroll_db, enrolled_student, client):
+    login(client)
+    assert remove(client, enroll_db, enrolled_student).status_code == 204
+    for student_id in [enrolled_student, uuid4()]:
+        response = remove(client, enroll_db, student_id)
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Student not enrolled"}
+
+
+def test_remove_from_missing_or_unowned_class_is_hidden(enroll_db, enrolled_student, client):
+    login(client, "teacher2")
+    for class_id in [str(uuid4()), enroll_db]:
+        response = remove(client, class_id, enrolled_student)
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Class not found"}
+    assert len(enrollments()) == 1
+
+
+@pytest.mark.parametrize("path", ["not-a-uuid/students/{student}", "{class_id}/students/not-a-uuid"])
+def test_remove_with_invalid_ids_is_rejected(enroll_db, enrolled_student, client, path):
+    login(client)
+    url = "/api/teacher/classes/" + path.format(class_id=enroll_db, student=enrolled_student)
+    assert client.delete(url).status_code == 422
+    assert len(enrollments()) == 1
+
+
+@pytest.mark.parametrize("role,status", [(None, 401), ("student", 403), ("admin", 403)])
+def test_remove_requires_teacher(enroll_db, enrolled_student, client, role, status):
+    if role:
+        login(client, role)
+    assert remove(client, enroll_db, enrolled_student).status_code == status
+    assert len(enrollments()) == 1
+
+
+def test_remove_database_failure_is_safe(enroll_db, enrolled_student, client, monkeypatch):
+    login(client)
+    def unavailable():
+        raise psycopg.OperationalError("private database details")
+    monkeypatch.setattr(class_enrollment, "get_connection", unavailable)
+    response = remove(client, enroll_db, enrolled_student)
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
