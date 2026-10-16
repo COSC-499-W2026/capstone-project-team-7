@@ -178,6 +178,11 @@ All use the existing `session` cookie: 401 for missing/invalid/expired sessions,
 Responses include `id`, `name`, `language_code`, and `class_code`; no assigned classes returns `[]`. Use HTTPS for the Secure login cookie.
 Run `python -m pytest tests/backend/test_teacher_access.py -v` with `TEST_DATABASE_URL` set; integration tests use temporary schemas and real login.
 
+### Teacher deletion API
+
+An administrator can delete a teacher with `DELETE /api/admin/teachers/{uuid}`, using the existing `session` cookie.
+Deleting a class removes its student enrollments, so the request is refused with 409 until every class has been reassigned
+with `PATCH /api/admin/classes/{uuid}/teacher`. Success returns 204; 401/403 for missing sessions or non-admins, 404 for unknown teachers, 503 for database failures.
 ### Class enrollment API
 
 `POST /api/teacher/classes/{uuid}/students` with `{"student_number": "..."}` enrolls a registered student and returns 201 with `class_id`, `student_id`, and `student_number`.
