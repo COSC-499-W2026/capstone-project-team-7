@@ -178,6 +178,13 @@ All use the existing `session` cookie: 401 for missing/invalid/expired sessions,
 Responses include `id`, `name`, `language_code`, and `class_code`; no assigned classes returns `[]`. Use HTTPS for the Secure login cookie.
 Run `python -m pytest tests/backend/test_teacher_access.py -v` with `TEST_DATABASE_URL` set; integration tests use temporary schemas and real login.
 
+### Class enrollment API
+
+`POST /api/teacher/classes/{uuid}/students` with `{"student_number": "..."}` enrolls a registered student and returns 201 with `class_id`, `student_id`, and `student_number`.
+Only teachers can enroll, and only into classes they own. Errors: 401 no session, 403 students and admins, 404 `"Class not found"` (missing or another teacher's class),
+404 `"Student not found"` (no student has that number), 409 `"Student already enrolled"`, 422 blank or over-long student number, 503 database failure.
+Run `python -m pytest tests/backend/test_class_enrollment.py -v` with `TEST_DATABASE_URL` set.
+
 ### Current user API
 
 `GET /api/auth/me` reads the `session` cookie and returns 200 with `email`, `first_name`, `role`, and `redirect_to`; it does not return the password hash.
