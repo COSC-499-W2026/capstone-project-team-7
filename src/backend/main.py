@@ -5,12 +5,14 @@ from fastapi import FastAPI, HTTPException
 
 from admin import router as admin_router
 from auth import router as auth_router
+from class_enrollment import router as class_enrollment_router
 from database import get_connection
 from student_signup import router as student_signup_router
 from teacher_signup import router as teacher_signup_router
 from teacher_approval import router as teacher_approval_router
 from teacher_access import router as teacher_access_router
 from student_deletion import router as student_deletion_router
+from teacher_deletion import router as teacher_deletion_router
 
 app = FastAPI()
 app.include_router(teacher_signup_router)
@@ -20,6 +22,8 @@ app.include_router(teacher_approval_router)
 app.include_router(admin_router)
 app.include_router(teacher_access_router)
 app.include_router(student_deletion_router)
+app.include_router(teacher_deletion_router)
+app.include_router(class_enrollment_router)
 
 
 @app.get("/api/hello")
