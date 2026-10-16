@@ -164,6 +164,13 @@ Missing, invalid, or expired sessions return 401; non-admins get 403; duplicate 
 get 409; invalid input gets 422; database failures get 503. Approval enables teacher signup.
 No schema migration is required. Integration tests use `TEST_DATABASE_URL` and temporary schemas:
 `python -m pytest tests/backend/test_teacher_approval.py -v`.
+
+### Admin accounts API
+
+A logged-in administrator can add another admin with `POST /api/admin/admins`, sending `email`, `username`, `password`, `first_name`, and `last_name`.
+Fields follow the teacher signup rules. Success returns 201 with `id`, `email`, `username`, and `role: "admin"`; the new admin can log in right away.
+Missing, invalid, or expired sessions return 401; non-admins get 403; a taken email or username gets 409; invalid input gets 422; database failures get 503.
+Run `python -m pytest tests/backend/test_admin_creation.py -v`; the login integration test runs when `DATABASE_URL` is set.
 ### Current user API
 
 `GET /api/auth/me` reads the `session` cookie and returns 200 with `email`, `first_name`, `role`, and `redirect_to`; it does not return the password hash.
