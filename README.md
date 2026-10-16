@@ -173,7 +173,8 @@ Protected routes reuse the same check with `Depends(current_user)` from `auth.py
 ### Teacher class access API
 
 After login, `GET /api/teacher/classes` lists assigned classes; `GET /api/teacher/classes/{uuid}` returns one assigned class.
-Both use the existing `session` cookie: 401 for missing/invalid/expired sessions, 403 for non-teachers, 404 for unassigned/missing classes, and 503 for database failures.
+`POST /api/teacher/classes` with `name` and `language_code` creates a class owned by the teacher and returns 201; a blank name or unknown language returns 422.
+All use the existing `session` cookie: 401 for missing/invalid/expired sessions, 403 for non-teachers, 404 for unassigned/missing classes, and 503 for database failures.
 Responses include `id`, `name`, `language_code`, and `class_code`; no assigned classes returns `[]`. Use HTTPS for the Secure login cookie.
 Run `python -m pytest tests/backend/test_teacher_access.py -v` with `TEST_DATABASE_URL` set; integration tests use temporary schemas and real login.
 
@@ -182,6 +183,12 @@ Run `python -m pytest tests/backend/test_teacher_access.py -v` with `TEST_DATABA
 An administrator can delete a teacher with `DELETE /api/admin/teachers/{uuid}`, using the existing `session` cookie.
 Deleting a class removes its student enrollments, so the request is refused with 409 until every class has been reassigned
 with `PATCH /api/admin/classes/{uuid}/teacher`. Success returns 204; 401/403 for missing sessions or non-admins, 404 for unknown teachers, 503 for database failures.
+### Class enrollment API
+
+`POST /api/teacher/classes/{uuid}/students` with `{"student_number": "..."}` enrolls a registered student and returns 201 with `class_id`, `student_id`, and `student_number`.
+Only teachers can enroll, and only into classes they own. Errors: 401 no session, 403 students and admins, 404 `"Class not found"` (missing or another teacher's class),
+404 `"Student not found"` (no student has that number), 409 `"Student already enrolled"`, 422 blank or over-long student number, 503 database failure.
+Run `python -m pytest tests/backend/test_class_enrollment.py -v` with `TEST_DATABASE_URL` set.
 
 ### Current user API
 
