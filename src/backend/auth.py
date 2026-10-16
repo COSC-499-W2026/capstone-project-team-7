@@ -40,7 +40,7 @@ def login(credentials: LoginRequest, response: Response):
     try:
         with get_connection() as connection:
             user = connection.execute(
-                "SELECT id, password, role FROM users WHERE lower(email) = lower(%s) FOR SHARE",
+                "SELECT id, password, role FROM users WHERE lower(email) = lower(%s)",
                 (credentials.email.strip(),),
             ).fetchone()
             # Unknown email and wrong password get the same error so emails cannot be probed.

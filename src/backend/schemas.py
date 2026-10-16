@@ -4,8 +4,6 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
-from utils.passwords import validate_password
-
 RequiredText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
@@ -27,4 +25,8 @@ class StudentSignupRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, value: str) -> str:
-        return validate_password(value)
+        if not value.strip():
+            raise ValueError("Password must not be blank")
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must not exceed 72 UTF-8 bytes")
+        return value
