@@ -80,13 +80,18 @@ def list_classes(access=Depends(teacher_connection)):
     ).fetchall()
 
 
-@router.get("/{class_id}")
-def get_class(class_id: UUID, access=Depends(teacher_connection)):
-    connection, teacher_id = access
-    classroom = connection.execute(
+def owned_class(connection, class_id, teacher_id):
+    """The class if this teacher owns it, otherwise None."""
+    return connection.execute(
         """SELECT id, name, language_code, class_code FROM classes
         WHERE id = %s AND teacher_id = %s""", (class_id, teacher_id),
     ).fetchone()
+
+
+@router.get("/{class_id}")
+def get_class(class_id: UUID, access=Depends(teacher_connection)):
+    connection, teacher_id = access
+    classroom = owned_class(connection, class_id, teacher_id)
     if not classroom:
         raise HTTPException(status_code=404, detail="Class not found")
     return classroom
