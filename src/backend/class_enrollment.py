@@ -1,10 +1,10 @@
-"""Enroll registered students in a class owned by the signed-in teacher."""
+"""Enroll and remove students in a class owned by the signed-in teacher."""
 
 from typing import Annotated
 from uuid import UUID
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from database import get_connection
@@ -40,3 +40,21 @@ def enroll_student(class_id: UUID, info: EnrollmentRequest, user=Depends(require
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None
     return {"class_id": class_id, "student_id": student["user_id"], "student_number": student["student_number"]}
+
+
+@router.delete("/{class_id}/students/{student_id}", status_code=204,
+               summary="Remove a student from a class; the student account is kept")
+def remove_student(class_id: UUID, student_id: UUID, user=Depends(require_teacher)):
+    try:
+        with get_connection() as connection:
+            if not owned_class(connection, class_id, user["id"]):
+                raise HTTPException(status_code=404, detail="Class not found")
+            removed = connection.execute(
+                "DELETE FROM class_enrollments WHERE class_id = %s AND student_id = %s",
+                (class_id, student_id),
+            ).rowcount
+    except (psycopg.Error, RuntimeError):
+        raise database_unavailable() from None
+    if not removed:
+        raise HTTPException(status_code=404, detail="Student not enrolled")
+    return Response(status_code=204)
