@@ -125,6 +125,93 @@ def test_failed_migration_rolls_back_and_changed_file_is_rejected(db, tmp_path):
     (tmp_path / '001_accounts_and_classes.sql').write_text('SELECT 1;')
     with pytest.raises(RuntimeError, match='changed'):
         apply_migrations(db, tmp_path)
+def location(db, building='Test Building', room_number='101'):
+    return db.execute('''INSERT INTO locations (building, room_number)
+        VALUES (%s, %s) RETURNING id''', (building, room_number)).fetchone()[0]
+
+
+def clue(db, location_id, language_code='fr', **changes):
+    values = dict(location_id=location_id, language_code=language_code,
+                  number_text='cent un', description_text='Près de la bibliothèque')
+    values.update(changes)
+    db.execute('''INSERT INTO location_clues
+        (location_id, language_code, number_text, description_text)
+        VALUES (%(location_id)s, %(language_code)s, %(number_text)s, %(description_text)s)
+    ''', values)
+
+
+def test_location_supports_multiple_language_clues(db):
+    place = location(db)
+    clue(db, place)
+    clue(db, place, 'ja', number_text='百一', description_text='図書館の隣')
+    assert db.execute('''SELECT language_code, number_text, description_text
+        FROM location_clues WHERE location_id = %s ORDER BY language_code''',
+        (place,)).fetchall() == [
+            ('fr', 'cent un', 'Près de la bibliothèque'), ('ja', '百一', '図書館の隣')]
+
+
+@pytest.mark.parametrize('field', ['building', 'room_number'])
+@pytest.mark.parametrize('value,error', [
+    (None, psycopg.errors.NotNullViolation), ('', psycopg.errors.CheckViolation),
+    ('   ', psycopg.errors.CheckViolation), (' padded ', psycopg.errors.CheckViolation),
+])
+def test_location_requires_trimmed_nonempty_fields(db, field, value, error):
+    with pytest.raises(error), db.transaction():
+        location(db, **{field: value})
+
+
+def test_room_number_is_unique_within_building(db):
+    location(db)
+    location(db, building='Other Building')
+    location(db, room_number='102A')
+    with pytest.raises(psycopg.errors.UniqueViolation), db.transaction():
+        location(db)
+
+
+@pytest.mark.parametrize('field', ['number_text', 'description_text'])
+@pytest.mark.parametrize('value,error', [
+    (None, psycopg.errors.NotNullViolation), ('', psycopg.errors.CheckViolation),
+    ('   ', psycopg.errors.CheckViolation), (' padded ', psycopg.errors.CheckViolation),
+])
+def test_clue_requires_trimmed_nonempty_content(db, field, value, error):
+    place = location(db)
+    with pytest.raises(error), db.transaction():
+        clue(db, place, **{field: value})
+
+
+def test_clue_is_unique_per_location_and_language(db):
+    place = location(db)
+    clue(db, place)
+    clue(db, location(db, room_number='102'))
+    with pytest.raises(psycopg.errors.UniqueViolation), db.transaction():
+        clue(db, place)
+
+
+@pytest.mark.parametrize('missing', ['location', 'language'])
+def test_clue_rejects_unknown_references(db, missing):
+    place = uuid4() if missing == 'location' else location(db)
+    with pytest.raises(psycopg.errors.ForeignKeyViolation), db.transaction():
+        clue(db, place, 'xx' if missing == 'language' else 'fr')
+
+
+@pytest.mark.parametrize('field', ['location_id', 'language_code'])
+def test_clue_requires_references(db, field):
+    place = location(db)
+    values = dict(location_id=place, language_code='fr')
+    values[field] = None
+    with pytest.raises(psycopg.errors.NotNullViolation), db.transaction():
+        clue(db, **values)
+
+
+def test_deleting_location_removes_its_clues_only(db):
+    place, other = location(db), location(db, room_number='102')
+    clue(db, place)
+    clue(db, other)
+    db.execute('DELETE FROM locations WHERE id = %s', (place,))
+    assert db.execute('SELECT location_id FROM location_clues').fetchall() == [(other,)]
+    assert db.execute('SELECT count(*) FROM languages').fetchone()[0] == 6
+
+
 """Connection integration checks; no application schema is needed."""
 
 import os
