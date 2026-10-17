@@ -13,6 +13,14 @@ Text fields must be nonempty and have no leading or trailing spaces. Deleting a
 location removes its translations. Unknown locations and languages are rejected.
 The tables contain no seeded campus data or generated translations.
 
+The target database is PostgreSQL 17, which provides `gen_random_uuid()` as a
+built-in function; no `pgcrypto` extension is required. Schema tests verify that
+inserting a location without an ID generates a version 4 UUID.
+
+The primary key indexes clues by location and language. There are currently no
+queries filtering clues by language alone. If those are added, add an index on
+`location_clues(language_code)` in a new numbered migration.
+
 This migration is independent of difficulty definitions. Clue selection, audio,
 GPS coordinates, sessions, and management endpoints remain future work.
 

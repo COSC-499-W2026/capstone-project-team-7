@@ -1,7 +1,7 @@
 """Schema integration tests use a temporary schema and roll back each test."""
 
 import os
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import psycopg
 import pytest
@@ -59,8 +59,14 @@ def classroom(db):
 
 
 def test_migration_is_repeatable(db):
+    languages = db.execute('SELECT code, name FROM languages ORDER BY code').fetchall()
     assert apply_migrations(db) == []
-    assert db.execute('SELECT count(*) FROM languages').fetchone()[0] == 6
+    assert db.execute('SELECT code, name FROM languages ORDER BY code').fetchall() == languages
+
+
+def test_supported_languages_are_seeded(db):
+    codes = {row[0] for row in db.execute('SELECT code FROM languages').fetchall()}
+    assert {'zh', 'fr', 'de', 'ja', 'ko', 'es'} <= codes
 
 
 @pytest.mark.parametrize('role', ['student', 'teacher', 'admin'])
@@ -125,6 +131,8 @@ def test_failed_migration_rolls_back_and_changed_file_is_rejected(db, tmp_path):
     (tmp_path / '001_accounts_and_classes.sql').write_text('SELECT 1;')
     with pytest.raises(RuntimeError, match='changed'):
         apply_migrations(db, tmp_path)
+
+
 def location(db, building='Test Building', room_number='101'):
     return db.execute('''INSERT INTO locations (building, room_number)
         VALUES (%s, %s) RETURNING id''', (building, room_number)).fetchone()[0]
@@ -138,6 +146,13 @@ def clue(db, location_id, language_code='fr', **changes):
         (location_id, language_code, number_text, description_text)
         VALUES (%(location_id)s, %(language_code)s, %(number_text)s, %(description_text)s)
     ''', values)
+
+
+def test_location_generates_uuid(db):
+    place = location(db)
+    assert isinstance(place, UUID)
+    assert place.version == 4
+    assert location(db, room_number='102') != place
 
 
 def test_location_supports_multiple_language_clues(db):
@@ -204,12 +219,13 @@ def test_clue_requires_references(db, field):
 
 
 def test_deleting_location_removes_its_clues_only(db):
+    languages = db.execute('SELECT code, name FROM languages ORDER BY code').fetchall()
     place, other = location(db), location(db, room_number='102')
     clue(db, place)
     clue(db, other)
     db.execute('DELETE FROM locations WHERE id = %s', (place,))
     assert db.execute('SELECT location_id FROM location_clues').fetchall() == [(other,)]
-    assert db.execute('SELECT count(*) FROM languages').fetchone()[0] == 6
+    assert db.execute('SELECT code, name FROM languages ORDER BY code').fetchall() == languages
 
 
 """Connection integration checks; no application schema is needed."""
