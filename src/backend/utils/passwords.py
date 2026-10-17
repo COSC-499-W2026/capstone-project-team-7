@@ -1,5 +1,13 @@
 import bcrypt
 
+def validate_password(value: str) -> str:
+    """Check blank passwords and bcrypt's byte limit without trimming the value."""
+    if not value.strip():
+        raise ValueError("Password must not be blank")
+    if len(value.encode("utf-8")) > 72:
+        raise ValueError("Password must not exceed 72 UTF-8 bytes")
+    return value
+
 def hash_password(password: str) -> str:
     """ Turn a plain password into a scrambled hash to safely store in our database. """
     
