@@ -8,6 +8,7 @@ from admin_creation import router as admin_creation_router
 from auth import router as auth_router
 from class_enrollment import router as class_enrollment_router
 from database import get_connection
+from password_reset import router as password_reset_router
 from student_signup import router as student_signup_router
 from teacher_signup import router as teacher_signup_router
 from teacher_approval import router as teacher_approval_router
@@ -18,6 +19,7 @@ from teacher_deletion import router as teacher_deletion_router
 app = FastAPI()
 app.include_router(teacher_signup_router)
 app.include_router(auth_router)
+app.include_router(password_reset_router)
 app.include_router(student_signup_router)
 app.include_router(teacher_approval_router)
 app.include_router(admin_router)
