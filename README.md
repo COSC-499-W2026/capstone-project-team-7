@@ -177,14 +177,6 @@ Run `python -m pytest tests/backend/test_admin_creation.py -v`; the login integr
 A missing, expired, or logged-out session returns 401 `"Unauthorized"`; 503 if the database is down.
 Protected routes reuse the same check with `Depends(current_user)` from `auth.py`.
 
-### Change password API
-
-`POST /api/auth/change-password` accepts `current_password` and `new_password` with a valid `session` cookie.
-All account roles can change their own password. New passwords follow the signup policy: 8+ characters,
-not all whitespace, and at most 72 UTF-8 bytes. Success returns 200 with `"Password changed. Please log in again."`,
-clears the cookie, and revokes every session for the user in the same transaction as the password update.
-Errors: 401 missing/invalid/expired session, 403 incorrect current password, 422 invalid input, 503 database failure.
-
 ### Teacher class access API
 
 After login, `GET /api/teacher/classes` lists assigned classes; `GET /api/teacher/classes/{uuid}` returns one assigned class.
