@@ -171,6 +171,16 @@ A logged-in administrator can add another admin with `POST /api/admin/admins`, s
 Fields follow the teacher signup rules. Success returns 201 with `id`, `email`, `username`, and `role: "admin"`; the new admin can log in right away.
 Missing, invalid, or expired sessions return 401; non-admins get 403; a taken email or username gets 409; invalid input gets 422; database failures get 503.
 Run `python -m pytest tests/backend/test_admin_creation.py -v`; the login integration test runs when `DATABASE_URL` is set.
+
+### Password reset email API
+
+`POST /api/auth/forgot-password` accepts `{"email":"student@example.com"}` without login.
+Registered, unknown, and cooldown requests return the same generic 200 message; invalid input gets 422 and database failures get 503.
+Only token hashes are stored. Links expire after 30 minutes; one token per user and a one-minute resend cooldown are enforced atomically.
+Run `python src/backend/migrate.py`. Set `SMTP_USERNAME`, `SMTP_APP_PASSWORD`, and `FRONTEND_URL` in your ignored `.env`.
+Enable Gmail 2-Step Verification and generate an App Password. Use your deployed HTTPS frontend URL in production.
+Delivery runs after the response; SMTP/configuration failures log a generic warning. Reset submission comes in PR 3; frontend forms are separate.
+
 ### Current user API
 
 `GET /api/auth/me` reads the `session` cookie and returns 200 with `email`, `first_name`, `role`, and `redirect_to`; it does not return the password hash.
