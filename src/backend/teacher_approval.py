@@ -1,13 +1,12 @@
 """Administrator-managed teacher signup approvals."""
 
 import logging
-from hashlib import sha256
 
 import psycopg
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from auth import SESSION_COOKIE
+from admin import require_admin
 from database import get_connection
 
 router = APIRouter(prefix="/api/admin/approved-teachers", tags=["admin"])
@@ -23,22 +22,11 @@ class TeacherApproval(BaseModel):
         return value.strip().lower() if isinstance(value, str) else value
 
 
-@router.post("", status_code=201)
-def approve_teacher(info: TeacherApproval, request: Request):
-    token = request.cookies.get(SESSION_COOKIE)
-    if not token:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+@router.post("", status_code=201, summary="Approve an email for teacher signup",
+             dependencies=[Depends(require_admin)])
+def approve_teacher(info: TeacherApproval):
     try:
         with get_connection() as connection:
-            user = connection.execute(
-                """SELECT u.role FROM sessions s JOIN users u ON u.id = s.user_id
-                WHERE s.token_hash = %s AND s.expires_at > now()""",
-                (sha256(token.encode()).hexdigest(),),
-            ).fetchone()
-            if not user:
-                raise HTTPException(status_code=401, detail="Unauthorized")
-            if user["role"] != "admin":
-                raise HTTPException(status_code=403, detail="Admin access required")
             connection.execute(
                 "INSERT INTO authorized_teacher_emails (email) VALUES (%s)", (info.email,),
             )
