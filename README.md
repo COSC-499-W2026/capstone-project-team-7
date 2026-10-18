@@ -155,6 +155,13 @@ Run `python -m pytest tests/backend/test_teacher_signup.py -v`.
 Integration tests create/migrate/drop a temporary schema (requires schema creation permission); they skip without the URL.
 For manual testing, run `python src/backend/migrate.py`, allowlist an email, and submit signup at `http://localhost:8000/docs`.
 
+### Admin class enrollment API
+
+A logged-in administrator can enroll a registered student in any class with `POST /api/admin/classes/{uuid}/students` and `{"student_number": "..."}`.
+Success returns 201 with `class_id`, `student_id`, and `student_number`. Errors: 401 no session, 403 non-admins, 404 `"Class not found"`, 404 `"Student not found"`,
+409 `"Student already enrolled"`, 422 blank or over-long student number or invalid UUID, 503 database failure.
+Run `python -m pytest tests/backend/test_admin_enrollment.py -v`; the integration test runs when `DATABASE_URL` is set.
+
 ### Teacher approvals API
 
 An administrator can approve teacher signup with `POST /api/admin/approved-teachers`
