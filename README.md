@@ -184,6 +184,12 @@ Run `python -m pytest tests/backend/test_admin_creation.py -v`; the login integr
 A missing, expired, or logged-out session returns 401 `"Unauthorized"`; 503 if the database is down.
 Protected routes reuse the same check with `Depends(current_user)` from `auth.py`.
 
+Teacher class access and teacher signup approvals reuse `auth.current_user` for
+session validation. Class routes enforce `require_teacher`; approval uses the
+shared `require_admin`. Invalid sessions return 401 `"Unauthorized"`; non-admin
+approval requests return 403 `"Forbidden"`. Authentication runs before body
+validation, so unauthenticated approval requests return 401 even with invalid input.
+
 ### Teacher class access API
 
 After login, `GET /api/teacher/classes` lists assigned classes; `GET /api/teacher/classes/{uuid}` returns one assigned class.
