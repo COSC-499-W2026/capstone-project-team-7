@@ -6,6 +6,7 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
+import auth
 import teacher_approval
 from database import get_connection
 from main import app
@@ -19,6 +20,7 @@ URL = "/api/admin/approved-teachers"
 def client():
     with TestClient(app, base_url="https://testserver") as client:
         yield client
+    app.dependency_overrides.clear()
 
 
 def session(client, role="admin", expired=False):
@@ -68,8 +70,11 @@ def test_rejected_requests_do_not_approve(signup_database, client, role, expired
 def test_missing_session_does_not_open_database(monkeypatch, client):
     def unexpected():
         pytest.fail("Missing cookie should not open a connection")
+    monkeypatch.setattr(auth, "get_connection", unexpected)
     monkeypatch.setattr(teacher_approval, "get_connection", unexpected)
-    assert client.post(URL, json={"email": "teacher@example.com"}).status_code == 401
+    response = client.post(URL, json={"email": "teacher@example.com"})
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Unauthorized"}
 
 
 @pytest.mark.parametrize("body", [{}, {"email": "bad"}, {"email": " "},
@@ -77,6 +82,7 @@ def test_missing_session_does_not_open_database(monkeypatch, client):
 def test_invalid_body_does_not_open_database(monkeypatch, client, body):
     def unexpected():
         pytest.fail("Invalid input should not open a connection")
+    app.dependency_overrides[auth.current_user] = lambda: {"role": "admin"}
     monkeypatch.setattr(teacher_approval, "get_connection", unexpected)
     assert client.post(URL, json=body).status_code == 422
 
@@ -84,8 +90,18 @@ def test_invalid_body_does_not_open_database(monkeypatch, client, body):
 def test_database_failure_is_safe(monkeypatch, client):
     def unavailable():
         raise psycopg.OperationalError("private connection details")
-    monkeypatch.setattr(teacher_approval, "get_connection", unavailable)
+    monkeypatch.setattr(auth, "get_connection", unavailable)
     client.cookies.set("session", "test-token")
+    response = client.post(URL, json={"email": "teacher@example.com"})
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
+def test_approval_insert_failure_is_safe(monkeypatch, client):
+    def unavailable():
+        raise psycopg.OperationalError("private connection details")
+    app.dependency_overrides[auth.current_user] = lambda: {"role": "admin"}
+    monkeypatch.setattr(teacher_approval, "get_connection", unavailable)
     response = client.post(URL, json={"email": "teacher@example.com"})
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
