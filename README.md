@@ -186,7 +186,11 @@ Registered, unknown, and cooldown requests return the same generic 200 message; 
 Only token hashes are stored. Links expire after 30 minutes; each account is limited atomically to one email per minute and five per rolling hour, even after a token is consumed.
 Run `python src/backend/migrate.py`. Set `SMTP_USERNAME`, `SMTP_APP_PASSWORD`, and `FRONTEND_URL` in your ignored `.env`.
 Enable Gmail 2-Step Verification and generate an App Password. Use your deployed HTTPS frontend URL in production.
-Delivery runs after the response; SMTP/configuration failures log a generic warning. Reset submission comes in PR 3; frontend forms are separate.
+Delivery runs after the response; SMTP/configuration failures log a generic warning. Frontend forms are separate.
+`POST /api/auth/reset-password` accepts `{"token":"<emailed token>","new_password":"<new password>"}` without login.
+Passwords follow signup rules: at least 8 characters, not all whitespace, and at most 72 UTF-8 bytes.
+Success returns 200, consumes the token, clears the session cookie, and revokes all sessions for that account; log in again.
+Invalid, expired, replaced, or already-used links return the same 422 error. Database failures return 503 without partial changes.
 
 ### Current user API
 
