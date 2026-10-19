@@ -218,8 +218,9 @@ PR #82: Updates the PR template and AGENTS.md now that PRs target main instead o
 | #83 Admin deletes student accounts | Gamu | No issues. Suggested the team consider splitting tests into a fast critical run and a full run, since the backend suite now takes about 2 minutes. | Approved, merged |
 | #84 Admin creates admin accounts | Gamu | Reuses teacher signup's fields and validation; good edge-case tests | Approved, merged |
 | #90 Revert direct push to main | Madiba | The change-password commit had been pushed straight to main without review; reverting it lets it go through a normal PR (#93) | Approved, merged |
-| #93 Change password | Madiba | The `FOR SHARE` on login is needed so a login racing a password change can't keep an old-password session; I ran it locally | Approved, not merged yet |
-| #95 Shared auth refactor | Dan | Removes the duplicated session SQL I flagged in week 5 (#56, #58) and in #76; tests pass locally | Approved, not merged yet |
+| #93 Change password | Madiba | The `FOR SHARE` on login is needed so a login racing a password change can't keep an old-password session; I ran it locally | Approved, merged |
+| #95 Shared auth refactor | Dan | Removes the duplicated session SQL I flagged in week 5 (#56, #58) and in #76; tests pass locally | Approved, merged |
+| #98 Complete password reset | Madiba | Token use, password update and session revoke are one transaction, and the same token used twice at once succeeds only once. Tests pass locally.| Approved, merged |
 
 ## 8. How this fits the overall system
 
