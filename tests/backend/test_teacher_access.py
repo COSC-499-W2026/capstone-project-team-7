@@ -114,7 +114,7 @@ def test_invalid_or_expired_session(access_db, client, expired):
 def test_database_failure_is_safe(client, monkeypatch):
     def unavailable():
         raise psycopg.OperationalError("private database details")
-    monkeypatch.setattr(teacher_access, "get_connection", unavailable)
+    monkeypatch.setattr(auth, "get_connection", unavailable)
     client.cookies.set("session", "test-token")
     response = client.get(URL)
     assert response.status_code == 503
@@ -171,5 +171,16 @@ def test_create_class_insert_failure_is_safe(access_db, client, monkeypatch):
         raise psycopg.OperationalError("private database details")
     monkeypatch.setattr(teacher_access, "get_connection", unavailable)
     response = client.post(URL, json={"name": "French 101", "language_code": "fr"})
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
+@pytest.mark.parametrize("suffix", ["", "/00000000-0000-0000-0000-000000000000"])
+def test_class_read_failure_is_safe(access_db, client, monkeypatch, suffix):
+    login(client)
+    def unavailable():
+        raise psycopg.OperationalError("private connection details")
+    monkeypatch.setattr(teacher_access, "get_connection", unavailable)
+    response = client.get(URL + suffix)
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}

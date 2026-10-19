@@ -155,6 +155,13 @@ Run `python -m pytest tests/backend/test_teacher_signup.py -v`.
 Integration tests create/migrate/drop a temporary schema (requires schema creation permission); they skip without the URL.
 For manual testing, run `python src/backend/migrate.py`, allowlist an email, and submit signup at `http://localhost:8000/docs`.
 
+### Admin class enrollment API
+
+A logged-in administrator can enroll a registered student in any class with `POST /api/admin/classes/{uuid}/students` and `{"student_number": "..."}`.
+Success returns 201 with `class_id`, `student_id`, and `student_number`. Errors: 401 no session, 403 non-admins, 404 `"Class not found"`, 404 `"Student not found"`,
+409 `"Student already enrolled"`, 422 blank or over-long student number or invalid UUID, 503 database failure.
+Run `python -m pytest tests/backend/test_admin_enrollment.py -v`; the integration test runs when `DATABASE_URL` is set.
+
 ### Teacher approvals API
 
 An administrator can approve teacher signup with `POST /api/admin/approved-teachers`
@@ -187,6 +194,12 @@ Delivery runs after the response; SMTP/configuration failures log a generic warn
 A missing, expired, or logged-out session returns 401 `"Unauthorized"`; 503 if the database is down.
 Protected routes reuse the same check with `Depends(current_user)` from `auth.py`.
 
+Teacher class access and teacher signup approvals reuse `auth.current_user` for
+session validation. Class routes enforce `require_teacher`; approval uses the
+shared `require_admin`. Invalid sessions return 401 `"Unauthorized"`; non-admin
+approval requests return 403 `"Forbidden"`. Authentication runs before body
+validation, so unauthenticated approval requests return 401 even with invalid input.
+
 ### Teacher class access API
 
 After login, `GET /api/teacher/classes` lists assigned classes; `GET /api/teacher/classes/{uuid}` returns one assigned class.
@@ -210,7 +223,16 @@ with `PATCH /api/admin/classes/{uuid}/teacher`. Success returns 204; 401/403 for
 `POST /api/teacher/classes/{uuid}/students` with `{"student_number": "..."}` enrolls a registered student and returns 201 with `class_id`, `student_id`, and `student_number`.
 Only teachers can enroll, and only into classes they own. Errors: 401 no session, 403 students and admins, 404 `"Class not found"` (missing or another teacher's class),
 404 `"Student not found"` (no student has that number), 409 `"Student already enrolled"`, 422 blank or over-long student number, 503 database failure.
+`DELETE /api/teacher/classes/{uuid}/students/{student_id}` removes the enrollment and returns 204; the student's account is kept.
+Same auth rules. Errors: 404 `"Class not found"`, 404 `"Student not enrolled"`, 422 invalid UUID, 503 database failure.
 Run `python -m pytest tests/backend/test_class_enrollment.py -v` with `TEST_DATABASE_URL` set.
+
+### Student class join API
+
+After login, a student can `POST /api/student/classes/join` with `{"class_code": "ABC123DEF456"}` to enrol themselves; the code is trimmed and uppercased.
+Success returns 201 with the class `id`, `name`, and `language_code`. An unknown code returns 404 `"Class not found"`, joining twice returns 409 `"Already enrolled"`, and a blank or over-long code returns 422.
+Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
+Run `python -m pytest tests/backend/test_student_enrollment.py -v` with `TEST_DATABASE_URL` set.
 
 ### Current user API
 
