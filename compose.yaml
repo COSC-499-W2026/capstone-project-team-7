@@ -4,6 +4,9 @@ services:
       context: ./src/backend
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lit_app}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-lost_in_translation}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_APP_PASSWORD: ${SMTP_APP_PASSWORD:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     depends_on:
       db:
         condition: service_healthy
