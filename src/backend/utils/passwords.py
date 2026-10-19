@@ -14,3 +14,11 @@ def verify_password(password: str, hashed_password: str) -> bool:
         password.encode('utf-8'),
         hashed_password.encode('utf-8')
     )
+
+
+def validate_password(value: str) -> str:
+    if not value.strip():
+        raise ValueError("Password must not be blank")
+    if len(value.encode("utf-8")) > 72:
+        raise ValueError("Password must not exceed 72 UTF-8 bytes")
+    return value
