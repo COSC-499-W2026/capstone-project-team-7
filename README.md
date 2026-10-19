@@ -176,7 +176,7 @@ Run `python -m pytest tests/backend/test_admin_creation.py -v`; the login integr
 
 `POST /api/auth/forgot-password` accepts `{"email":"student@example.com"}` without login.
 Registered, unknown, and cooldown requests return the same generic 200 message; invalid input gets 422 and database failures get 503.
-Only token hashes are stored. Links expire after 30 minutes; one token per user and a one-minute resend cooldown are enforced atomically.
+Only token hashes are stored. Links expire after 30 minutes; each account is limited atomically to one email per minute and five per rolling hour, even after a token is consumed.
 Run `python src/backend/migrate.py`. Set `SMTP_USERNAME`, `SMTP_APP_PASSWORD`, and `FRONTEND_URL` in your ignored `.env`.
 Enable Gmail 2-Step Verification and generate an App Password. Use your deployed HTTPS frontend URL in production.
 Delivery runs after the response; SMTP/configuration failures log a generic warning. Reset submission comes in PR 3; frontend forms are separate.

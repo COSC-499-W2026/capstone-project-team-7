@@ -22,13 +22,24 @@ class PasswordResetRequest(BaseModel):
 def issue_reset_token(email: str, token: str):
     with get_connection() as connection:
         return connection.execute(
-            """INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-            SELECT id, %s, now() + interval '30 minutes' FROM users WHERE lower(email) = lower(%s)
+            """WITH allowed AS (
+                INSERT INTO password_reset_email_limits (user_id, requested_at)
+                SELECT id, ARRAY[now()] FROM users WHERE lower(email) = lower(%s)
+                ON CONFLICT (user_id) DO UPDATE SET requested_at =
+                    ARRAY(SELECT sent_at FROM unnest(password_reset_email_limits.requested_at) AS sent_at
+                          WHERE sent_at > now() - interval '1 hour') || ARRAY[now()]
+                WHERE password_reset_email_limits.requested_at[cardinality(password_reset_email_limits.requested_at)]
+                    < now() - interval '1 minute'
+                AND (SELECT count(*) FROM unnest(password_reset_email_limits.requested_at) AS sent_at
+                     WHERE sent_at > now() - interval '1 hour') < 5
+                RETURNING user_id
+            )
+            INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+            SELECT user_id, %s, now() + interval '30 minutes' FROM allowed
             ON CONFLICT (user_id) DO UPDATE SET token_hash = EXCLUDED.token_hash,
                 created_at = now(), expires_at = EXCLUDED.expires_at
-            WHERE password_reset_tokens.created_at < now() - interval '1 minute'
             RETURNING (SELECT email FROM users WHERE id = password_reset_tokens.user_id) AS email""",
-            (hash_token(token), email),
+            (email, hash_token(token)),
         ).fetchone()
 
 
