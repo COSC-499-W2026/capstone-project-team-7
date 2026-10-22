@@ -1,0 +1,58 @@
+.login-page {
+  justify-content: center;
+}
+
+.login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.login-logo {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 6px;
+  border-radius: 26px;
+  background: var(--yellow);
+  border: var(--border-thick);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(-6deg);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.forgot-link {
+  align-self: flex-end;
+  font-size: 15px;
+}
+
+/* The "—— or ——" line between the login button and the other options */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 800;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex-grow: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+.login-note {
+  font-size: 14px;
+  text-align: center;
+}
