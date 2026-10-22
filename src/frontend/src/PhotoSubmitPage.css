@@ -1,0 +1,65 @@
+.photo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.photo-close {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: var(--white);
+  border: var(--border);
+  box-shadow: 0 4px 0 var(--ink);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* The camera-style box: a dark frame with yellow corner brackets */
+.photo-frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius);
+  border: var(--border-thick);
+  background: #3E3560;
+  overflow: hidden;
+}
+
+.photo-view {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--white);
+}
+
+.photo-corner {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border: 6px solid var(--yellow);
+}
+
+.photo-corner--top-left { top: 14px; left: 14px; border-right: none; border-bottom: none; border-top-left-radius: 14px; }
+.photo-corner--top-right { top: 14px; right: 14px; border-left: none; border-bottom: none; border-top-right-radius: 14px; }
+.photo-corner--bottom-left { bottom: 14px; left: 14px; border-right: none; border-top: none; border-bottom-left-radius: 14px; }
+.photo-corner--bottom-right { bottom: 14px; right: 14px; border-left: none; border-top: none; border-bottom-right-radius: 14px; }
+
+.photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: auto;
+}
