@@ -1,0 +1,54 @@
+.signup-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.signup-back {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 16px;
+  background: var(--white);
+  border: var(--border);
+  box-shadow: 0 4px 0 var(--ink);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* First and last name sit side by side, and stack on very narrow phones */
+.signup-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.signup-hint {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.signup-login {
+  margin: 0;
+  text-align: center;
+}
+
+/* Looks like a link, but it is a button because it changes the page instead of going to a web address */
+.signup-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #4B2FD6;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
