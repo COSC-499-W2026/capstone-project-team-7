@@ -18,10 +18,15 @@
   cursor: pointer;
 }
 
+.screen.photo-page {
+  min-height: 100dvh;
+}
+
 /* The camera-style box: a dark frame with yellow corner brackets */
 .photo-frame {
   position: relative;
-  aspect-ratio: 4 / 3;
+  flex: 1 1 auto;
+  min-height: 200px;
   border-radius: var(--radius);
   border: var(--border-thick);
   background: #3E3560;
@@ -29,14 +34,16 @@
 }
 
 .photo-view {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
 }
 
 .photo-empty {
-  height: 100%;
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -62,4 +69,24 @@
   flex-direction: column;
   gap: 14px;
   margin-top: auto;
+}
+
+
+/* Laptops and tablets turned sideways: camera on the left, text and buttons on the right */
+/* ".screen.photo-page" is more specific than ".screen", so these win over the shared style.css rules */
+@media (min-width: 800px) {
+  .screen.photo-page {
+    max-width: 1000px;
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    grid-template-rows: auto auto auto auto;
+    align-content: center;
+    column-gap: 36px;
+  }
+
+  .photo-header { grid-column: 1 / -1; }
+  .photo-title { grid-column: 2; grid-row: 2; }
+  .photo-frame { grid-column: 1; grid-row: 2 / span 3; aspect-ratio: 4 / 3; }
+  .photo-page > .error-message { grid-column: 2; grid-row: 3; }
+  .photo-actions { grid-column: 2; grid-row: 4; margin-top: 0; align-self: start; }
 }

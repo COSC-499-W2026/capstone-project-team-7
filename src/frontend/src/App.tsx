@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import CreateAccountPage from './CreateAccountPage'
 import LoadingScreen from './LoadingScreen'
 import LoginPage from './LoginPage'
+import PhotoSubmitPage from './PhotoSubmitPage'
 
 type Page = 'loading' | 'login' | 'createAccount'
 
@@ -19,6 +20,11 @@ export default function App() {
     const done = setTimeout(() => setPage('login'), 400)
     return () => clearTimeout(done)
   }, [page, progress])
+
+    // TEMP: visit http://localhost:5173/?page=photo to preview the photo screen
+  if (new URLSearchParams(window.location.search).get('page') === 'photo') {
+    return <PhotoSubmitPage spotNumber={2} totalSpots={5} onSubmit={() => {}} onClose={() => {}} />
+  }
 
   if (page === 'loading') {
     return <LoadingScreen progress={progress} />

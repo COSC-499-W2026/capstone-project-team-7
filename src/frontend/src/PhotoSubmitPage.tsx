@@ -90,7 +90,7 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onCl
         <span className="pill">Spot {spotNumber} of {totalSpots}</span>
       </header>
 
-      <div>
+      <div className="photo-title">
         <h1>Snap the room number</h1>
         <p className="subtitle">Fill the frame with the number on the sign and hold your phone steady.</p>
       </div>
