@@ -1,5 +1,7 @@
 """Students start a game: five random locations in a fixed order."""
 
+from uuid import UUID
+
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -7,6 +9,7 @@ from database import get_connection
 from difficulties import Difficulty
 from student_enrollment import require_student
 from teacher_access import database_unavailable
+from utils.generate_audio import audio_filename
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
 
 router = APIRouter(prefix="/api/game", tags=["game"])
@@ -47,4 +50,34 @@ def start_game(user=Depends(require_student)):
         "difficulty": game["difficulty"],
         "current_position": game["current_position"],
         "total_locations": LOCATIONS_PER_HUNT,
+    }
+
+
+@router.get("/{game_id}/clue", summary="The current clue: the building and the audio to play")
+def current_clue(game_id: UUID, user=Depends(require_student)):
+    try:
+        with get_connection() as connection:
+            clue = connection.execute(
+                """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
+                locations.building, locations.room_number
+                FROM game_sessions
+                JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
+                    AND game_session_locations.position = game_sessions.current_position
+                JOIN locations ON locations.id = game_session_locations.location_id
+                WHERE game_sessions.id = %s AND game_sessions.student_id = %s""",
+                (game_id, user["id"]),
+            ).fetchone()
+    except (psycopg.Error, RuntimeError):
+        raise database_unavailable() from None
+    # Another student's game looks the same as a missing one, so games can't be peeked at.
+    if clue is None:
+        raise HTTPException(status_code=404, detail="Game not found")
+    if clue["finished_at"]:
+        raise HTTPException(status_code=409, detail="This game is already finished")
+    # The room number is only heard in the audio, never sent as text.
+    return {
+        "position": clue["current_position"],
+        "total_locations": LOCATIONS_PER_HUNT,
+        "building": clue["building"],
+        "audio_url": f"/audio/{clue['language_code']}/{audio_filename(clue)}",
     }
