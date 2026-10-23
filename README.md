@@ -192,22 +192,6 @@ Passwords follow signup rules: at least 8 characters, not all whitespace, and at
 Success returns 200, consumes the token, clears the session cookie, and revokes all sessions for that account; log in again.
 Invalid, expired, replaced, or already-used links return the same 422 error. Database failures return 503 without partial changes.
 
-After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, and `audio_url`
-(e.g. `/audio/fr/LIB-312.mp3`). The room number is never sent as text; at Basic difficulty the student only hears it.
-Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
-
-### Demo locations and audio
-
-After running migrations, add the 5 demo locations and their French clues (safe to run again):
-
-```sh
-docker compose exec backend python -m utils.seed_locations   # or: cd src/backend && python -m utils.seed_locations
-```
-
-The French audio clues live in `src/backend/audio/fr/`, named by building and room (e.g. `COM-316.mp3`).
-To remake them: `pip install edge-tts`, then `cd src/backend && python -m utils.generate_audio`.
-Tests: `python -m pytest tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
-
 ### Current user API
 
 `GET /api/auth/me` reads the `session` cookie and returns 200 with `email`, `first_name`, `role`, and `redirect_to`; it does not return the password hash.
@@ -269,6 +253,24 @@ Success returns 201 with `game_id`, `language_code`, `difficulty`, `current_posi
 Fewer than 5 French locations returns 409 `"Not enough locations for this language yet"` and saves nothing.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503. Deleting a student keeps their games with no student linked.
 Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE_URL` set.
+
+After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, and `audio_url`.
+`GET /api/game/{game_id}/clue/audio` plays that clue's audio. Audio files are kept in the backend (`src/backend/audio/<language>/`) and
+never linked by name, so neither the clue nor the audio link reveals the room number.
+Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
+A missing audio file returns 404 `"Audio not found for this clue"`.
+
+### Demo locations and audio
+
+After running migrations, add the 5 demo locations and their French clues (safe to run again):
+
+```sh
+docker compose exec backend python -m utils.seed_locations   # or: cd src/backend && python -m utils.seed_locations
+```
+
+The French audio clues live in `src/backend/audio/fr/`, named by building and room (e.g. `COM-316.mp3`).
+To remake them: `pip install edge-tts`, then `cd src/backend && python -m utils.generate_audio`.
+Tests: `python -m pytest tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
 
 ### Current user API
 
