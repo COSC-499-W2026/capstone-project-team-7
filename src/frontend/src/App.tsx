@@ -4,6 +4,7 @@ import { getCurrentUser } from './api/currentUser'
 import type { StartGameResult } from './api/game'
 import GameScreen from './pages/GameScreen'
 import LoginPage from './pages/LoginPage'
+import PhotoSubmitPage from './pages/PhotoSubmitPage'
 import StudentDashboard from './pages/StudentDashboard'
 
 export default function App() {
@@ -27,14 +28,15 @@ export default function App() {
     return <LoginPage onLogin={(result) => setRole(result.role)} />
   }
 
-  // Placeholder until the photo submission page is connected.
+  // The photo isn't sent anywhere yet; submitting answers comes in the next PR.
   if (game && photoFor) {
     return (
-      <main>
-        <h1>Photo for spot {photoFor.position} of {photoFor.total_locations}</h1>
-        <p>The camera page will open here.</p>
-        <button onClick={() => setPhotoFor(null)}>Back to clue</button>
-      </main>
+      <PhotoSubmitPage
+        spotNumber={photoFor.position}
+        totalSpots={photoFor.total_locations}
+        onSubmit={() => setPhotoFor(null)}
+        onClose={() => setPhotoFor(null)}
+      />
     )
   }
 
