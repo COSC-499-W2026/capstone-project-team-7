@@ -260,6 +260,12 @@ never linked by name, so neither the clue nor the audio link reveals the room nu
 Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
 A missing audio file returns 404 `"Audio not found for this clue"`.
 
+`POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 10 MB).
+Each submit adds 1 to that spot's attempts (students can retry as many times as they like; points will use attempts later).
+A correct answer moves to the next spot; the 5th correct answer finishes the game. Returns `correct`, `attempts`, `finished`, and `next_position`.
+For now every photo counts as correct (`utils/answer_check.py`) until the OCR and GPS checks are added.
+Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished or spot already answered, 503 database failure.
+
 ### Demo locations and audio
 
 After running migrations, add the 5 demo locations and their French clues (safe to run again):
