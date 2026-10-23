@@ -11,5 +11,5 @@ def test_every_demo_location_gets_its_own_file():
     assert len(names) == 5
 
 
-def test_audio_is_saved_where_the_website_serves_it():
-    assert AUDIO_FOLDER.parts[-4:] == ("frontend", "public", "audio", "fr")
+def test_audio_is_saved_in_the_backend_not_the_public_website():
+    assert AUDIO_FOLDER.parts[-3:] == ("backend", "audio", "fr")
