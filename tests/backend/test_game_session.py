@@ -160,15 +160,38 @@ def start(client):
 
 def test_student_gets_first_clue_without_the_room_number(game_db, client):
     game_id = start(client)
+    response = client.get(clue_url(game_id))
+    assert response.status_code == 200
+    assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
+                               "audio_url": f"/api/game/{game_id}/clue/audio"}
+
+
+def test_clue_audio_plays_the_current_rooms_file(game_db, client, tmp_path, monkeypatch):
+    game_id = start(client)
     with get_connection() as db:
         room = db.execute("""SELECT locations.room_number FROM game_session_locations
             JOIN locations ON locations.id = game_session_locations.location_id
             WHERE game_session_id = %s AND position = 1""", (game_id,)).fetchone()["room_number"]
-    response = client.get(clue_url(game_id))
+    (tmp_path / "fr").mkdir()
+    (tmp_path / "fr" / f"EME-{room}.mp3").write_bytes(b"fake mp3")
+    monkeypatch.setattr(game_session, "AUDIO_FOLDER", tmp_path / "fr")
+    response = client.get(clue_url(game_id) + "/audio")
     assert response.status_code == 200
-    assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
-                               "audio_url": f"/audio/fr/EME-{room}.mp3"}
-    assert "room_number" not in response.json()
+    assert response.headers["content-type"] == "audio/mpeg"
+    assert response.content == b"fake mp3"
+
+
+def test_missing_audio_file_is_not_found(game_db, client, tmp_path, monkeypatch):
+    game_id = start(client)
+    monkeypatch.setattr(game_session, "AUDIO_FOLDER", tmp_path / "fr")
+    response = client.get(clue_url(game_id) + "/audio")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Audio not found for this clue"}
+
+
+def test_other_students_game_audio_is_not_found(game_db, client):
+    login(client)
+    assert client.get(clue_url(uuid4()) + "/audio").status_code == 404
 
 
 def test_clue_follows_current_position(game_db, client):

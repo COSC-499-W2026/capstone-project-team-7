@@ -204,7 +204,7 @@ After running migrations, add the 5 demo locations and their French clues (safe 
 docker compose exec backend python -m utils.seed_locations   # or: cd src/backend && python -m utils.seed_locations
 ```
 
-The French audio clues live in `src/frontend/public/audio/fr/`, named by building and room (e.g. `COM-316.mp3`).
+The French audio clues live in `src/backend/audio/fr/`, named by building and room (e.g. `COM-316.mp3`).
 To remake them: `pip install edge-tts`, then `cd src/backend && python -m utils.generate_audio`.
 Tests: `python -m pytest tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
 
