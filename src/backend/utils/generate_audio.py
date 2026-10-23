@@ -1,7 +1,8 @@
 """Make the French audio clue for each demo location with: cd src/backend && python -m utils.generate_audio.
 
 Needs the edge-tts package on your computer (pip install edge-tts). It's only used to make the
-files once, so it isn't in requirements.txt. Files are saved where the website can play them.
+files once, so it isn't in requirements.txt. Files are saved in the backend, which plays them to
+students through the game API so the file names (which contain room numbers) stay hidden.
 """
 
 import asyncio
@@ -9,7 +10,7 @@ from pathlib import Path
 
 from utils.seed_locations import LOCATIONS
 
-AUDIO_FOLDER = Path(__file__).resolve().parents[2] / "frontend" / "public" / "audio" / "fr"
+AUDIO_FOLDER = Path(__file__).resolve().parents[1] / "audio" / "fr"
 VOICE = "fr-FR-DeniseNeural"
 
 
