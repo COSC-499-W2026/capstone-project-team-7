@@ -96,7 +96,7 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onCl
 
       <div className="photo-frame">
         {previewUrl ? (
-          <img className="photo-view" src={previewUrl} alt="Your photo of the room number" />
+          <img className="photo-view" style={{ width: "100%" }} src={previewUrl} alt="Your photo of the room number" />
         ) : error ? (
           <div className="photo-empty">
             <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -108,7 +108,7 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onCl
         ) : (
           <video
             ref={videoRef}
-            className="photo-view"
+            className="photo-view" style={{ width: "100%" }}
             autoPlay
             playsInline
             muted
