@@ -104,6 +104,25 @@ uvicorn main:app --app-dir src/backend --reload
 Visit `http://localhost:8000/docs` for the API docs. `GET /api/health/db` checks the database connection.
 This setup starts PostgreSQL and connects the backend. Application tables and migrations are added separately.
 
+### Room-number OCR
+
+Install optional CPU OCR dependencies with
+`pip install -r src/backend/requirements-ocr.txt` in the backend environment.
+Pillow is included in the base requirements so decoding and unit tests work without the models.
+The existing Docker image does not install this optional file yet.
+PaddleOCR downloads model weights on first use; that machine needs internet access
+and a writable model cache. Subsequent calls reuse one engine per Python process.
+
+`utils.ocr.extract_room_numbers(photo_bytes)` accepts JPEG/PNG photos up to 5 MiB
+and 20 million pixels. It returns distinct candidates with confidence at least 0.8.
+`UNC`, `FIP`, `COM`, `ASC`, `ART`, `CCS`, `ADM`, `SCI`, `LIB` require a space and three digits (e.g. `LIB 308`).
+Only `EME` requires four digits (e.g. `EME 0050`); leading zeros are preserved. Other building codes are rejected.
+Letters are uppercased and whitespace normalized; adjacent OCR text boxes can form one identifier.
+No readable number returns `[]`; invalid photos raise `InvalidPhoto` and runtime/model
+failures raise `OCRUnavailable`. Temporary images are deleted after processing.
+Answer matching, scoring, the upload API and frontend integration are outside this change.
+Run `python -m pytest tests/backend/test_ocr.py -q`; unit tests use fake predictions, not real OCR.
+
 Database connection settings are in `.env` (ignored by Git). When changing the database port or credentials,
 update `DATABASE_URL` to match. Docker keeps data in a named volume;
 `docker compose stop` stops the database without deleting data. On an existing volume, changing
