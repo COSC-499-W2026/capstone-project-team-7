@@ -24,6 +24,15 @@ queries filtering clues by language alone. If those are added, add an index on
 This migration is independent of difficulty definitions. Clue selection, audio,
 GPS coordinates, sessions, and management endpoints remain future work.
 
+## Picking locations for a hunt
+
+`pick_locations(pool)` in `src/backend/utils/location_picker.py` returns 5 distinct
+locations from a pool (the proposal's pool is 15–20 options), in random order.
+Repeated ids in the pool are counted once, so a hunt never repeats a location. A pool
+with fewer than 5 distinct locations raises `NotEnoughLocations`. Pass a seeded
+`random.Random` as `rng` for a repeatable result in tests. The function does not read
+the database; the endpoint that starts a hunt chooses the pool.
+
 Apply with `python src/backend/migrate.py` using `DATABASE_URL`. Run schema tests
 with `TEST_DATABASE_URL` set and `python -m pytest tests/backend/test_database.py`;
 tests create a temporary schema and roll back each case.
