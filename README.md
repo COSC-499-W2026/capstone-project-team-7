@@ -120,7 +120,7 @@ Only `EME` requires four digits (e.g. `EME 0050`); leading zeros are preserved. 
 Letters are uppercased and whitespace normalized; adjacent OCR text boxes can form one identifier.
 No readable number returns `[]`; invalid photos raise `InvalidPhoto` and runtime/model
 failures raise `OCRUnavailable`. Temporary images are deleted after processing.
-The photo verification API compares these identifiers with the student's current target.
+The photo verification API compares recognized identifiers with the student's current target.
 Run `python -m pytest tests/backend/test_ocr.py -q`; unit tests use fake predictions, not real OCR.
 
 Database connection settings are in `.env` (ignored by Git). When changing the database port or credentials,
@@ -285,21 +285,11 @@ never linked by name, so neither the clue nor the audio link reveals the room nu
 Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
 A missing audio file returns 404 `"Audio not found for this clue"`.
 
-### Photo verification API
-
-Authenticated students submit raw JPEG/PNG bytes to `POST /api/game/{game_id}/answer`
-(5 MiB maximum). The server checks the full building and room against the current
-target; clients cannot supply the expected answer.
-Correct photos award 10 points per location and advance the game; incorrect or
-unreadable photos award zero points and allow retries. Attempts and difficulty do
-not change the award. The fifth correct answer finishes the game.
-Responses include `correct`, `attempts`, `finished`, `next_position`, `points_awarded`,
-`total_points` (the game total) and a user-friendly `message`. Awards and progress
-commit together; concurrent submissions for a completed target return 409 without extra points.
-Errors: 401 unauthenticated, 403 non-student, 404 missing/not-owned game, 409 finished
-or stale target, 413 oversized photo, 422 invalid photo/UUID, 503 OCR/database unavailable.
-Apply migrations, including `006_photo_verification_points.sql`, and install the
-optional OCR requirements before use. GPS and frontend integration are outside this change.
+`POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 5 MiB).
+Each valid photo counts an attempt. A correct match awards 10 points; incorrect/unreadable photos award zero. Attempts and difficulty do not affect points.
+A correct answer moves to the next spot; the 5th correct answer finishes the game. Returns `correct`, `attempts`, `finished`, `next_position`, `points_awarded`, `total_points` (game total), and `message`.
+Apply `006_photo_verification_points.sql` and install the optional OCR requirements. Full building/room identifiers must match; points and progress commit together, preventing duplicate awards. GPS is outside this change.
+Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished or spot already answered, 503 OCR/database failure.
 
 ### Demo locations and audio
 
