@@ -16,6 +16,7 @@ export default function App() {
   const [photoFor, setPhotoFor] = useState<Clue | null>(null)
   const [notice, setNotice] = useState('')
   const [finished, setFinished] = useState(false)
+  const [sending, setSending] = useState(false)
 
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
@@ -33,12 +34,15 @@ export default function App() {
 
   async function handlePhoto(photo: File) {
     if (!game) return
+    setSending(true)
     try {
       const result = await submitAnswer(game.game_id, photo)
       if (result.finished) setFinished(true)
       else setNotice(result.correct ? 'Correct! On to the next spot.' : 'Not quite, try again.')
     } catch (err) {
       setNotice((err as Error).message)
+    } finally {
+      setSending(false)
     }
     setPhotoFor(null)
   }
@@ -60,6 +64,7 @@ export default function App() {
       <PhotoSubmitPage
         spotNumber={photoFor.position}
         totalSpots={photoFor.total_locations}
+        sending={sending}
         onSubmit={handlePhoto}
         onClose={() => setPhotoFor(null)}
       />
