@@ -1,10 +1,9 @@
-"""Decide whether a student's photo answers the current clue."""
+"""Compare recognized room identifiers with the server's current target."""
+
+from utils.ocr import extract_room_numbers
 
 
 def check_answer(photo, location):
-    """Temporary: every photo counts as correct until the OCR (room number) and GPS checks are added.
-
-    Later this will read the room number in the photo and compare it to location["room_number"],
-    and check the student is near the building. The answer endpoint won't need to change.
-    """
-    return True
+    """Require the full building and room identifier, preserving leading zeros."""
+    expected = f"{location['building'].strip().upper()} {location['room_number'].strip()}"
+    return expected in extract_room_numbers(photo)
