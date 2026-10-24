@@ -40,9 +40,9 @@ Several of my PRs build on each other (for example the game screen needs the das
 Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/40031101779/job/120679266840)
 
 **Screenshots**
-![Logging in - valid account](image.png)
-![Logging in - success](image-1.png)
-![Logging in - invalid account](image-2.png)
+![Logging in - valid account](screenshots/week-7/image.png)
+![Logging in - success](screenshots/week-7/image-1.png)
+![Logging in - invalid account](screenshots/week-7/image-2.png)
 
 
 ## PR #120: Start game endpoint (branch `119-start-game-backend-endpoint`, into `main`)
@@ -108,7 +108,7 @@ Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team
 - Regression: the full frontend suite passed. Frontend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/40031441280/job/120680387125?pr=121)
 
 **Screenshots**
-![Logged-in Student Dashboard](image-3.png)
+![Logged-in Student Dashboard](screenshots/week-7/image-3.png)
 
 ## PR #123: Demo locations and French audio clues (branch `122-demo-locations`, into `main`)
 
@@ -199,8 +199,8 @@ Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team
 - Regression: the full frontend suite passed. Frontend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/40031512374/job/120680620257?pr=127)
 
 **Screenshots**
-![Game Session Screen](image-4.png)
-![Photo Submission screen placeholder](image-5.png)
+![Game Session Screen](screenshots/week-7/image-4.png)
+![Photo Submission screen placeholder](screenshots/week-7/image-5.png)
 
 ## PR #129: Submit answer endpoint (branch `128-submit-answer-endpoint`, into `main`)
 
@@ -262,7 +262,7 @@ Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team
 - Regression: the full frontend suite passed. Frontend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/40036815645/job/120698224338?pr=132)
 
 **Screenshots**
-![The camera interface for submitting a picture](image-6.png)
+![The camera interface for submitting a picture](screenshots/week-7/image-6.png)
 
 ## Code reviews for teammates
 
