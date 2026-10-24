@@ -13,18 +13,22 @@ Authors: Ashish, Dan, Gamu, Madiba
 | [#49](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/49) | Gamu (gamurrrrr) | Admin endpoint to reassign a class to an approved teacher | Merged |
 | [#51](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/51) | Ashish (nayakashish) | Repository PR template | Merged |
 | [#52](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/52) | Gamu (gamurrrrr) | Seed script for the initial admin account | Merged |
+| [#55](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/55) | Madiba (KoesOremus) | Student signup validation schema | Merged |
 | [#56](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/56) | Dan (danruk) | Teacher class access | Merged |
 | [#57](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/57) | Ashish (nayakashish) | Current-user endpoint | Merged |
 | [#58](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/58) | Dan (danruk) | Admin approval of teacher signup emails | Merged |
 | [#61](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/61) | Madiba (KoesOremus) | Student registration service | Merged |
+| [#62](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/62) | Ashish (nayakashish) | Documentation updates, including README, revised proposal, and system architecture | Merged |
+| [#65](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/65) | Ashish (nayakashish) | Remove Firebase from the authentication DFD | Merged |
+| [#67](https://github.com/COSC-499-W2026/capstone-project-team-7/pull/67) | Madiba (KoesOremus) | Student registration API endpoint | Merged |
 
 ## Goal and work distribution
 
 - Following last week's stack setup, our goal was to begin the account and authentication features and connect them to PostgreSQL.
-- Ashish implemented login, logout, and current-user lookup (#44, #47, #57), and added a PR template (#51).
+- Ashish implemented login, logout, and current-user lookup (#44, #47, #57), added a PR template (#51), and merged documentation updates covering the README, revised proposal, system architecture, and authentication DFD (#62, #65).
 - Dan implemented authorized teacher signup, teacher class access, and admin approval of teacher emails (#45, #56, #58).
 - Gamu implemented shared password hashing, class reassignment, and the initial admin seed script (#43, #49, #52).
-- Madiba implemented the student registration service (#61).
+- Madiba implemented the student signup validation schema (#55), registration service (#61), and API endpoint (#67). `POST /api/auth/student/signup` connects request validation to account creation and returns the new account ID and student role.
 - The merged work establishes the backend pieces for student registration, an administrator to approve teacher emails, authorized teachers to create accounts, users to log in and out, and authenticated requests to identify the current user. Teacher class access and admin class reassignment extend this foundation into class authorization.
 
 ## Code-base health
@@ -36,7 +40,8 @@ Authors: Ashish, Dan, Gamu, Madiba
 
 ## Testing and validation
 
-- The supplied PR lists show successful checks for the ten merged backend PRs, including 2/2 checks for student registration (#61). The PR template change (#51) is shown as approved and merged without a checks count. Detailed student registration test cases are not visible in the screenshots.
+- The supplied PR lists show successful checks for the original ten merged backend PRs, including 2/2 checks for student registration (#61), and 2/2 checks for the new student registration endpoint (#67) and authentication DFD update (#65). The PR template change (#51) is shown as approved and merged without a checks count.
+- Student signup schema tests were added in #55. The endpoint commit in #67 records tests for account creation, duplicates, invalid input, database failures, and OpenAPI documentation. Its recorded validation results are 29 passing focused tests and 174 passing tests in the broader backend run against temporary database schemas; these are the contributor's reported results, not a new test run for this log edit.
 - Dan's signup log records nine passing automated cases for invalid input and database failure, plus separate PostgreSQL checks for successful signup, unauthorized signup, duplicate signup, and transaction rollback. The retained automated signup tests do not verify successful persistence.
 - Gamu's log documents password hashing tests for correct and incorrect passwords, hashes differing from plaintext, and random salts producing different hashes for the same password.
 - Gamu's class reassignment tests cover approved teachers, rejected unapproved teachers, and admin authorization. The documented database integration test also checks that student enrollment survives reassignment.
@@ -50,6 +55,8 @@ The initial admin is created through a setup script rather than a public signup 
 
 We updated our system architecture to reflect these authentication and administration changes and merged the updated architecture into `dev`.
 
+Ashish also merged the README and supporting documentation updates into `dev` through #62. The authentication DFD was updated through #65 to remove Firebase and align it with backend-managed authentication.
+
 ![Updated system architecture for the web-based language scavenger hunt game](../../design/system_architecture.png)
 
 The updated diagram shows the planned UBC server environment with a React and TypeScript frontend, a Python and FastAPI backend, and a PostgreSQL data layer. Students, teachers, and administrators use a browser or PWA on mobile or desktop devices over HTTPS. The frontend includes authentication, the game interface, teacher and admin tools, rewards, and progress views. Backend services cover authentication and role-based access, game sessions, GPS validation, room-number OCR, language audio, class and user management, rewards, and progress tracking. A separate email service sends password reset emails.
@@ -58,6 +65,6 @@ The diagram labels frontend-to-backend communication as REST/JSON with JWT. This
 
 ## Collaboration process and next steps
 
-The team continued using PR review for feature integration and added a shared PR template (#51). The supplied lists mark all eleven merged PRs as approved. Merge conflicts in shared files highlight the need to check that all router imports, registrations, and documentation survive integration.
+The team continued using PR review for feature integration and added a shared PR template (#51). This log now covers fifteen merged PRs, including the student signup schema and endpoint and the documentation updates. Merge conflicts in shared files highlight the need to check that all router imports, registrations, and documentation survive integration.
 
 Next steps are to connect the account flows to frontend pages and verify student registration alongside the combined teacher approval, signup, login, current-user, class-access, and logout flows against PostgreSQL. Individual logs should also be updated with final PR links and specific reviewer feedback where those details are still missing.
