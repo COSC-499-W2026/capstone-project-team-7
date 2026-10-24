@@ -138,6 +138,28 @@ def location(db, building='Test Building', room_number='101'):
         VALUES (%s, %s) RETURNING id''', (building, room_number)).fetchone()[0]
 
 
+def test_location_coordinates_can_be_configured(db):
+    identifier = location(db)
+    assert db.execute('SELECT latitude, longitude, radius_metres FROM locations WHERE id = %s',
+                      (identifier,)).fetchone() == (None, None, None)
+    db.execute('UPDATE locations SET latitude = %s, longitude = %s, radius_metres = %s WHERE id = %s',
+               (49.94, -119.4, 50, identifier))
+    assert db.execute('SELECT latitude, longitude, radius_metres FROM locations WHERE id = %s',
+                      (identifier,)).fetchone() == (49.94, -119.4, 50)
+
+
+@pytest.mark.parametrize('latitude, longitude, radius', [
+    (91, 0, 50), (0, -181, 50), (0, 0, 0), (0, 0, -1),
+    (None, 0, 50), (0, None, 50), (0, 0, None),
+    (float('nan'), 0, 50), (0, 0, float('inf')), (0, 0, float('nan')),
+])
+def test_location_rejects_invalid_coordinates(db, latitude, longitude, radius):
+    identifier = location(db)
+    with pytest.raises(psycopg.errors.CheckViolation):
+        db.execute('UPDATE locations SET latitude = %s, longitude = %s, radius_metres = %s WHERE id = %s',
+                   (latitude, longitude, radius, identifier))
+
+
 def clue(db, location_id, language_code='fr', **changes):
     values = dict(location_id=location_id, language_code=language_code,
                   number_text='cent un', description_text='Près de la bibliothèque')
