@@ -4,7 +4,8 @@ Team 7 | Repo: capstone-project-team-7 | PRs this week: #117 (basic login page);
 
 This week the team's goal was a bare-minimum game session working from start to finish for the demo: log in, start a game, hear a clue, take a photo, move to the next spot. I built the student side of that flow, both the backend endpoints and the plain clickable screens. The demo game is always French on Basic difficulty for now, so students skip choosing a language and difficulty.
 
-Several of my PRs build on each other (for example the game screen needs the dashboard, which needs the login page).
+Several of my PRs build on each other (for example the game screen needs the dashboard, which needs the login page etc). When we split up the work for the week, we didn’t realise that the demo screens would turn into so many separate PRs. Each screen also needed its own backend endpoint, and each one had to be its own small PR to stay inside the size limits. Because of this, my share of the work ended up much bigger than planned, and my PRs had to wait on each other to be reviewed and merged in order. Next time, we will think about how many PRs each task will need before we hand out the work, so it is spread more evenly across the team and fewer PRs depend on each other.
+
 ---
 
 
