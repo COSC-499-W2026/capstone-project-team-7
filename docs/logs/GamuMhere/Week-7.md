@@ -232,7 +232,7 @@ Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team
 - Happy path: `test_correct_answer_moves_to_next_spot` and `test_fifth_correct_answer_finishes_game`.
 - Negative cases: wrong answer stays on the spot and counts attempts, no photo (422), photo too large (413), another student's game (404), not a student (401/403), and database failure (503).
 - `test_answer_check.py` confirms the temporary check. 11 new tests in total.
-- Regression: the full backend suite passed. Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/40031512374/job/120680620257?pr=127)
+- Regression: the full backend suite passed. Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/40033983434/job/120688846104?pr=129)
 
 
 ## PR #132: Photo page connected to the game (branch `130-basic-photo-page-submit-and-completion-screen`, into `main`)
