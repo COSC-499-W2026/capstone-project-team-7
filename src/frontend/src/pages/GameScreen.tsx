@@ -3,11 +3,12 @@ import { getClue, type Clue } from '../api/clue'
 
 interface Props {
   gameId: string
+  notice?: string
   onSubmitPhoto: (clue: Clue) => void
   onBack: () => void
 }
 
-export default function GameScreen({ gameId, onSubmitPhoto, onBack }: Props) {
+export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack }: Props) {
   const [clue, setClue] = useState<Clue | null>(null)
   const [error, setError] = useState('')
 
@@ -34,6 +35,7 @@ export default function GameScreen({ gameId, onSubmitPhoto, onBack }: Props) {
 
   return (
     <main>
+      {notice && <p role="status">{notice}</p>}
       <h1>Spot {clue.position} of {clue.total_locations}</h1>
       <p>Building: {clue.building}</p>
 

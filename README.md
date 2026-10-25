@@ -336,7 +336,7 @@ Administrators manage user accounts and support system maintenance.
 
 The live-camera page submits the captured JPEG to `/api/game/{game_id}/answer` with the login cookie.
 While checking, submission, retake and close controls are disabled. Correct matches show server-awarded
-points and the game total, then load the next clue or return to the dashboard after the final location.
+points and the game total on the next clue; the existing finish screen shows the total after the final location.
 Incorrect/unreadable photos show zero awarded points and allow retaking; upload/network/OCR errors allow retry.
 This flow requires the backend verification API with `points_awarded`, `total_points` and `message` fields.
 

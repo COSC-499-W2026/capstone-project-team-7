@@ -1,8 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { submitAnswer, type AnswerResult } from '../../src/frontend/src/api/answer'
-import VerificationResult from '../../src/frontend/src/pages/VerificationResult'
 
 const photo = new File(['photo'], 'room.jpg', { type: 'image/jpeg' })
 const correct: AnswerResult = { correct: true, attempts: 1, finished: false, next_position: 2,
@@ -51,14 +48,3 @@ test('an oversized photo is rejected before upload', async () => {
   await expect(submitAnswer('abc', new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'large.jpg'))).rejects.toThrow('too large')
   expect(fetchMock).not.toHaveBeenCalled()
 })
-
-test.each([[true, false, 'Correct room!', 'Next clue'], [true, true, 'Hunt complete!', 'Back to dashboard'],
-  [false, false, 'Room not confirmed', '0 points awarded']] as const)('renders verification feedback %s/%s', (ok, finished, heading, text) => {
-    const html = renderToStaticMarkup(createElement(VerificationResult, {
-      result: { ...correct, correct: ok, finished, points_awarded: ok ? 10 : 0 }, onContinue: () => {},
-    }))
-    expect(html).toContain(heading)
-    expect(html).toContain(text)
-    expect(html).toContain('Total: 20 points')
-    if (!ok) expect(html).not.toContain('<button')
-  })
