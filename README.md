@@ -238,12 +238,27 @@ Only teachers can enroll, and only into classes they own. Errors: 401 no session
 Same auth rules. Errors: 404 `"Class not found"`, 404 `"Student not enrolled"`, 422 invalid UUID, 503 database failure.
 Run `python -m pytest tests/backend/test_class_enrollment.py -v` with `TEST_DATABASE_URL` set.
 
+### Class roster API
+
+`GET /api/teacher/classes/{uuid}/students` lists the enrolled students, ordered by lastname. Each has `student_id`, `username`, `first_name`, `last_name`, and `student_number`.
+A class with no students returns `[]`. Same auth rules. Errors: 404 `"Class not found"` (missing or another teacher's class), 422 invalid UUID, 503 database failure.
+Run `python -m pytest tests/backend/test_class_roster.py -v` with `TEST_DATABASE_URL` set.
+
 ### Student class join API
 
 After login, a student can `POST /api/student/classes/join` with `{"class_code": "ABC123DEF456"}` to enrol themselves; the code is trimmed and uppercased.
 Success returns 201 with the class `id`, `name`, and `language_code`. An unknown code returns 404 `"Class not found"`, joining twice returns 409 `"Already enrolled"`, and a blank or over-long code returns 422.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
 Run `python -m pytest tests/backend/test_student_enrollment.py -v` with `TEST_DATABASE_URL` set.
+
+### Game session API
+
+After login, a student can `POST /api/game/start` to start a game. For now every game is French (`fr`) at Basic difficulty.
+The backend picks 5 random locations that have a French clue and saves them in order in `game_sessions` and `game_session_locations`.
+Success returns 201 with `game_id`, `language_code`, `difficulty`, `current_position` (1), and `total_locations` (5); locations and clues are not returned.
+Fewer than 5 French locations returns 409 `"Not enough locations for this language yet"` and saves nothing.
+Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503. Deleting a student keeps their games with no student linked.
+Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE_URL` set.
 
 ### Current user API
 
