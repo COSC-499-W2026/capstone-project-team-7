@@ -7,6 +7,7 @@ from admin import router as admin_router
 from admin_creation import router as admin_creation_router
 from auth import router as auth_router
 from class_enrollment import router as class_enrollment_router
+from class_roster import router as class_roster_router
 from database import get_connection
 from password_change import router as password_change_router
 from password_reset import router as password_reset_router
@@ -33,6 +34,7 @@ app.include_router(teacher_access_router)
 app.include_router(student_deletion_router)
 app.include_router(teacher_deletion_router)
 app.include_router(class_enrollment_router)
+app.include_router(class_roster_router)
 app.include_router(student_enrollment_router)
 
 
