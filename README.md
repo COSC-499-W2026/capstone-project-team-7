@@ -109,7 +109,7 @@ This setup starts PostgreSQL and connects the backend. Application tables and mi
 Install optional CPU OCR dependencies with
 `pip install -r src/backend/requirements-ocr.txt` in the backend environment.
 Pillow is included in the base requirements so decoding and unit tests work without the models.
-The existing Docker image does not install this optional file yet.
+Docker installs OCR and native libraries; rebuild/restart with `docker compose up -d --build backend` before the demo.
 PaddleOCR downloads model weights on first use; that machine needs internet access
 and a writable model cache. Subsequent calls reuse one engine per Python process.
 
@@ -120,7 +120,7 @@ Only `EME` requires four digits (e.g. `EME 0050`); leading zeros are preserved. 
 Letters are uppercased and whitespace normalized; adjacent OCR text boxes can form one identifier.
 No readable number returns `[]`; invalid photos raise `InvalidPhoto` and runtime/model
 failures raise `OCRUnavailable`. Temporary images are deleted after processing.
-Answer matching, scoring, the upload API and frontend integration are outside this change.
+The photo verification API compares recognized identifiers with the student's current target.
 Run `python -m pytest tests/backend/test_ocr.py -q`; unit tests use fake predictions, not real OCR.
 
 Database connection settings are in `.env` (ignored by Git). When changing the database port or credentials,
@@ -285,11 +285,11 @@ never linked by name, so neither the clue nor the audio link reveals the room nu
 Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
 A missing audio file returns 404 `"Audio not found for this clue"`.
 
-`POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 10 MB).
-Each submit adds 1 to that spot's attempts (students can retry as many times as they like; points will use attempts later).
-A correct answer moves to the next spot; the 5th correct answer finishes the game. Returns `correct`, `attempts`, `finished`, and `next_position`.
-For now every photo counts as correct (`utils/answer_check.py`) until the OCR and GPS checks are added.
-Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished or spot already answered, 503 database failure.
+`POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 5 MiB).
+Each valid photo counts an attempt. A correct match awards 10 points; incorrect/unreadable photos award zero. Attempts and difficulty do not affect points.
+A correct answer moves to the next spot; the 5th correct answer finishes the game. Returns `correct`, `attempts`, `finished`, `next_position`, `points_awarded`, `total_points` (game total), and `message`.
+Apply `007_photo_verification_points.sql` and install the optional OCR requirements. Full building/room identifiers must match; points and progress commit together, preventing duplicate awards. GPS is outside this change.
+Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished or spot already answered, 503 OCR/database failure.
 
 ### Demo locations and audio
 

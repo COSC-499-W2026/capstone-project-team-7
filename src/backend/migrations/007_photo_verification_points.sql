@@ -1,0 +1,1 @@
+ALTER TABLE game_sessions ADD COLUMN points INTEGER NOT NULL DEFAULT 0 CHECK (points >= 0);
