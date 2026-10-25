@@ -163,7 +163,7 @@ def test_student_gets_first_clue_without_the_room_number(game_db, client):
     response = client.get(clue_url(game_id))
     assert response.status_code == 200
     assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
-                               "audio_url": f"/api/game/{game_id}/clue/audio"}
+                               "audio_url": f"/api/game/{game_id}/clue/audio?position=1"}
 
 
 def test_clue_audio_plays_the_current_rooms_file(game_db, client, tmp_path, monkeypatch):

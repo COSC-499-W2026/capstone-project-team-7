@@ -86,7 +86,7 @@ def current_clue(game_id: UUID, user=Depends(require_student)):
         "position": location["current_position"],
         "total_locations": LOCATIONS_PER_HUNT,
         "building": location["building"],
-        "audio_url": f"/api/game/{game_id}/clue/audio",
+        "audio_url": f"/api/game/{game_id}/clue/audio?position={location['current_position']}",
     }
 
 

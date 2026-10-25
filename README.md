@@ -255,7 +255,7 @@ Missing/invalid/expired sessions return 401, non-students get 403, and database 
 Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE_URL` set.
 
 After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, and `audio_url`.
-`GET /api/game/{game_id}/clue/audio` plays that clue's audio. Audio files are kept in the backend (`src/backend/audio/<language>/`) and
+`GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the backend (`src/backend/audio/<language>/`) and
 never linked by name, so neither the clue nor the audio link reveals the room number.
 Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
 A missing audio file returns 404 `"Audio not found for this clue"`.
