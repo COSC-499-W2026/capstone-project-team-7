@@ -251,3 +251,82 @@ def test_clue_database_failure_is_safe(client, monkeypatch):
         app.dependency_overrides.clear()
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
+
+
+def answer(client, game_id, photo=b"fake jpeg"):
+    return client.post(clue_url(game_id).replace("/clue", "/answer"), content=photo,
+                       headers={"Content-Type": "image/jpeg"})
+
+
+def spot(game_id, position):
+    with get_connection() as db:
+        return db.execute("""SELECT attempts, found_at FROM game_session_locations
+            WHERE game_session_id = %s AND position = %s""", (game_id, position)).fetchone()
+
+
+def test_correct_answer_moves_to_next_spot(game_db, client):
+    game_id = start(client)
+    response = answer(client, game_id)
+    assert response.status_code == 200
+    assert response.json() == {"correct": True, "attempts": 1, "finished": False, "next_position": 2}
+    assert spot(game_id, 1)["found_at"] is not None
+    assert client.get(clue_url(game_id)).json()["position"] == 2
+
+
+def test_wrong_answer_stays_on_spot_and_counts_attempts(game_db, client, monkeypatch):
+    game_id = start(client)
+    monkeypatch.setattr(game_session, "check_answer", lambda photo, location: False)
+    answer(client, game_id)
+    response = answer(client, game_id)
+    assert response.json() == {"correct": False, "attempts": 2, "finished": False, "next_position": None}
+    assert spot(game_id, 1) == {"attempts": 2, "found_at": None}
+    assert client.get(clue_url(game_id)).json()["position"] == 1
+
+
+def test_fifth_correct_answer_finishes_game(game_db, client):
+    game_id = start(client)
+    for _ in range(4):
+        answer(client, game_id)
+    response = answer(client, game_id)
+    assert response.json() == {"correct": True, "attempts": 1, "finished": True, "next_position": None}
+    assert client.get(clue_url(game_id)).status_code == 409
+    assert answer(client, game_id).status_code == 409
+
+
+def test_answer_needs_a_photo(game_db, client):
+    game_id = start(client)
+    response = answer(client, game_id, photo=b"")
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Please take a photo of the room number"}
+    assert spot(game_id, 1)["attempts"] == 0
+
+
+def test_photo_too_large_is_rejected(game_db, client, monkeypatch):
+    game_id = start(client)
+    monkeypatch.setattr(game_session, "MAX_PHOTO_BYTES", 5)
+    assert answer(client, game_id, photo=b"123456").status_code == 413
+
+
+def test_cannot_answer_other_students_game(game_db, client):
+    login(client)
+    assert answer(client, uuid4()).status_code == 404
+
+
+@pytest.mark.parametrize("role,status", [(None, 401), ("teacher", 403), ("admin", 403)])
+def test_answer_requires_student(game_db, client, role, status):
+    if role:
+        login(client, role)
+    assert answer(client, uuid4()).status_code == status
+
+
+def test_answer_database_failure_is_safe(client, monkeypatch):
+    def unavailable():
+        raise psycopg.OperationalError("private database details")
+    app.dependency_overrides[game_session.require_student] = lambda: {"id": uuid4(), "role": "student"}
+    monkeypatch.setattr(game_session, "get_connection", unavailable)
+    try:
+        response = answer(client, uuid4())
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
