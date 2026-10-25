@@ -238,6 +238,12 @@ Only teachers can enroll, and only into classes they own. Errors: 401 no session
 Same auth rules. Errors: 404 `"Class not found"`, 404 `"Student not enrolled"`, 422 invalid UUID, 503 database failure.
 Run `python -m pytest tests/backend/test_class_enrollment.py -v` with `TEST_DATABASE_URL` set.
 
+### Class roster API
+
+`GET /api/teacher/classes/{uuid}/students` lists the enrolled students, ordered by lastname. Each has `student_id`, `username`, `first_name`, `last_name`, and `student_number`.
+A class with no students returns `[]`. Same auth rules. Errors: 404 `"Class not found"` (missing or another teacher's class), 422 invalid UUID, 503 database failure.
+Run `python -m pytest tests/backend/test_class_roster.py -v` with `TEST_DATABASE_URL` set.
+
 ### Student class join API
 
 After login, a student can `POST /api/student/classes/join` with `{"class_code": "ABC123DEF456"}` to enrol themselves; the code is trimmed and uppercased.

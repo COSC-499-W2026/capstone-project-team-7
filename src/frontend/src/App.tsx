@@ -1,29 +1,49 @@
 import { useEffect, useState } from 'react'
-
-interface HelloResponse {
-  message: string
-}
+import { getCurrentUser } from './api/currentUser'
+import type { StartGameResult } from './api/game'
+import LoginPage from './pages/LoginPage'
+import StudentDashboard from './pages/StudentDashboard'
 
 export default function App() {
-  const [message, setMessage] = useState('Loading...')
+  const [role, setRole] = useState<string | null>(null)
+  const [checkingLogin, setCheckingLogin] = useState(true)
+  const [game, setGame] = useState<StartGameResult | null>(null)
 
+  // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
-    fetch('/api/hello')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json() as Promise<HelloResponse>
-      })
-      .then((data) => setMessage(data.message))
-      .catch((err: Error) => setMessage(`Could not reach backend: ${err.message}`))
+    getCurrentUser()
+      .then((user) => setRole(user?.role ?? null))
+      .finally(() => setCheckingLogin(false))
   }, [])
 
+  if (checkingLogin) {
+    return <main><p>Loading...</p></main>
+  }
+
+  if (!role) {
+    return <LoginPage onLogin={(result) => setRole(result.role)} />
+  }
+
+  // Placeholder until the clue screen exists.
+  if (game) {
+    return (
+      <main>
+        <h1>Game started</h1>
+        <p>Clue {game.current_position} of {game.total_locations} will show here.</p>
+        <button onClick={() => setGame(null)}>Back to dashboard</button>
+      </main>
+    )
+  }
+
+  if (role === 'student') {
+    return <StudentDashboard onGameStarted={setGame} onLogout={() => setRole(null)} />
+  }
+
+  // Teacher and admin dashboards come later.
   return (
     <main>
-      <p className="eyebrow">Language learning meets adventure</p>
-      <h1>Lost In Translation</h1>
-      <p>Listen, explore, and learn through real-world scavenger hunts.</p>
-      <p>Your React frontend is ready. Gameplay is coming soon.</p>
-      <p>Backend says: {message}</p>
+      <h1>Logged in</h1>
+      <p>You are logged in as a {role}.</p>
     </main>
   )
 }
