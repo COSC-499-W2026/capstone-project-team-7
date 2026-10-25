@@ -9,10 +9,12 @@ from auth import router as auth_router
 from class_enrollment import router as class_enrollment_router
 from class_roster import router as class_roster_router
 from database import get_connection
+from game_session import router as game_session_router
 from password_change import router as password_change_router
 from password_reset import router as password_reset_router
 from student_enrollment import router as student_enrollment_router
 from student_signup import router as student_signup_router
+from student_profile import router as student_profile_router
 from admin_enrollment import router as admin_enrollment_router
 from teacher_signup import router as teacher_signup_router
 from teacher_approval import router as teacher_approval_router
@@ -26,6 +28,7 @@ app.include_router(auth_router)
 app.include_router(password_change_router)
 app.include_router(password_reset_router)
 app.include_router(student_signup_router)
+app.include_router(student_profile_router)
 app.include_router(admin_enrollment_router)
 app.include_router(teacher_approval_router)
 app.include_router(admin_router)
@@ -36,6 +39,7 @@ app.include_router(teacher_deletion_router)
 app.include_router(class_enrollment_router)
 app.include_router(class_roster_router)
 app.include_router(student_enrollment_router)
+app.include_router(game_session_router)
 
 
 @app.get("/api/hello")

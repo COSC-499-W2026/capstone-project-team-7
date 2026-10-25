@@ -104,6 +104,25 @@ uvicorn main:app --app-dir src/backend --reload
 Visit `http://localhost:8000/docs` for the API docs. `GET /api/health/db` checks the database connection.
 This setup starts PostgreSQL and connects the backend. Application tables and migrations are added separately.
 
+### Room-number OCR
+
+Install optional CPU OCR dependencies with
+`pip install -r src/backend/requirements-ocr.txt` in the backend environment.
+Pillow is included in the base requirements so decoding and unit tests work without the models.
+The existing Docker image does not install this optional file yet.
+PaddleOCR downloads model weights on first use; that machine needs internet access
+and a writable model cache. Subsequent calls reuse one engine per Python process.
+
+`utils.ocr.extract_room_numbers(photo_bytes)` accepts JPEG/PNG photos up to 5 MiB
+and 20 million pixels. It returns distinct candidates with confidence at least 0.8.
+`UNC`, `FIP`, `COM`, `ASC`, `ART`, `CCS`, `ADM`, `SCI`, `LIB` require a space and three digits (e.g. `LIB 308`).
+Only `EME` requires four digits (e.g. `EME 0050`); leading zeros are preserved. Other building codes are rejected.
+Letters are uppercased and whitespace normalized; adjacent OCR text boxes can form one identifier.
+No readable number returns `[]`; invalid photos raise `InvalidPhoto` and runtime/model
+failures raise `OCRUnavailable`. Temporary images are deleted after processing.
+Answer matching, scoring, the upload API and frontend integration are outside this change.
+Run `python -m pytest tests/backend/test_ocr.py -q`; unit tests use fake predictions, not real OCR.
+
 Database connection settings are in `.env` (ignored by Git). When changing the database port or credentials,
 update `DATABASE_URL` to match. Docker keeps data in a named volume;
 `docker compose stop` stops the database without deleting data. On an existing volume, changing
@@ -250,6 +269,39 @@ After login, a student can `POST /api/student/classes/join` with `{"class_code":
 Success returns 201 with the class `id`, `name`, and `language_code`. An unknown code returns 404 `"Class not found"`, joining twice returns 409 `"Already enrolled"`, and a blank or over-long code returns 422.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
 Run `python -m pytest tests/backend/test_student_enrollment.py -v` with `TEST_DATABASE_URL` set.
+
+### Game session API
+
+After login, a student can `POST /api/game/start` to start a game. For now every game is French (`fr`) at Basic difficulty.
+The backend picks 5 random locations that have a French clue and saves them in order in `game_sessions` and `game_session_locations`.
+Success returns 201 with `game_id`, `language_code`, `difficulty`, `current_position` (1), and `total_locations` (5); locations and clues are not returned.
+Fewer than 5 French locations returns 409 `"Not enough locations for this language yet"` and saves nothing.
+Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503. Deleting a student keeps their games with no student linked.
+Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE_URL` set.
+
+After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, and `audio_url`.
+`GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the backend (`src/backend/audio/<language>/`) and
+never linked by name, so neither the clue nor the audio link reveals the room number.
+Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
+A missing audio file returns 404 `"Audio not found for this clue"`.
+
+`POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 10 MB).
+Each submit adds 1 to that spot's attempts (students can retry as many times as they like; points will use attempts later).
+A correct answer moves to the next spot; the 5th correct answer finishes the game. Returns `correct`, `attempts`, `finished`, and `next_position`.
+For now every photo counts as correct (`utils/answer_check.py`) until the OCR and GPS checks are added.
+Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished or spot already answered, 503 database failure.
+
+### Demo locations and audio
+
+After running migrations, add the 5 demo locations and their French clues (safe to run again):
+
+```sh
+docker compose exec backend python -m utils.seed_locations   # or: cd src/backend && python -m utils.seed_locations
+```
+
+The French audio clues live in `src/backend/audio/fr/`, named by building and room (e.g. `COM-316.mp3`).
+To remake them: `pip install edge-tts`, then `cd src/backend && python -m utils.generate_audio`.
+Tests: `python -m pytest tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
 
 ### Current user API
 
