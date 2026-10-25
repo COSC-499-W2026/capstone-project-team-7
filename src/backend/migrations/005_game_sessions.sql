@@ -1,7 +1,7 @@
--- Games outlive a deleted student account so teacher records are kept.
+-- Students with games can't be hard-deleted, so teachers always know whose game it was.
 CREATE TABLE game_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    student_id UUID REFERENCES students (user_id) ON DELETE SET NULL,
+    student_id UUID REFERENCES students (user_id),
     language_code VARCHAR(5) NOT NULL REFERENCES languages (code),
     difficulty TEXT NOT NULL CHECK (difficulty IN ('basic', 'advanced', 'expert')),
     current_position SMALLINT NOT NULL DEFAULT 1 CHECK (current_position BETWEEN 1 AND 5),
