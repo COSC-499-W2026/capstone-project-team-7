@@ -28,13 +28,13 @@ export default function App() {
     return <LoginPage onLogin={(result) => setRole(result.role)} />
   }
 
-  // The photo isn't sent anywhere yet; submitting answers comes in the next PR.
   if (game && photoFor) {
     return (
       <PhotoSubmitPage
+        gameId={game.game_id}
         spotNumber={photoFor.position}
         totalSpots={photoFor.total_locations}
-        onSubmit={() => setPhotoFor(null)}
+        onVerified={(result) => { setPhotoFor(null); if (result.finished) setGame(null) }}
         onClose={() => setPhotoFor(null)}
       />
     )

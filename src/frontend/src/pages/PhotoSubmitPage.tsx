@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { submitAnswer, type AnswerResult } from '../api/answer'
+import VerificationResult from './VerificationResult'
 
 // Turns a camera error into a message the player can act on
 export function cameraErrorMessage(error: unknown) {
@@ -9,14 +11,19 @@ export function cameraErrorMessage(error: unknown) {
 }
 
 interface PhotoSubmitPageProps {
+  gameId: string
   spotNumber: number
   totalSpots: number
-  onSubmit: (photo: File) => void
+  onVerified: (result: AnswerResult) => void
   onClose: () => void
 }
 
-export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onClose }: PhotoSubmitPageProps) {
+export default function PhotoSubmitPage({ gameId, spotNumber, totalSpots, onVerified, onClose }: PhotoSubmitPageProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const inFlight = useRef(false)
+  const [sending, setSending] = useState(false)
+  const [verification, setVerification] = useState<AnswerResult | null>(null)
+  const [submitError, setSubmitError] = useState('')
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraAttempt, setCameraAttempt] = useState(0)
   const [photo, setPhoto] = useState<File | null>(null)
@@ -69,6 +76,8 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onCl
   }
 
   function retake() {
+    setVerification(null)
+    setSubmitError('')
     setPhoto(null)
     setPreviewUrl('')
   }
@@ -78,10 +87,25 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onCl
     setCameraAttempt(cameraAttempt + 1)
   }
 
+  async function verifyPhoto() {
+    if (!photo || inFlight.current) return
+    inFlight.current = true
+    setSending(true)
+    setSubmitError('')
+    setVerification(null)
+    try { setVerification(await submitAnswer(gameId, photo)) }
+    catch (err) { setSubmitError(err instanceof Error ? err.message : 'Could not verify your photo. Please try again.') }
+    finally { inFlight.current = false; setSending(false) }
+  }
+
+  if (verification?.correct) {
+    return <main className="screen"><VerificationResult result={verification} onContinue={() => onVerified(verification)} /></main>
+  }
+
   return (
     <main className="screen photo-page">
       <header className="photo-header">
-        <button className="photo-close" type="button" aria-label="Close" onClick={onClose}>
+        <button className="photo-close" type="button" aria-label="Close" onClick={onClose} disabled={sending}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
@@ -91,7 +115,7 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onCl
 
       <div className="photo-title">
         <h1>Snap the room number</h1>
-        <p className="subtitle">Fill the frame with the number on the sign and hold your phone steady.</p>
+        <p className="subtitle">Include the building code and room number on the sign, and hold your phone steady.</p>
       </div>
 
       <div className="photo-frame">
@@ -123,6 +147,8 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onCl
       </div>
 
       {error && <p className="error-message" role="alert">{error}</p>}
+      {submitError && <p className="error-message" role="alert">{submitError}</p>}
+      {verification && <VerificationResult result={verification} onContinue={() => onVerified(verification)} />}
 
       <div className="photo-actions">
         {error ? (
@@ -131,11 +157,11 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onCl
           </button>
         ) : photo ? (
           <>
-            <button className="game-button game-button--white" type="button" onClick={retake}>
+            <button className="game-button game-button--white" type="button" onClick={retake} disabled={sending}>
               Retake photo
             </button>
-            <button className="game-button" type="button" onClick={() => onSubmit(photo)}>
-              Submit photo
+            <button className="game-button" type="button" onClick={verifyPhoto} disabled={sending} aria-busy={sending}>
+              {sending ? 'Checking room...' : 'Submit photo'}
             </button>
           </>
         ) : (

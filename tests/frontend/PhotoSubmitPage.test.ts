@@ -4,7 +4,7 @@ import PhotoSubmitPage, { cameraErrorMessage } from '../../src/frontend/src/page
 
 function renderPhotoPage() {
   return renderToStaticMarkup(createElement(PhotoSubmitPage, {
-    spotNumber: 2, totalSpots: 5, onSubmit: () => {}, onClose: () => {},
+    gameId: 'abc', spotNumber: 2, totalSpots: 5, onVerified: () => {}, onClose: () => {},
   }))
 }
 
