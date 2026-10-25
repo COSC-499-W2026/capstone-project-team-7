@@ -5,7 +5,7 @@ The backend cannot obtain a phone's GPS directly; a future browser client must
 request location permission and send a location reading with an answer.
 GPS collection, student UI, maps, and teacher tracking are outside this change.
 
-Migration `005_location_coordinates.sql` adds nullable latitude, longitude and
+Migration `006_location_coordinates.sql` adds nullable latitude, longitude and
 radius_metres to locations. Set all three together using measured campus data;
 existing rows remain unconfigured. No campus coordinates or radius are guessed.
 
