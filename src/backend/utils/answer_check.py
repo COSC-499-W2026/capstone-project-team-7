@@ -1,4 +1,4 @@
-"""Compare recognized room identifiers with the server's current target."""
+"""Decide whether a student's photo answers the current clue."""
 
 from utils.ocr import extract_room_numbers
 

@@ -109,7 +109,7 @@ This setup starts PostgreSQL and connects the backend. Application tables and mi
 Install optional CPU OCR dependencies with
 `pip install -r src/backend/requirements-ocr.txt` in the backend environment.
 Pillow is included in the base requirements so decoding and unit tests work without the models.
-The existing Docker image does not install this optional file yet.
+Docker installs OCR and native libraries; rebuild/restart with `docker compose up -d --build backend` before the demo.
 PaddleOCR downloads model weights on first use; that machine needs internet access
 and a writable model cache. Subsequent calls reuse one engine per Python process.
 
