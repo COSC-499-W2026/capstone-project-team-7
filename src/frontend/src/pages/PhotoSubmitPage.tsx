@@ -11,11 +11,12 @@ export function cameraErrorMessage(error: unknown) {
 interface PhotoSubmitPageProps {
   spotNumber: number
   totalSpots: number
+  sending?: boolean
   onSubmit: (photo: File) => void
   onClose: () => void
 }
 
-export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onClose }: PhotoSubmitPageProps) {
+export default function PhotoSubmitPage({ spotNumber, totalSpots, sending = false, onSubmit, onClose }: PhotoSubmitPageProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraAttempt, setCameraAttempt] = useState(0)
@@ -81,7 +82,7 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onCl
   return (
     <main className="screen photo-page">
       <header className="photo-header">
-        <button className="photo-close" type="button" aria-label="Close" onClick={onClose}>
+        <button className="photo-close" type="button" aria-label="Close" onClick={onClose} disabled={sending}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
@@ -131,11 +132,11 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, onSubmit, onCl
           </button>
         ) : photo ? (
           <>
-            <button className="game-button game-button--white" type="button" onClick={retake}>
+            <button className="game-button game-button--white" type="button" onClick={retake} disabled={sending}>
               Retake photo
             </button>
-            <button className="game-button" type="button" onClick={() => onSubmit(photo)}>
-              Submit photo
+            <button className="game-button" type="button" onClick={() => onSubmit(photo)} disabled={sending}>
+              {sending ? 'Sending...' : 'Submit photo'}
             </button>
           </>
         ) : (

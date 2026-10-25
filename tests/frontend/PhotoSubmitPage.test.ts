@@ -2,9 +2,9 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import PhotoSubmitPage, { cameraErrorMessage } from '../../src/frontend/src/pages/PhotoSubmitPage'
 
-function renderPhotoPage() {
+function renderPhotoPage(sending = false) {
   return renderToStaticMarkup(createElement(PhotoSubmitPage, {
-    spotNumber: 2, totalSpots: 5, onSubmit: () => {}, onClose: () => {},
+    spotNumber: 2, totalSpots: 5, sending, onSubmit: () => {}, onClose: () => {},
   }))
 }
 
@@ -20,6 +20,11 @@ test('the take photo button waits until the camera is ready', () => {
   expect(html).toContain('Starting camera...')
   expect(html).toContain('disabled=""')
   expect(html).not.toContain('Submit photo')
+})
+
+test('the close button is disabled while a photo is sending', () => {
+  expect(renderPhotoPage()).toContain('aria-label="Close"><svg')
+  expect(renderPhotoPage(true)).toContain('aria-label="Close" disabled=""><svg')
 })
 
 test('blocking camera access explains why the camera is needed', () => {
