@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import { submitAnswer } from './api/answer'
 import type { Clue } from './api/clue'
 import { getCurrentUser } from './api/currentUser'
 import type { StartGameResult } from './api/game'
+import { SessionEndedError } from './api/sessionEnded'
+import FinishedScreen from './pages/FinishedScreen'
 import GameScreen from './pages/GameScreen'
 import LoginPage from './pages/LoginPage'
 import PhotoSubmitPage from './pages/PhotoSubmitPage'
@@ -12,6 +15,9 @@ export default function App() {
   const [checkingLogin, setCheckingLogin] = useState(true)
   const [game, setGame] = useState<StartGameResult | null>(null)
   const [photoFor, setPhotoFor] = useState<Clue | null>(null)
+  const [notice, setNotice] = useState('')
+  const [finished, setFinished] = useState(false)
+  const [sending, setSending] = useState(false)
 
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
@@ -25,8 +31,33 @@ export default function App() {
   const sessionEnded = useCallback(() => {
     setGame(null)
     setPhotoFor(null)
+    setNotice('')
+    setFinished(false)
     setRole(null)
   }, [])
+
+  function backToDashboard() {
+    setGame(null)
+    setPhotoFor(null)
+    setNotice('')
+    setFinished(false)
+  }
+
+  async function handlePhoto(photo: File) {
+    if (!game) return
+    setSending(true)
+    try {
+      const result = await submitAnswer(game.game_id, photo)
+      if (result.finished) setFinished(true)
+      else setNotice(result.correct ? 'Correct! On to the next spot.' : 'Not quite, try again.')
+    } catch (err) {
+      if (err instanceof SessionEndedError) sessionEnded()
+      else setNotice((err as Error).message)
+    } finally {
+      setSending(false)
+    }
+    setPhotoFor(null)
+  }
 
   if (checkingLogin) {
     return <main><p>Loading...</p></main>
@@ -36,13 +67,17 @@ export default function App() {
     return <LoginPage onLogin={(result) => setRole(result.role)} />
   }
 
-  // The photo isn't sent anywhere yet; submitting answers comes in the next PR.
+  if (game && finished) {
+    return <FinishedScreen totalSpots={game.total_locations} onBack={backToDashboard} />
+  }
+
   if (game && photoFor) {
     return (
       <PhotoSubmitPage
         spotNumber={photoFor.position}
         totalSpots={photoFor.total_locations}
-        onSubmit={() => setPhotoFor(null)}
+        sending={sending}
+        onSubmit={handlePhoto}
         onClose={() => setPhotoFor(null)}
       />
     )
@@ -52,8 +87,9 @@ export default function App() {
     return (
       <GameScreen
         gameId={game.game_id}
-        onSubmitPhoto={setPhotoFor}
-        onBack={() => setGame(null)}
+        notice={notice}
+        onSubmitPhoto={(clue) => { setNotice(''); setPhotoFor(clue) }}
+        onBack={backToDashboard}
         onSessionEnded={sessionEnded}
       />
     )

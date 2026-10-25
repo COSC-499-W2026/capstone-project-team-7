@@ -4,12 +4,13 @@ import { SessionEndedError } from '../api/sessionEnded'
 
 interface Props {
   gameId: string
+  notice?: string
   onSubmitPhoto: (clue: Clue) => void
   onBack: () => void
   onSessionEnded: () => void
 }
 
-export default function GameScreen({ gameId, onSubmitPhoto, onBack, onSessionEnded }: Props) {
+export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSessionEnded }: Props) {
   const [clue, setClue] = useState<Clue | null>(null)
   const [error, setError] = useState('')
 
@@ -40,6 +41,7 @@ export default function GameScreen({ gameId, onSubmitPhoto, onBack, onSessionEnd
 
   return (
     <main>
+      {notice && <p role="status">{notice}</p>}
       <h1>Spot {clue.position} of {clue.total_locations}</h1>
       <p>Building: {clue.building}</p>
 
