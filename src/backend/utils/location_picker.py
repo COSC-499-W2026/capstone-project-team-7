@@ -10,7 +10,9 @@ class NotEnoughLocations(ValueError):
 
 
 def pick_locations(pool, rng=random):
-    """Return LOCATIONS_PER_HUNT distinct locations from pool in a random order."""
+    """Return LOCATIONS_PER_HUNT distinct location ids from pool in a random order.
+       Pool must be a list of location ids, not full location rows.
+    """
     # A repeated id in the pool must not become a repeated location in the hunt.
     distinct = list(dict.fromkeys(pool))
     if len(distinct) < LOCATIONS_PER_HUNT:
