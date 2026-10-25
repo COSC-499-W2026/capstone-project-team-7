@@ -148,3 +148,106 @@ def test_start_database_failure_is_safe(client, monkeypatch):
         app.dependency_overrides.clear()
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
+
+
+def clue_url(game_id):
+    return f"/api/game/{game_id}/clue"
+
+
+def start(client):
+    add_locations(5, "fr")
+    login(client)
+    return client.post(URL).json()["game_id"]
+
+
+def test_student_gets_first_clue_without_the_room_number(game_db, client):
+    game_id = start(client)
+    response = client.get(clue_url(game_id))
+    assert response.status_code == 200
+    assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
+                               "audio_url": f"/api/game/{game_id}/clue/audio?position=1"}
+
+
+def test_clue_audio_plays_the_current_rooms_file(game_db, client, tmp_path, monkeypatch):
+    game_id = start(client)
+    with get_connection() as db:
+        room = db.execute("""SELECT locations.room_number FROM game_session_locations
+            JOIN locations ON locations.id = game_session_locations.location_id
+            WHERE game_session_id = %s AND position = 1""", (game_id,)).fetchone()["room_number"]
+    (tmp_path / "fr").mkdir()
+    (tmp_path / "fr" / f"EME-{room}.mp3").write_bytes(b"fake mp3")
+    monkeypatch.setattr(game_session, "AUDIO_FOLDER", tmp_path / "fr")
+    response = client.get(clue_url(game_id) + "/audio")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/mpeg"
+    assert response.content == b"fake mp3"
+
+
+def test_missing_audio_file_is_not_found(game_db, client, tmp_path, monkeypatch):
+    game_id = start(client)
+    monkeypatch.setattr(game_session, "AUDIO_FOLDER", tmp_path / "fr")
+    response = client.get(clue_url(game_id) + "/audio")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Audio not found for this clue"}
+
+
+def test_other_students_game_audio_is_not_found(game_db, client):
+    login(client)
+    assert client.get(clue_url(uuid4()) + "/audio").status_code == 404
+
+
+def test_clue_follows_current_position(game_db, client):
+    game_id = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET current_position = 3 WHERE id = %s", (game_id,))
+    assert client.get(clue_url(game_id)).json()["position"] == 3
+
+
+def test_other_students_game_is_not_found(game_db, client):
+    game_id = start(client)
+    with get_connection() as db:
+        other = db.execute("""INSERT INTO users (email, username, password, first_name, last_name, role)
+            VALUES ('other@example.com', 'other', 'hash', 'O', 'S', 'student') RETURNING id""").fetchone()["id"]
+        db.execute("INSERT INTO students (user_id, student_number) VALUES (%s, '87654321')", (other,))
+        db.execute("UPDATE game_sessions SET student_id = %s WHERE id = %s", (other, game_id))
+    for missing in [game_id, uuid4()]:
+        response = client.get(clue_url(missing))
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Game not found"}
+
+
+def test_finished_game_has_no_clue(game_db, client):
+    game_id = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET finished_at = now() WHERE id = %s", (game_id,))
+    response = client.get(clue_url(game_id))
+    assert response.status_code == 409
+    assert response.json() == {"detail": "This game is already finished"}
+
+
+@pytest.mark.parametrize("role,status", [(None, 401), ("teacher", 403), ("admin", 403)])
+def test_clue_requires_student(game_db, client, role, status):
+    if role:
+        login(client, role)
+    assert client.get(clue_url(uuid4())).status_code == status
+
+
+def test_invalid_game_id_is_rejected(client):
+    app.dependency_overrides[game_session.require_student] = lambda: {"id": uuid4(), "role": "student"}
+    try:
+        assert client.get(clue_url("not-a-uuid")).status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_clue_database_failure_is_safe(client, monkeypatch):
+    def unavailable():
+        raise psycopg.OperationalError("private database details")
+    app.dependency_overrides[game_session.require_student] = lambda: {"id": uuid4(), "role": "student"}
+    monkeypatch.setattr(game_session, "get_connection", unavailable)
+    try:
+        response = client.get(clue_url(uuid4()))
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
