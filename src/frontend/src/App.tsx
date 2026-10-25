@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Clue } from './api/clue'
 import { getCurrentUser } from './api/currentUser'
 import type { StartGameResult } from './api/game'
@@ -18,6 +18,14 @@ export default function App() {
     getCurrentUser()
       .then((user) => setRole(user?.role ?? null))
       .finally(() => setCheckingLogin(false))
+  }, [])
+
+  // The login session ended mid-game, so drop the game and show the login page.
+  // useCallback keeps it the same function, so GameScreen doesn't reload the clue on every render.
+  const sessionEnded = useCallback(() => {
+    setGame(null)
+    setPhotoFor(null)
+    setRole(null)
   }, [])
 
   if (checkingLogin) {
@@ -41,7 +49,14 @@ export default function App() {
   }
 
   if (game) {
-    return <GameScreen gameId={game.game_id} onSubmitPhoto={setPhotoFor} onBack={() => setGame(null)} />
+    return (
+      <GameScreen
+        gameId={game.game_id}
+        onSubmitPhoto={setPhotoFor}
+        onBack={() => setGame(null)}
+        onSessionEnded={sessionEnded}
+      />
+    )
   }
 
   if (role === 'student') {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { startGame, type StartGameResult } from '../api/game'
 import { logout } from '../api/logout'
+import { SessionEndedError } from '../api/sessionEnded'
 
 interface Props {
   onGameStarted: (game: StartGameResult) => void
@@ -20,7 +21,8 @@ export default function StudentDashboard({ onGameStarted, onLogout }: Props) {
     try {
       await action()
     } catch (err) {
-      setError((err as Error).message)
+      if (err instanceof SessionEndedError) onLogout()
+      else setError((err as Error).message)
     } finally {
       setBusy(false)
     }
