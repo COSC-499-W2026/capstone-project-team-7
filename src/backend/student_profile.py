@@ -1,7 +1,5 @@
 """Read the signed-in student's own account details."""
 
-from uuid import UUID
-
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -12,10 +10,7 @@ router = APIRouter(prefix="/api/student/profile", tags=["student"])
 
 
 @router.get("", summary="Read your student profile")
-@router.get("/{student_id}", summary="Read your own student profile by ID")
-def profile(student_id: UUID | None = None, user=Depends(require_student)):
-    if student_id is not None and student_id != UUID(str(user["id"])):
-        raise HTTPException(status_code=403, detail="You can only access your own profile")
+def profile(user=Depends(require_student)):
     try:
         with get_connection() as connection:
             account = connection.execute(

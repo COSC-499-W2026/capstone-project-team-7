@@ -34,19 +34,23 @@ def client(monkeypatch):
     app.dependency_overrides.clear()
 
 
-def test_empty_profile_and_own_id(client):
+def test_empty_profile(client):
     response = client.get(URL)
     assert response.status_code == 200
-    assert response.json() == client.get(URL + "/" + str(USER["id"])).json()
     assert response.json()["username"] == "learner"
     assert response.json()["profile_icon"] is None
     assert response.json()["classes"] == response.json()["languages"] == []
 
 
-def test_other_students_profile_is_forbidden(client):
-    response = client.get(URL + "/" + str(uuid4()))
-    assert response.status_code == 403
-    assert response.json() == {"detail": "You can only access your own profile"}
+@pytest.mark.parametrize("student_id", [str(USER["id"]), str(uuid4()), "invalid"])
+def test_id_based_profile_route_does_not_exist(client, student_id):
+    assert client.get(URL + "/" + student_id).status_code == 404
+
+
+def test_query_cannot_select_another_student(client):
+    response = client.get(URL, params={"student_id": str(uuid4())})
+    assert response.status_code == 200
+    assert response.json()["username"] == "learner"
 
 
 @pytest.mark.parametrize("role", ["teacher", "admin"])
@@ -61,10 +65,6 @@ def test_missing_and_invalid_sessions(client, monkeypatch):
     monkeypatch.setattr(auth, "get_connection", FakeConnection(None))
     client.cookies.set("session", "invalid")
     assert client.get(URL).status_code == 401
-
-
-def test_invalid_id(client):
-    assert client.get(URL + "/invalid").status_code == 422
 
 
 def test_missing_student_record(client, monkeypatch):
