@@ -124,14 +124,16 @@ def test_start_requires_student(game_db, client, role, status):
     assert game_count() == 0
 
 
-def test_deleting_student_keeps_game(game_db, client):
+def test_student_with_game_cannot_be_deleted(game_db, client):
     add_locations(5, "fr")
     login(client)
     game_id = client.post(URL).json()["game_id"]
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        with get_connection() as db:
+            db.execute("DELETE FROM users WHERE id = %s", (game_db,))
     with get_connection() as db:
-        db.execute("DELETE FROM users WHERE id = %s", (game_db,))
         game = db.execute("SELECT student_id FROM game_sessions WHERE id = %s", (game_id,)).fetchone()
-    assert game["student_id"] is None
+    assert game["student_id"] == game_db
     assert len(game_locations(game_id)) == 5
 
 
@@ -163,7 +165,7 @@ def test_student_gets_first_clue_without_the_room_number(game_db, client):
     response = client.get(clue_url(game_id))
     assert response.status_code == 200
     assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
-                               "audio_url": f"/api/game/{game_id}/clue/audio"}
+                               "audio_url": f"/api/game/{game_id}/clue/audio?position=1"}
 
 
 def test_clue_audio_plays_the_current_rooms_file(game_db, client, tmp_path, monkeypatch):

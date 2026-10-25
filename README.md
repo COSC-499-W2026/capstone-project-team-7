@@ -238,6 +238,12 @@ Only teachers can enroll, and only into classes they own. Errors: 401 no session
 Same auth rules. Errors: 404 `"Class not found"`, 404 `"Student not enrolled"`, 422 invalid UUID, 503 database failure.
 Run `python -m pytest tests/backend/test_class_enrollment.py -v` with `TEST_DATABASE_URL` set.
 
+### Class roster API
+
+`GET /api/teacher/classes/{uuid}/students` lists the enrolled students, ordered by lastname. Each has `student_id`, `username`, `first_name`, `last_name`, and `student_number`.
+A class with no students returns `[]`. Same auth rules. Errors: 404 `"Class not found"` (missing or another teacher's class), 422 invalid UUID, 503 database failure.
+Run `python -m pytest tests/backend/test_class_roster.py -v` with `TEST_DATABASE_URL` set.
+
 ### Student class join API
 
 After login, a student can `POST /api/student/classes/join` with `{"class_code": "ABC123DEF456"}` to enrol themselves; the code is trimmed and uppercased.
@@ -255,7 +261,7 @@ Missing/invalid/expired sessions return 401, non-students get 403, and database 
 Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE_URL` set.
 
 After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, and `audio_url`.
-`GET /api/game/{game_id}/clue/audio` plays that clue's audio. Audio files are kept in the backend (`src/backend/audio/<language>/`) and
+`GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the backend (`src/backend/audio/<language>/`) and
 never linked by name, so neither the clue nor the audio link reveals the room number.
 Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
 A missing audio file returns 404 `"Audio not found for this clue"`.
