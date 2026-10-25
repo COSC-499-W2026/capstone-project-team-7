@@ -22,7 +22,9 @@ queries filtering clues by language alone. If those are added, add an index on
 `location_clues(language_code)` in a new numbered migration.
 
 This migration is independent of difficulty definitions. Clue selection, audio,
-GPS coordinates, sessions, and management endpoints remain future work.
+GPS coordinates are added by migration `006_location_coordinates.sql`; see
+[GPS location validation](gps-location.md). Sessions and management endpoints
+remain future work.
 
 ## Picking locations for a hunt
 
