@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { startGame } from '../../src/frontend/src/api/game'
 import { logout } from '../../src/frontend/src/api/logout'
+import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 
 // Pretend to be the backend so the tests don't need a real server.
 function fakeBackend(status: number, body: unknown = {}) {
@@ -31,9 +32,10 @@ test('start game explains when there are not enough locations', async () => {
   await expect(startGame()).rejects.toThrow('Not enough locations for this language yet')
 })
 
-test('start game asks to log in again when the session ended', async () => {
+test('start game says the session ended so the app can show the login page', async () => {
   fakeBackend(401)
 
+  await expect(startGame()).rejects.toThrow(SessionEndedError)
   await expect(startGame()).rejects.toThrow('Please log in again')
 })
 
@@ -41,6 +43,7 @@ test('start game shows a general message for server problems', async () => {
   fakeBackend(503)
 
   await expect(startGame()).rejects.toThrow('Could not start a game')
+  await expect(startGame()).rejects.not.toBeInstanceOf(SessionEndedError)
 })
 
 test('logout calls the logout endpoint', async () => {

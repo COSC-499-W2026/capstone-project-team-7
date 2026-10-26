@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { getClue } from '../../src/frontend/src/api/clue'
+import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 
 // Pretend to be the backend so the tests don't need a real server.
 function fakeBackend(status: number, body: unknown = {}) {
@@ -24,9 +25,10 @@ test('gets the current clue for the game', async () => {
   expect(fetchMock).toHaveBeenCalledWith('/api/game/abc/clue')
 })
 
-test('asks to log in again when the session ended', async () => {
+test('says the session ended so the app can show the login page', async () => {
   fakeBackend(401)
 
+  await expect(getClue('abc')).rejects.toThrow(SessionEndedError)
   await expect(getClue('abc')).rejects.toThrow('Please log in again')
 })
 
@@ -34,6 +36,7 @@ test('says when the game does not exist or is not yours', async () => {
   fakeBackend(404)
 
   await expect(getClue('abc')).rejects.toThrow('Game not found')
+  await expect(getClue('abc')).rejects.not.toBeInstanceOf(SessionEndedError)
 })
 
 test('says when the game is already finished', async () => {

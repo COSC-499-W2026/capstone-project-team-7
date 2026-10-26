@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { submitAnswer } from './api/answer'
 import type { Clue } from './api/clue'
 import { getCurrentUser } from './api/currentUser'
 import type { StartGameResult } from './api/game'
+import { SessionEndedError } from './api/sessionEnded'
 import FinishedScreen from './pages/FinishedScreen'
 import GameScreen from './pages/GameScreen'
 import LoginPage from './pages/LoginPage'
@@ -27,6 +28,17 @@ export default function App() {
       .finally(() => setCheckingLogin(false))
   }, [])
 
+  // The login session ended mid-game, so drop the game and show the login page.
+  // useCallback keeps it the same function, so GameScreen doesn't reload the clue on every render.
+  const sessionEnded = useCallback(() => {
+    setGame(null)
+    setPhotoFor(null)
+    setNotice('')
+    setFinished(false)
+    setTotalPoints(0)
+    setRole(null)
+  }, [])
+
   function backToDashboard() {
     setGame(null)
     setPhotoFor(null)
@@ -47,7 +59,8 @@ export default function App() {
       if (result.finished) setFinished(true)
       if (result.correct) setPhotoFor(null)
     } catch (err) {
-      setNotice((err as Error).message)
+      if (err instanceof SessionEndedError) sessionEnded()
+      else setNotice((err as Error).message)
     } finally {
       inFlight.current = false
       setSending(false)
@@ -86,6 +99,7 @@ export default function App() {
         notice={notice}
         onSubmitPhoto={(clue) => { setNotice(''); setPhotoFor(clue) }}
         onBack={backToDashboard}
+        onSessionEnded={sessionEnded}
       />
     )
   }

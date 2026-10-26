@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { getClue, type Clue } from '../api/clue'
+import { SessionEndedError } from '../api/sessionEnded'
 
 interface Props {
   gameId: string
   notice?: string
   onSubmitPhoto: (clue: Clue) => void
   onBack: () => void
+  onSessionEnded: () => void
 }
 
-export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack }: Props) {
+export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSessionEnded }: Props) {
   const [clue, setClue] = useState<Clue | null>(null)
   const [error, setError] = useState('')
 
@@ -16,9 +18,13 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack }: Pr
     let leftPage = false // don't update the page if the student already left it
     getClue(gameId)
       .then((result) => { if (!leftPage) setClue(result) })
-      .catch((err: Error) => { if (!leftPage) setError(err.message) })
+      .catch((err: Error) => {
+        if (leftPage) return
+        if (err instanceof SessionEndedError) onSessionEnded()
+        else setError(err.message)
+      })
     return () => { leftPage = true }
-  }, [gameId])
+  }, [gameId, onSessionEnded])
 
   if (error) {
     return (

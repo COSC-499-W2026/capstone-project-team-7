@@ -1,3 +1,7 @@
+// Sends the student's photo for the current spot and gets back whether it was right.
+
+import { SessionEndedError } from './sessionEnded'
+
 export interface AnswerResult {
   correct: boolean
   attempts: number
@@ -14,7 +18,7 @@ export async function submitAnswer(gameId: string, photo: File): Promise<AnswerR
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': photo.type || 'image/jpeg' }, body: photo,
   }).catch(() => { throw new Error('Could not send your photo. Please try again.') })
-  if (res.status === 401) throw new Error('Please log in again')
+  if (res.status === 401) throw new SessionEndedError()
   const body = await res.json().catch(() => null)
   if (!res.ok) throw new Error(typeof body?.detail === 'string' ? body.detail : 'Could not verify your photo. Please try again.')
   if (!body || typeof body.correct !== 'boolean' || typeof body.finished !== 'boolean' ||

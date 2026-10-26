@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { submitAnswer, type AnswerResult } from '../../src/frontend/src/api/answer'
+import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 
 const photo = new File(['photo'], 'room.jpg', { type: 'image/jpeg' })
 const correct: AnswerResult = { correct: true, attempts: 1, finished: false, next_position: 2,
@@ -31,6 +32,16 @@ test.each([[401, {}, 'Please log in again'], [413, { detail: 'Photo is too large
     backend(status as number, body)
     await expect(submitAnswer('abc', photo)).rejects.toThrow(message as string)
   })
+
+test('says the session ended so the app can show the login page', async () => {
+  backend(401, {})
+  await expect(submitAnswer('abc', photo)).rejects.toThrow(SessionEndedError)
+})
+
+test('other photo errors do not log the student out', async () => {
+  backend(413, { detail: 'Photo is too large' })
+  await expect(submitAnswer('abc', photo)).rejects.not.toBeInstanceOf(SessionEndedError)
+})
 
 test('a network failure allows a retry instead of showing success', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
