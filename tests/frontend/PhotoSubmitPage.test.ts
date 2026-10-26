@@ -1,5 +1,6 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import FinishedScreen from '../../src/frontend/src/pages/FinishedScreen'
 import PhotoSubmitPage, { cameraErrorMessage } from '../../src/frontend/src/pages/PhotoSubmitPage'
 
 function renderPhotoPage(sending = false) {
@@ -38,4 +39,12 @@ test('a device with no camera says so', () => {
 test('any other camera problem asks the player to try again', () => {
   expect(cameraErrorMessage({ name: 'NotReadableError' })).toBe("Your camera couldn't start. Please try again.")
   expect(cameraErrorMessage(null)).toBe("Your camera couldn't start. Please try again.")
+})
+
+
+test('the existing finish screen shows server-awarded points', () => {
+  const html = renderToStaticMarkup(createElement(FinishedScreen, { totalSpots: 5, totalPoints: 50, onBack: () => {} }))
+  expect(html).toContain('You found all 5 spots.')
+  expect(html).toContain('Total: 50 points.')
+  expect(html).toContain('Back to dashboard')
 })

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { submitAnswer } from './api/answer'
 import type { Clue } from './api/clue'
 import { getCurrentUser } from './api/currentUser'
@@ -17,6 +17,8 @@ export default function App() {
   const [notice, setNotice] = useState('')
   const [finished, setFinished] = useState(false)
   const [sending, setSending] = useState(false)
+  const inFlight = useRef(false)
+  const [totalPoints, setTotalPoints] = useState(0)
 
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
@@ -30,21 +32,26 @@ export default function App() {
     setPhotoFor(null)
     setNotice('')
     setFinished(false)
+    setTotalPoints(0)
   }
 
   async function handlePhoto(photo: File) {
-    if (!game) return
+    if (!game || inFlight.current) return
+    inFlight.current = true
+    setNotice('')
     setSending(true)
     try {
       const result = await submitAnswer(game.game_id, photo)
+      setTotalPoints(result.total_points)
+      setNotice(`${result.message} ${result.points_awarded} points awarded. Total: ${result.total_points} points.`)
       if (result.finished) setFinished(true)
-      else setNotice(result.correct ? 'Correct! On to the next spot.' : 'Not quite, try again.')
+      if (result.correct) setPhotoFor(null)
     } catch (err) {
       setNotice((err as Error).message)
     } finally {
+      inFlight.current = false
       setSending(false)
     }
-    setPhotoFor(null)
   }
 
   if (checkingLogin) {
@@ -56,7 +63,7 @@ export default function App() {
   }
 
   if (game && finished) {
-    return <FinishedScreen totalSpots={game.total_locations} onBack={backToDashboard} />
+    return <FinishedScreen totalSpots={game.total_locations} totalPoints={totalPoints} onBack={backToDashboard} />
   }
 
   if (game && photoFor) {
@@ -65,6 +72,7 @@ export default function App() {
         spotNumber={photoFor.position}
         totalSpots={photoFor.total_locations}
         sending={sending}
+        notice={notice}
         onSubmit={handlePhoto}
         onClose={() => setPhotoFor(null)}
       />
