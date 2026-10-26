@@ -11,6 +11,7 @@ from difficulties import Difficulty
 from student_enrollment import require_student
 from teacher_access import database_unavailable
 from utils.answer_check import check_answer
+from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
 from utils.generate_audio import AUDIO_FOLDER, audio_filename
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
 
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/api/game", tags=["game"])
 # The demo game is always French Basic until students can choose.
 LANGUAGE = "fr"
 DIFFICULTY = Difficulty.BASIC
-MAX_PHOTO_BYTES = 10 * 1024 * 1024
+POINTS_PER_LOCATION = 10
 
 
 @router.post("/start", status_code=201, summary="Start a game with five random locations")
@@ -103,46 +104,58 @@ def current_clue_audio(game_id: UUID, user=Depends(require_student)):
 
 async def read_photo(request: Request):
     """The photo sent as the request body (e.g. image/jpeg)."""
-    photo = await request.body()
+    photo = bytearray()
+    async for chunk in request.stream():
+        if len(photo) + len(chunk) > MAX_PHOTO_BYTES:
+            raise HTTPException(status_code=413, detail="Photo is too large")
+        photo.extend(chunk)
     if not photo:
         raise HTTPException(status_code=422, detail="Please take a photo of the room number")
-    if len(photo) > MAX_PHOTO_BYTES:
-        raise HTTPException(status_code=413, detail="Photo is too large")
-    return photo
+    return bytes(photo)
 
 
 @router.post("/{game_id}/answer", summary="Submit a photo for the current spot")
-def submit_answer(game_id: UUID, photo=Depends(read_photo), user=Depends(require_student)):
+def submit_answer(game_id: UUID, user=Depends(require_student), photo=Depends(read_photo)):
     location = current_location(game_id, user["id"])
     position = location["current_position"]
-    correct = check_answer(photo, location)
+    try:
+        correct = check_answer(photo, location)
+    except InvalidPhoto as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    except OCRUnavailable:
+        raise HTTPException(status_code=503, detail="Photo recognition is unavailable. Please try again later.") from None
+    awarded = POINTS_PER_LOCATION if correct else 0
     try:
         with get_connection() as connection:
-            game = None
-            if correct:
-                # Only moves on if nobody else answered this spot first (e.g. a double tap).
-                game = connection.execute(
-                    """UPDATE game_sessions
-                    SET current_position = LEAST(current_position + 1, %s),
-                        finished_at = CASE WHEN current_position = %s THEN now() END
-                    WHERE id = %s AND current_position = %s AND finished_at IS NULL
-                    RETURNING current_position, finished_at""",
-                    (LOCATIONS_PER_HUNT, LOCATIONS_PER_HUNT, game_id, position),
-                ).fetchone()
-                if game is None:
-                    raise HTTPException(status_code=409, detail="This spot was already answered")
+            # Gate both correct and incorrect submissions on the target that OCR checked.
+            game = connection.execute(
+                """UPDATE game_sessions
+                SET current_position = LEAST(current_position + %s, %s), points = points + %s,
+                    finished_at = CASE WHEN %s AND current_position = %s THEN now() ELSE finished_at END
+                WHERE id = %s AND student_id = %s AND current_position = %s AND finished_at IS NULL
+                RETURNING current_position, finished_at, points""",
+                (int(correct), LOCATIONS_PER_HUNT, awarded, correct, LOCATIONS_PER_HUNT,
+                 game_id, user["id"], position),
+            ).fetchone()
+            if game is None:
+                raise HTTPException(status_code=409, detail="This spot was already answered")
             spot = connection.execute(
                 """UPDATE game_session_locations
                 SET attempts = attempts + 1, found_at = CASE WHEN %s THEN now() ELSE found_at END
-                WHERE game_session_id = %s AND position = %s RETURNING attempts""",
+                WHERE game_session_id = %s AND position = %s AND found_at IS NULL RETURNING attempts""",
                 (correct, game_id, position),
             ).fetchone()
+            if spot is None:
+                raise HTTPException(status_code=409, detail="This spot was already answered")
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None
-    finished = bool(game and game["finished_at"])
+    finished = bool(game["finished_at"])
     return {
         "correct": correct,
         "attempts": spot["attempts"],
         "finished": finished,
         "next_position": game["current_position"] if correct and not finished else None,
+        "points_awarded": awarded,
+        "total_points": game["points"],
+        "message": "Correct room!" if correct else "The room number is incorrect or unreadable. Please retake the photo.",
     }

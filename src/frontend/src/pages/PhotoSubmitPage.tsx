@@ -12,11 +12,12 @@ interface PhotoSubmitPageProps {
   spotNumber: number
   totalSpots: number
   sending?: boolean
+  notice?: string
   onSubmit: (photo: File) => void
   onClose: () => void
 }
 
-export default function PhotoSubmitPage({ spotNumber, totalSpots, sending = false, onSubmit, onClose }: PhotoSubmitPageProps) {
+export default function PhotoSubmitPage({ spotNumber, totalSpots, sending = false, notice, onSubmit, onClose }: PhotoSubmitPageProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraAttempt, setCameraAttempt] = useState(0)
@@ -92,7 +93,7 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, sending = fals
 
       <div className="photo-title">
         <h1>Snap the room number</h1>
-        <p className="subtitle">Fill the frame with the number on the sign and hold your phone steady.</p>
+        <p className="subtitle">Include the building code and room number on the sign, and hold your phone steady.</p>
       </div>
 
       <div className="photo-frame">
@@ -123,6 +124,7 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, sending = fals
         <span className="photo-corner photo-corner--bottom-right" aria-hidden="true" />
       </div>
 
+      {notice && <p role="alert">{notice}</p>}
       {error && <p className="error-message" role="alert">{error}</p>}
 
       <div className="photo-actions">
@@ -135,8 +137,8 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, sending = fals
             <button className="game-button game-button--white" type="button" onClick={retake} disabled={sending}>
               Retake photo
             </button>
-            <button className="game-button" type="button" onClick={() => onSubmit(photo)} disabled={sending}>
-              {sending ? 'Sending...' : 'Submit photo'}
+            <button className="game-button" type="button" onClick={() => onSubmit(photo)} disabled={sending} aria-busy={sending}>
+              {sending ? 'Checking room...' : 'Submit photo'}
             </button>
           </>
         ) : (
