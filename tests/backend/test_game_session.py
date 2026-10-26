@@ -19,6 +19,7 @@ PASSWORD = "test-password"
 
 @pytest.fixture
 def game_db(monkeypatch):
+    monkeypatch.setattr(game_session, "check_answer", lambda photo, location: True)
     url = os.getenv("TEST_DATABASE_URL")
     if not url:
         pytest.skip("Set TEST_DATABASE_URL to run game session integration tests")
@@ -268,7 +269,8 @@ def test_correct_answer_moves_to_next_spot(game_db, client):
     game_id = start(client)
     response = answer(client, game_id)
     assert response.status_code == 200
-    assert response.json() == {"correct": True, "attempts": 1, "finished": False, "next_position": 2}
+    assert response.json() == {"correct": True, "attempts": 1, "finished": False, "next_position": 2,
+                               "points_awarded": 10, "total_points": 10, "message": "Correct room!"}
     assert spot(game_id, 1)["found_at"] is not None
     assert client.get(clue_url(game_id)).json()["position"] == 2
 
@@ -278,7 +280,9 @@ def test_wrong_answer_stays_on_spot_and_counts_attempts(game_db, client, monkeyp
     monkeypatch.setattr(game_session, "check_answer", lambda photo, location: False)
     answer(client, game_id)
     response = answer(client, game_id)
-    assert response.json() == {"correct": False, "attempts": 2, "finished": False, "next_position": None}
+    assert response.json() == {"correct": False, "attempts": 2, "finished": False, "next_position": None,
+                               "points_awarded": 0, "total_points": 0,
+                               "message": "The room number is incorrect or unreadable. Please retake the photo."}
     assert spot(game_id, 1) == {"attempts": 2, "found_at": None}
     assert client.get(clue_url(game_id)).json()["position"] == 1
 
@@ -288,7 +292,8 @@ def test_fifth_correct_answer_finishes_game(game_db, client):
     for _ in range(4):
         answer(client, game_id)
     response = answer(client, game_id)
-    assert response.json() == {"correct": True, "attempts": 1, "finished": True, "next_position": None}
+    assert response.json() == {"correct": True, "attempts": 1, "finished": True, "next_position": None,
+                               "points_awarded": 10, "total_points": 50, "message": "Correct room!"}
     assert client.get(clue_url(game_id)).status_code == 409
     assert answer(client, game_id).status_code == 409
 
@@ -330,3 +335,42 @@ def test_answer_database_failure_is_safe(client, monkeypatch):
         app.dependency_overrides.clear()
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
+
+
+def test_concurrent_correct_photos_award_points_only_once(game_db, client, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    game_id = start(client)
+    barrier = Barrier(2)
+
+    def recognize(photo, location):
+        barrier.wait(timeout=10)
+        return True
+
+    monkeypatch.setattr(game_session, "check_answer", recognize)
+
+    def submit():
+        with TestClient(app, base_url="https://testserver") as other:
+            other.cookies.update(client.cookies)
+            return answer(other, game_id)
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        responses = list(workers.map(lambda _: submit(), range(2)))
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    with get_connection() as db:
+        game = db.execute("SELECT points, current_position FROM game_sessions WHERE id = %s", (game_id,)).fetchone()
+    assert game == {"points": 10, "current_position": 2}
+    assert spot(game_id, 1)["attempts"] == 1
+
+
+def test_failed_spot_update_rolls_back_award_and_progress(game_db, client):
+    game_id = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_session_locations SET found_at = now() WHERE game_session_id = %s AND position = 1",
+                   (game_id,))
+    assert answer(client, game_id).status_code == 409
+    with get_connection() as db:
+        game = db.execute("SELECT points, current_position FROM game_sessions WHERE id = %s", (game_id,)).fetchone()
+    assert game == {"points": 0, "current_position": 1}
+    assert spot(game_id, 1)["attempts"] == 0
