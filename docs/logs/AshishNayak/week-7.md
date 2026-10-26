@@ -21,7 +21,7 @@ This week the team's goal was a minimal working demo for the professor and TA: a
 | #108 Location picker | #100 | The system shall randomly generate 5 locations from a pool of 15–20 options for each game session | 3 files, +72 | Gamu, Dan | Merged |
 | #114 Class roster | #104 | Teachers can see the students enrolled in their class | 4 files, +135 | Gamu, Dan | Merged |
 | #133 Submit answer and finish screen | #131 | Demo: a student's photo moves the game on, and the last spot shows a finish screen | 7 files, +144/−11 | Dan, Gamu | Merged |
-| #147 Back to login when the session ends | #146 | When a student's session ends during a game, the login page shows instead of a dead end | 10 files, +56/−12 | Gamu,  | Merged |
+| #147 Back to login when the session ends | #146 | When a student's session ends during a game, the login page shows instead of a dead end | 10 files, +56/−12 | Gamu, Madiba | Merged |
 
 **Claim labels.** *Observed* means I ran it or saw it (test output, review text). *Generated* means AI-written code that I reviewed. Test counts come from running the suites locally against Docker PostgreSQL 17 with `TEST_DATABASE_URL` set, so no integration tests were skipped.
 
