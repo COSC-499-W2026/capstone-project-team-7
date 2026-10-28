@@ -40,13 +40,26 @@ def all_of(*rules):
 
 LANGUAGES = {"zh": "Chinese", "fr": "French", "de": "German", "ja": "Japanese", "ko": "Korean", "es": "Spanish"}
 
+# Names from the badge designs, in order: first hunt, basic, advanced, expert, master.
+BADGE_NAMES = {
+    code: dict(zip(("first_hunt", "basic", "advanced", "expert", "master"), names))
+    for code, names in {
+        "fr": ("Bon Appétit!", "Baguette Buddy", "Triumphant!", "Louvre Legend", "Eiffel Elite"),
+        "es": ("Paella Pal", "Strum Starter", "Windmill Whiz", "Pyramid Pro", "Sagrada Star"),
+        "de": ("Pretzel Twist", "Cuckoo Crew", "Cake Captain", "Gatekeeper", "Castle Royalty"),
+        "zh": ("Dumpling Dash", "Lantern Light", "Panda Power", "Temple Trekker", "Wall Walker"),
+        "ja": ("Rice Rookie", "In Full Bloom", "Fuji Climber", "Samurai Spirit", "Gate Guardian"),
+        "ko": ("Bibimbap Bite", "Kimchi Kid", "Palace Pass", "Fan Favourite", "Seoul Mate"),
+    }.items()
+}
+
 # Add a badge by adding one line; earned badges are saved by id, so ids must never change.
 BADGES = [
-    *(Badge(f"{code}_first_hunt", "First hunt", code, finished_games(1)) for code in LANGUAGES),
-    *(Badge(f"{code}_{difficulty.value}", f"{name} {difficulty.value.title()}", code, found_every_location(difficulty))
-      for code, name in LANGUAGES.items() for difficulty in Difficulty),
-    *(Badge(f"{code}_master", f"{name} Master", code, all_of(finished_games(1), *map(found_every_location, Difficulty)))
-      for code, name in LANGUAGES.items()),
+    *(Badge(f"{code}_first_hunt", BADGE_NAMES[code]["first_hunt"], code, finished_games(1)) for code in LANGUAGES),
+    *(Badge(f"{code}_{difficulty.value}", BADGE_NAMES[code][difficulty.value], code, found_every_location(difficulty))
+      for code in LANGUAGES for difficulty in Difficulty),
+    *(Badge(f"{code}_master", BADGE_NAMES[code]["master"], code, all_of(finished_games(1), *map(found_every_location, Difficulty)))
+      for code in LANGUAGES),
     Badge("polyglot", "Polyglot", None, in_every_language(finished_games(1))),
 ]
 
