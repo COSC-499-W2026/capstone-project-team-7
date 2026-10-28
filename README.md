@@ -293,7 +293,7 @@ Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished 
 
 ### Badges API
 
-Each language has a "First hunt" badge (finish 1 game), one badge per difficulty (e.g. "French Basic": find every location with a French clue in Basic games), and a Master badge (e.g. "French Master": earn First hunt and every difficulty badge in that language).
+Each language has a First hunt badge (finish 1 game), one badge per difficulty (e.g. `fr_basic` "Baguette Buddy": find every location with a French clue in Basic games), and a Master badge (e.g. `fr_master` "Eiffel Elite": earn First hunt and every difficulty badge in that language). Names come from the badge designs (`BADGE_NAMES` in `badges.py`).
 The "Polyglot" badge (`language` is `null`) is earned by finishing a game in all 6 languages.
 Badges are listed in `src/backend/badges.py`; add one with one line there. Apply `008_student_badges.sql`.
 A correct answer checks the student's progress and saves any new badges in `student_badges`, in the same transaction as the answer. A badge is never given twice.

@@ -45,7 +45,7 @@ def test_earned_badges_are_marked_and_the_rest_locked(client, monkeypatch):
     badges = {badge["id"]: badge for badge in client.get(URL).json()}
 
     assert len(badges) == len(BADGES)
-    assert badges["fr_basic"] == {"id": "fr_basic", "name": "French Basic", "language": "fr",
+    assert badges["fr_basic"] == {"id": "fr_basic", "name": "Baguette Buddy", "language": "fr",
                                   "earned": True, "earned_at": EARNED_AT.isoformat()}
     assert badges["fr_first_hunt"]["earned"] is True
     locked = [badge for id, badge in badges.items() if id not in ("fr_basic", "fr_first_hunt")]
@@ -91,7 +91,7 @@ def test_finding_the_last_basic_french_location_awards_french_basic(game_db, cli
 
 
 def test_finishing_a_first_french_game_awards_french_first_hunt(game_db, client):
-    # One more location than a game uses, so finishing the game can't also earn French Basic.
+    # One more location than a game uses, so finishing the game can't also earn fr_basic.
     add_locations(6, "fr")
     login(client)
     game_id = client.post(START_URL).json()["game_id"]
