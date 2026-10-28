@@ -30,6 +30,10 @@ def found_every_location(difficulty):
     return lambda progress: 0 < progress.total_locations <= progress.found.get(difficulty.value, 0)
 
 
+def all_of(*rules):
+    return lambda progress: all(rule(progress) for rule in rules)
+
+
 LANGUAGES = {"zh": "Chinese", "fr": "French", "de": "German", "ja": "Japanese", "ko": "Korean", "es": "Spanish"}
 
 # Add a badge by adding one line; earned badges are saved by id, so ids must never change.
@@ -37,6 +41,8 @@ BADGES = [
     *(Badge(f"{code}_first_hunt", "First hunt", code, finished_games(1)) for code in LANGUAGES),
     *(Badge(f"{code}_{difficulty.value}", f"{name} {difficulty.value.title()}", code, found_every_location(difficulty))
       for code, name in LANGUAGES.items() for difficulty in Difficulty),
+    *(Badge(f"{code}_master", f"{name} Master", code, all_of(finished_games(1), *map(found_every_location, Difficulty)))
+      for code, name in LANGUAGES.items()),
 ]
 
 

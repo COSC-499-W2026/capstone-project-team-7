@@ -98,3 +98,21 @@ def test_french_progress_does_not_earn_spanish_badges(student):
 
     assert not any(badge.startswith("es_") for badge in check_badges(student))
     assert not any(badge.startswith("es_") for badge in saved_badges(student))
+
+
+def test_basic_and_advanced_only_does_not_earn_french_master(student):
+    locations = add_locations(5, "fr")
+    play_game(student, "fr", "basic", locations, found_count=5)
+    play_game(student, "fr", "advanced", locations, found_count=5)
+
+    assert "fr_master" not in check_badges(student)
+    assert "fr_master" not in saved_badges(student)
+
+
+def test_finishing_every_difficulty_earns_french_master(student):
+    locations = add_locations(5, "fr")
+    for difficulty in ("basic", "advanced", "expert"):
+        play_game(student, "fr", difficulty, locations, found_count=5)
+
+    assert "fr_master" in check_badges(student)
+    assert "fr_master" in saved_badges(student)
