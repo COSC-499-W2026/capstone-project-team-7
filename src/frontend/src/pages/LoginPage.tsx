@@ -28,7 +28,7 @@ export default function LoginPage({ onLogin, onCreateAccount, notice }: Props) {
 
   return (
     <main>
-      <h1>Log in</h1>
+      <h1>Lost In Translation!</h1>
       {notice && <p role="status">{notice}</p>}
       <form onSubmit={handleSubmit}>
         <p>
