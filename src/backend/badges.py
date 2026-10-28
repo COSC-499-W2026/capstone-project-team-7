@@ -18,8 +18,8 @@ class Progress:
 class Badge:
     id: str
     name: str
-    language: str
-    rule: Callable[[Progress], bool]
+    language: str | None  # None: the rule gets progress in every language, keyed by code
+    rule: Callable[[Progress], bool] | Callable[[dict[str, Progress]], bool]
 
 
 def finished_games(count):
@@ -28,6 +28,10 @@ def finished_games(count):
 
 def found_every_location(difficulty):
     return lambda progress: 0 < progress.total_locations <= progress.found.get(difficulty.value, 0)
+
+
+def in_every_language(rule):
+    return lambda progress: all(rule(progress[code]) for code in LANGUAGES)
 
 
 def all_of(*rules):
@@ -43,6 +47,7 @@ BADGES = [
       for code, name in LANGUAGES.items() for difficulty in Difficulty),
     *(Badge(f"{code}_master", f"{name} Master", code, all_of(finished_games(1), *map(found_every_location, Difficulty)))
       for code, name in LANGUAGES.items()),
+    Badge("polyglot", "Polyglot", None, in_every_language(finished_games(1))),
 ]
 
 
@@ -80,7 +85,8 @@ def load_progress(connection, student_id):
 
 def earned_badges(progress):
     """Every badge whose rule the progress meets."""
-    return [badge for badge in BADGES if badge.rule(progress[badge.language])]
+    return [badge for badge in BADGES
+            if badge.rule(progress if badge.language is None else progress[badge.language])]
 
 
 def list_badges(connection, student_id):
