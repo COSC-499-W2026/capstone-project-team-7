@@ -77,6 +77,19 @@ def earned_badges(progress):
     return [badge for badge in BADGES if badge.rule(progress[badge.language])]
 
 
+def list_badges(connection, student_id):
+    """Every badge, with whether and when the student earned it."""
+    rows = connection.execute(
+        "SELECT badge_id, earned_at FROM student_badges WHERE student_id = %s", (student_id,),
+    ).fetchall()
+    earned = {row["badge_id"]: row["earned_at"] for row in rows}
+    return [
+        {"id": badge.id, "name": badge.name, "language": badge.language,
+         "earned": badge.id in earned, "earned_at": earned.get(badge.id)}
+        for badge in BADGES
+    ]
+
+
 def award_badges(connection, student_id):
     """Save badges the student has earned but doesn't have yet; return the new ones."""
     new = []
