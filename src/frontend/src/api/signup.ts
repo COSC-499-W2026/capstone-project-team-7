@@ -1,5 +1,7 @@
 // Sends a new student's details to the backend signup endpoint.
 
+import { login, type LoginResult } from './login'
+
 export interface SignupInfo {
   email: string
   password: string
@@ -30,4 +32,11 @@ export async function signup(info: SignupInfo): Promise<void> {
     throw new Error(invalidFieldMessage(body?.detail))
   }
   if (!res.ok) throw new Error('Something went wrong, please try again')
+}
+
+// Creates the account, then logs in with the same details.
+// Returns null if the account was made but the login failed, so the caller can send them to the login page.
+export async function signupAndLogin(info: SignupInfo): Promise<LoginResult | null> {
+  await signup(info)
+  return login(info.email, info.password).catch(() => null)
 }

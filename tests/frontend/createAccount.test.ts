@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test, vi } from 'vitest'
-import { signup } from '../../src/frontend/src/api/signup'
+import { signup, signupAndLogin } from '../../src/frontend/src/api/signup'
 import CreateAccountPage from '../../src/frontend/src/pages/CreateAccountPage'
 import LoginPage from '../../src/frontend/src/pages/LoginPage'
 
@@ -52,6 +52,44 @@ test('server problems show a general message', async () => {
   fakeBackend(503)
 
   await expect(signup(info)).rejects.toThrow('Something went wrong')
+})
+
+// Pretend to be the backend for signup, then login.
+function fakeSignupThenLogin(signupStatus: number, loginStatus: number) {
+  const reply = (status: number, body: unknown) => ({
+    ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body),
+  })
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(reply(signupStatus, {}))
+    .mockResolvedValueOnce(reply(loginStatus, { role: 'student', redirect_to: '/student' }))
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+test('a new account is logged straight in with the same email and password', async () => {
+  const fetchMock = fakeSignupThenLogin(201, 200)
+
+  await expect(signupAndLogin(info)).resolves.toEqual({ role: 'student', redirect_to: '/student' })
+  expect(fetchMock).toHaveBeenLastCalledWith('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: info.email, password: info.password }),
+  })
+})
+
+test('if the automatic login fails the account is still created and they go to the login page', async () => {
+  const fetchMock = fakeSignupThenLogin(201, 503)
+
+  await expect(signupAndLogin(info)).resolves.toBeNull()
+  expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/student/signup', expect.anything())
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+})
+
+test('if signup fails it never tries to log in', async () => {
+  const fetchMock = fakeSignupThenLogin(409, 200)
+
+  await expect(signupAndLogin(info)).rejects.toThrow('That email, username or student number is already in use.')
+  expect(fetchMock).toHaveBeenCalledTimes(1)
 })
 
 test('the login page has a create account button', () => {

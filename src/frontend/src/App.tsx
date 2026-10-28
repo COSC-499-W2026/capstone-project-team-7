@@ -77,7 +77,11 @@ export default function App() {
   if (!role && creatingAccount) {
     return (
       <CreateAccountPage
-        onCreated={() => { setCreatingAccount(false); setLoginNotice('Account created! Please log in.') }}
+        onCreated={(login) => {
+          setCreatingAccount(false)
+          if (login) setRole(login.role)
+          else setLoginNotice('Account created! Please log in.')
+        }}
         onBack={() => setCreatingAccount(false)}
       />
     )

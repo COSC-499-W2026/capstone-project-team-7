@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { signup, type SignupInfo } from '../api/signup'
+import type { LoginResult } from '../api/login'
+import { signupAndLogin, type SignupInfo } from '../api/signup'
 
 interface Props {
-  onCreated: () => void
+  onCreated: (login: LoginResult | null) => void
   onBack: () => void
 }
 
@@ -27,8 +28,7 @@ export default function CreateAccountPage({ onCreated, onBack }: Props) {
     setError('')
     setLoading(true)
     try {
-      await signup(info)
-      onCreated()
+      onCreated(await signupAndLogin(info))
     } catch (err) {
       setError((err as Error).message)
     } finally {
