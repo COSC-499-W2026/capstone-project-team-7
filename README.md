@@ -270,6 +270,15 @@ Success returns 201 with the class `id`, `name`, and `language_code`. An unknown
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
 Run `python -m pytest tests/backend/test_student_enrollment.py -v` with `TEST_DATABASE_URL` set.
 
+### Assigned hunts API
+
+`POST /api/teacher/classes/{uuid}/hunts` with `{"difficulty": "basic", "due_date": "2026-11-30"}` assigns a hunt to a class the teacher owns and returns 201 with `id`, `class_id`, `language_code`, `difficulty`, and `due_date`.
+`difficulty` is `basic`, `advanced`, or `expert`; `due_date` is optional and can't be before today. The language is taken from the class. Assigning the same hunt twice is allowed.
+Errors: 401 no session, 403 students, admins, or another teacher's class, 404 `"Class not found"`, 422 invalid difficulty or due date, 503 database failure.
+`GET /api/student/hunts` lists hunts assigned to the student's classes, soonest due first, each with `id`, `class_id`, `class_name`, `language_code`, `difficulty`, and `due_date`. No hunts returns `[]`.
+Missing sessions return 401, non-students get 403.
+Run `python -m pytest tests/backend/test_hunt_assignment.py tests/backend/test_student_hunts.py -v` with `TEST_DATABASE_URL` set.
+
 ### Game session API
 
 After login, a student can `POST /api/game/start` to start a game. For now every game is French (`fr`) at Basic difficulty.
