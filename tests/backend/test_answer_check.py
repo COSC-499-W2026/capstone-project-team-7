@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -15,6 +16,7 @@ from utils.ocr import InvalidPhoto, OCRUnavailable
 def api(monkeypatch):
     state = SimpleNamespace(candidates=[], queries=[], student=uuid4())
     state.location = {"building": "LIB", "room_number": "308", "current_position": 1, "finished_at": None}
+    state.location.update(latitude=49.94, longitude=-119.4, radius_metres=50)
     state.game = {"current_position": 1, "finished_at": None, "points": 0}
     connection = FakeConnection(None)
 
@@ -28,7 +30,12 @@ def api(monkeypatch):
     monkeypatch.setattr(answer_check, "extract_room_numbers", lambda photo: state.candidates)
     app.dependency_overrides[game_session.require_student] = lambda: {"id": state.student, "role": "student"}
     with TestClient(app, base_url="https://testserver") as client:
-        state.submit = lambda: client.post(f"/api/game/{uuid4()}/answer", content=b"photo")
+        def submit(**changes):
+            reading = dict(latitude=49.94, longitude=-119.4, accuracy=10,
+                           captured_at=datetime.now(timezone.utc).isoformat())
+            reading.update(changes)
+            return client.post(f"/api/game/{uuid4()}/answer", content=b"photo", params=reading)
+        state.submit = submit
         yield state
     app.dependency_overrides.clear()
 
@@ -56,4 +63,26 @@ def test_ocr_errors_are_safe_and_do_not_write(api, monkeypatch, error, status):
     monkeypatch.setattr(answer_check, "extract_room_numbers", fail)
     response = api.submit()
     assert response.status_code == status and "private" not in response.text
+    assert len(api.queries) == 1
+
+
+@pytest.mark.parametrize("changes", [
+    {"latitude": 49.95}, {"accuracy": 51}, {"latitude": "nan"},
+    {"longitude": -181}, {"radius_metres": 999999},
+])
+def test_invalid_or_outside_gps_blocks_answer(api, changes):
+    response = api.submit(**changes)
+    assert response.status_code == 422
+    assert len(api.queries) <= 1
+
+
+def test_expired_gps_blocks_answer(api):
+    response = api.submit(captured_at=(datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat())
+    assert response.status_code == 422
+    assert len(api.queries) == 1
+
+
+def test_missing_target_blocks_answer(api):
+    api.location.update(latitude=None, longitude=None, radius_metres=None)
+    assert api.submit().status_code == 503
     assert len(api.queries) == 1

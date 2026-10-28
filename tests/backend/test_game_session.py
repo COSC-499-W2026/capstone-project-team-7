@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import psycopg
@@ -61,7 +62,7 @@ def add_locations(count, language):
     with get_connection() as db:
         ids = []
         for _ in range(count):
-            location_id = db.execute("INSERT INTO locations (building, room_number) VALUES ('EME', %s) RETURNING id",
+            location_id = db.execute("INSERT INTO locations (building, room_number, latitude, longitude, radius_metres) VALUES ('EME', %s, 49.94, -119.4, 50) RETURNING id",
                                      (uuid4().hex,)).fetchone()["id"]
             db.execute("""INSERT INTO location_clues (location_id, language_code, number_text, description_text)
                 VALUES (%s, %s, 'cent', 'une salle')""", (location_id, language))
@@ -254,8 +255,11 @@ def test_clue_database_failure_is_safe(client, monkeypatch):
     assert response.json() == {"detail": "Database unavailable"}
 
 
-def answer(client, game_id, photo=b"fake jpeg"):
-    return client.post(clue_url(game_id).replace("/clue", "/answer"), content=photo,
+def answer(client, game_id, photo=b"fake jpeg", **changes):
+    reading = dict(latitude=49.94, longitude=-119.4, accuracy=10,
+                   captured_at=datetime.now(timezone.utc).isoformat())
+    reading.update(changes)
+    return client.post(clue_url(game_id).replace("/clue", "/answer"), content=photo, params=reading,
                        headers={"Content-Type": "image/jpeg"})
 
 
@@ -374,3 +378,42 @@ def test_failed_spot_update_rolls_back_award_and_progress(game_db, client):
         game = db.execute("SELECT points, current_position FROM game_sessions WHERE id = %s", (game_id,)).fetchone()
     assert game == {"points": 0, "current_position": 1}
     assert spot(game_id, 1)["attempts"] == 0
+
+
+@pytest.mark.parametrize("changes,status", [
+    ({"latitude": 49.95}, 422),
+    ({"accuracy": 51}, 422),
+    ({"age": 31}, 422),
+    ({"age": -10}, 422),
+    ({"latitude": 91}, 422),
+    ({"accuracy": 0}, 422),
+    ({"captured_at": "2026-01-01T00:00:00"}, 422),
+    ({"missing_target": True}, 503),
+])
+def test_rejected_gps_does_not_recognize_or_change_game(game_db, client, monkeypatch, changes, status):
+    game_id = start(client)
+    changes = changes.copy()
+    if changes.pop("missing_target", False):
+        with get_connection() as db:
+            db.execute("UPDATE locations SET latitude = NULL, longitude = NULL, radius_metres = NULL")
+    if "age" in changes:
+        changes["captured_at"] = (datetime.now(timezone.utc) - timedelta(seconds=changes.pop("age"))).isoformat()
+    def unexpected_ocr(*args):
+        pytest.fail("Rejected GPS must not run OCR")
+    monkeypatch.setattr(game_session, "check_answer", unexpected_ocr)
+    response = answer(client, game_id, **changes)
+    assert response.status_code == status
+    assert "-119.4" not in response.text
+    assert spot(game_id, 1) == {"attempts": 0, "found_at": None}
+    with get_connection() as db:
+        game = db.execute("SELECT points, current_position FROM game_sessions WHERE id = %s", (game_id,)).fetchone()
+    assert game == {"points": 0, "current_position": 1}
+
+
+def test_missing_gps_is_rejected(client):
+    app.dependency_overrides[game_session.require_student] = lambda: {"id": uuid4(), "role": "student"}
+    try:
+        response = client.post(f"/api/game/{uuid4()}/answer", content=b"photo")
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 422
