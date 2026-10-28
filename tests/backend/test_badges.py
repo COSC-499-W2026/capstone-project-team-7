@@ -116,3 +116,19 @@ def test_finishing_every_difficulty_earns_french_master(student):
 
     assert "fr_master" in check_badges(student)
     assert "fr_master" in saved_badges(student)
+
+
+def test_finishing_games_in_five_languages_does_not_earn_polyglot(student):
+    for language in ("zh", "fr", "de", "ja", "ko"):
+        play_game(student, language, "basic", add_locations(1, language), found_count=1)
+
+    assert "polyglot" not in check_badges(student)
+    assert "polyglot" not in saved_badges(student)
+
+
+def test_finishing_games_in_all_six_languages_earns_polyglot(student):
+    for language in ("zh", "fr", "de", "ja", "ko", "es"):
+        play_game(student, language, "basic", add_locations(1, language), found_count=1)
+
+    assert "polyglot" in check_badges(student)
+    assert "polyglot" in saved_badges(student)
