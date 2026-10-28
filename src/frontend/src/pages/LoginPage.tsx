@@ -46,9 +46,7 @@ export default function LoginPage({ onLogin, onCreateAccount, notice }: Props) {
           {loading ? 'Logging in...' : 'Log in'}
         </button>
       </form>
-      <p>
-        <button type="button" onClick={onCreateAccount}>Create account</button>
-      </p>
+      <p><button type="button" onClick={onCreateAccount}>Create account</button></p>
     </main>
   )
 }
