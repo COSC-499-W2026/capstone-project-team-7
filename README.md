@@ -448,5 +448,13 @@ readings return 422 without changing attempts, points, or progress. Missing targ
 configuration returns 503. Target coordinates are never returned to the student.
 After seeding demo locations, configure targets with
 `python -m utils.seed_target_coordinates` from `src/backend` (or run it in the backend
-container). Browser GPS capture is a separate frontend change; photo-only clients
-will receive 422 until updated to send GPS fields.
+container). The photo submission page requests a fresh, high-accuracy browser location
+on each submission, then sends the photo with these GPS fields. Allow location access;
+denied permission, unavailable location, or a 10-second timeout keeps the photo for retry.
+Camera and location access require HTTPS or localhost.
+
+To test locally in Chrome, open DevTools → More tools → Sensors and select a custom
+location matching a seeded target. Submit a freshly captured photo; then retry with a
+faraway location or blocked location permission. Outside-radius readings must not award
+points, and blocked permission must prevent upload. The backend remains responsible for
+GPS accuracy/freshness checks and photo verification.

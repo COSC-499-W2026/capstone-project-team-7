@@ -1,5 +1,6 @@
-// Sends the student's photo for the current spot and gets back whether it was right.
+// Sends a fresh GPS reading with the photo; the server verifies both before awarding points.
 
+import { captureLocation } from './location'
 import { SessionEndedError } from './sessionEnded'
 
 export interface AnswerResult {
@@ -14,7 +15,8 @@ export interface AnswerResult {
 
 export async function submitAnswer(gameId: string, photo: File): Promise<AnswerResult> {
   if (photo.size > 5 * 1024 * 1024) throw new Error('Photo is too large. Please retake it.')
-  const res = await fetch(`/api/game/${gameId}/answer`, {
+  const reading = await captureLocation()
+  const res = await fetch(`/api/game/${gameId}/answer?${reading}`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': photo.type || 'image/jpeg' }, body: photo,
   }).catch(() => { throw new Error('Could not send your photo. Please try again.') })
