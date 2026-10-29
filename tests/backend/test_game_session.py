@@ -166,7 +166,21 @@ def test_student_gets_first_clue_without_the_room_number(game_db, client):
     response = client.get(clue_url(game_id))
     assert response.status_code == 200
     assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
-                               "audio_url": f"/api/game/{game_id}/clue/audio?position=1"}
+                               "audio_url": f"/api/game/{game_id}/clue/audio?position=1",
+                               "elapsed_seconds": response.json()["elapsed_seconds"]}
+    assert 0 <= response.json()["elapsed_seconds"] <= 2
+
+
+def started_ago(game_id, seconds):
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET started_at = now() - make_interval(secs => %s) WHERE id = %s",
+                   (seconds, game_id))
+
+
+def test_clue_shows_time_since_the_game_started(game_db, client):
+    game_id = start(client)
+    started_ago(game_id, 90)
+    assert 90 <= client.get(clue_url(game_id)).json()["elapsed_seconds"] <= 92
 
 
 def test_clue_audio_plays_the_current_rooms_file(game_db, client, tmp_path, monkeypatch):
@@ -270,7 +284,8 @@ def test_correct_answer_moves_to_next_spot(game_db, client):
     response = answer(client, game_id)
     assert response.status_code == 200
     assert response.json() == {"correct": True, "attempts": 1, "finished": False, "next_position": 2,
-                               "points_awarded": 10, "total_points": 10, "message": "Correct room!"}
+                               "points_awarded": 10, "total_points": 10, "final_time_seconds": None,
+                               "message": "Correct room!"}
     assert spot(game_id, 1)["found_at"] is not None
     assert client.get(clue_url(game_id)).json()["position"] == 2
 
@@ -281,7 +296,7 @@ def test_wrong_answer_stays_on_spot_and_counts_attempts(game_db, client, monkeyp
     answer(client, game_id)
     response = answer(client, game_id)
     assert response.json() == {"correct": False, "attempts": 2, "finished": False, "next_position": None,
-                               "points_awarded": 0, "total_points": 0,
+                               "points_awarded": 0, "total_points": 0, "final_time_seconds": None,
                                "message": "The room number is incorrect or unreadable. Please retake the photo."}
     assert spot(game_id, 1) == {"attempts": 2, "found_at": None}
     assert client.get(clue_url(game_id)).json()["position"] == 1
@@ -291,11 +306,27 @@ def test_fifth_correct_answer_finishes_game(game_db, client):
     game_id = start(client)
     for _ in range(4):
         answer(client, game_id)
+    started_ago(game_id, 300)
     response = answer(client, game_id)
-    assert response.json() == {"correct": True, "attempts": 1, "finished": True, "next_position": None,
-                               "points_awarded": 10, "total_points": 50, "message": "Correct room!"}
+    body = response.json()
+    assert body == {"correct": True, "attempts": 1, "finished": True, "next_position": None,
+                    "points_awarded": 10, "total_points": 50, "final_time_seconds": body["final_time_seconds"],
+                    "message": "Correct room!"}
+    assert 300 <= body["final_time_seconds"] <= 302
     assert client.get(clue_url(game_id)).status_code == 409
     assert answer(client, game_id).status_code == 409
+
+
+def test_wrong_last_photo_does_not_stop_the_clock(game_db, client, monkeypatch):
+    game_id = start(client)
+    for _ in range(4):
+        answer(client, game_id)
+    monkeypatch.setattr(game_session, "check_answer", lambda photo, location: False)
+    body = answer(client, game_id).json()
+    assert body["finished"] is False and body["final_time_seconds"] is None
+    with get_connection() as db:
+        assert db.execute("SELECT finished_at FROM game_sessions WHERE id = %s", (game_id,)).fetchone() == {
+            "finished_at": None}
 
 
 def test_answer_needs_a_photo(game_db, client):
