@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getTeacherClasses, type TeacherClass } from '../api/teacher'
 import { logout } from '../api/logout'
 import { SessionEndedError } from '../api/sessionEnded'
+import ClassRoster from './ClassRoster'
 
 export default function TeacherDashboard({ onLogout }: { onLogout: () => void }) {
   const [classes, setClasses] = useState<TeacherClass[]>([])
@@ -70,7 +71,7 @@ export default function TeacherDashboard({ onLogout }: { onLogout: () => void })
               {['Students', 'Hunts this week', 'Average score', 'Class finds hardest'].map((label) => <section key={label}><h2>{label}</h2><strong>—</strong><small>Coming soon</small></section>)}
             </div>
             <div className="teacher-panels">
-              <section className="teacher-roster"><h2>Class roster</h2><p>Roster management coming soon.</p></section>
+              {selected && <ClassRoster key={selected.id} classId={selected.id} onSessionEnded={onLogout} />}
               <section className="teacher-support"><h2>Could use a hand</h2><p>Class reports coming soon.</p></section>
             </div>
           </>

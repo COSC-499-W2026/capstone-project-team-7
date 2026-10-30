@@ -358,7 +358,9 @@ Stop the containers with `Ctrl+C`, or run `docker compose down`.
 
 Teachers land on a dashboard styled after page 10 of `docs/design/Frontend Mockups/Lost In Translation Mockups.pdf`.
 They can select an assigned class, see its language and join code, retry loading
-failures, and log out. Roster management and statistics are marked coming soon.
+failures, and log out. The selected class's roster shows enrolled students' names
+and student numbers, with loading, empty, and retry states. Statistics, reports,
+and adding or removing students remain follow-up work.
 Typography uses Google Fonts: Fredoka for headings and Nunito for body text.
 
 After changing frontend dependencies, run `docker compose run --rm frontend npm ci`

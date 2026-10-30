@@ -41,5 +41,12 @@ h1 { font-size: clamp(2.5rem, 7vw, 4rem); line-height: 1.1; }
 .teacher-panels { display: grid; grid-template-columns: minmax(0, 3fr) minmax(200px, 1fr); gap: 20px; }
 .teacher-panels h2 { margin: 0; padding: 20px; font-size: 22px; }.teacher-panels p { margin: 0 20px 20px; padding: 18px; border: 1px solid var(--ink); border-radius: 14px; background: #fff7e6; }
 .teacher-roster { min-height: 300px; }.teacher-support { align-self: start; }
+.roster-scroll { overflow-x: auto; margin: 0 20px 20px; }
+.roster-table { width: 100%; border-collapse: collapse; text-align: left; }
+.roster-table caption { text-align: left; padding-bottom: 12px; color: #61517f; }
+.roster-table th { padding: 12px 8px; border-bottom: 2px solid var(--ink); }
+.roster-table td { padding: 16px 8px; border-bottom: 1px solid #e5dcf5; overflow-wrap: anywhere; }
+.roster-avatar { display: inline-grid; place-items: center; width: 32px; height: 32px; margin-right: 10px; background: #ffda40; border: 1px solid var(--ink); border-radius: 50%; }
+.roster-table tr:nth-child(2n) .roster-avatar { background: #4bd9c2; }
 @media (max-width: 1100px) { .teacher-heading { flex-wrap: wrap; }.teacher-actions { margin-left: 0; }.teacher-stats { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 700px) { .teacher-dashboard { display: block; }.teacher-sidebar nav { grid-template-columns: repeat(2, 1fr); }.teacher-brand { margin-bottom: 16px; }.teacher-dashboard main { padding: 20px; }.teacher-panels { grid-template-columns: 1fr; } }
