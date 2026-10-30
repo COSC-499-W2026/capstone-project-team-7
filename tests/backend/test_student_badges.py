@@ -5,8 +5,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 import auth
+import badges as badges_module
 import student_badges
-from badges import BADGES
+from badges import all_badges
 from main import app
 from test_auth import FakeConnection
 from test_game_session import URL as START_URL, add_locations, answer, game_db, login
@@ -14,10 +15,12 @@ from test_game_session import URL as START_URL, add_locations, answer, game_db, 
 URL = "/api/student/badges"
 USER = {"id": uuid4(), "role": "student"}
 EARNED_AT = datetime(2026, 10, 28, tzinfo=timezone.utc)
+LANGUAGES = {"fr": "French", "es": "Spanish"}
 
 
 def fake_badges(monkeypatch, rows):
-    """Pretend the student_badges table holds these rows for the student."""
+    """Pretend the student_badges table holds these rows for the student, with LANGUAGES in the database."""
+    monkeypatch.setattr(badges_module, "load_languages", lambda connection: LANGUAGES)
     class Connection(FakeConnection):
         def __init__(self):
             pass
@@ -44,7 +47,7 @@ def test_earned_badges_are_marked_and_the_rest_locked(client, monkeypatch):
 
     badges = {badge["id"]: badge for badge in client.get(URL).json()}
 
-    assert len(badges) == len(BADGES)
+    assert len(badges) == len(all_badges(LANGUAGES))
     assert badges["fr_basic"] == {"id": "fr_basic", "name": "Baguette Buddy", "language": "fr",
                                   "earned": True, "earned_at": EARNED_AT.isoformat()}
     assert badges["fr_first_hunt"]["earned"] is True
@@ -59,7 +62,7 @@ def test_new_student_gets_every_badge_locked(client, monkeypatch):
     response = client.get(URL)
 
     assert response.status_code == 200
-    assert len(response.json()) == len(BADGES)
+    assert len(response.json()) == len(all_badges(LANGUAGES))
     assert all(not badge["earned"] and badge["earned_at"] is None for badge in response.json())
 
 

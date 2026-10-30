@@ -124,7 +124,7 @@ def list_badges(connection, student_id):
     return [
         {"id": badge.id, "name": badge.name, "language": badge.language,
          "earned": badge.id in earned, "earned_at": earned.get(badge.id)}
-        for badge in BADGES
+        for badge in all_badges(load_languages(connection))
     ]
 
 
