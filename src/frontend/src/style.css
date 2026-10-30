@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap');
 :root {
   font-family: system-ui, sans-serif;
   color: #16332d;
@@ -8,3 +9,37 @@ body { margin: 0; }
 main { max-width: 720px; margin: 15vh auto; padding: 2rem; }
 h1 { font-size: clamp(2.5rem, 7vw, 4rem); line-height: 1.1; }
 .eyebrow { color: #28735b; font-weight: 600; }
+.teacher-dashboard { --ink: #211545; display: flex; min-height: 100vh; color: var(--ink); background: #fff7e6; font-family: 'Nunito', sans-serif; line-height: 1.4; }
+.teacher-dashboard * { box-sizing: border-box; }
+.teacher-dashboard main { flex: 1; min-width: 0; max-width: none; margin: 0; padding: 32px; }
+.teacher-sidebar { flex: 0 0 220px; padding: 28px 18px; background: #6c43ff; color: white; border-right: 4px solid var(--ink); }
+.teacher-brand { display: flex; align-items: center; gap: 12px; font-size: 21px; font-weight: 600; line-height: 1.15; margin-bottom: 28px; }
+.teacher-brand span { border: 2px solid var(--ink); border-radius: 14px; padding: 12px 8px; font-size: 25px; background: #ffda40; color: var(--ink); transform: rotate(-7deg); box-shadow: 2px 3px var(--ink); }
+.teacher-dashboard button, .teacher-dashboard select { font: inherit; font-weight: 700; color: inherit; padding: 12px 16px; border: 2px solid var(--ink); border-radius: 16px; background: white; }
+.teacher-sidebar nav { display: grid; gap: 10px; }
+.teacher-sidebar nav > * { text-align: left; padding: 14px 16px; font-weight: 700; text-decoration: none; background: transparent; color: white; border: 2px solid transparent; }
+.teacher-sidebar a[aria-current] { background: #ffda40; color: var(--ink); border-color: var(--ink); border-radius: 14px; }
+.teacher-dashboard button:disabled { cursor: not-allowed; opacity: 0.55; }.teacher-sidebar button:disabled { opacity: 0.7; }
+.teacher-dashboard button:not(:disabled), .teacher-dashboard select { cursor: pointer; }
+.teacher-dashboard :focus-visible { outline: 3px solid #9361ff; outline-offset: 3px; }
+.teacher-heading { display: flex; align-items: flex-end; gap: 18px; margin-bottom: 24px; }
+.teacher-kicker { font-size: 14px; font-weight: 700; margin: 0 0 8px; color: #61517f; }
+.teacher-dashboard h1 { font-size: clamp(26px, 3vw, 42px); font-weight: 700; margin: 0 0 8px; }
+.teacher-dashboard h1, .teacher-stats strong { font-family: 'Fredoka', sans-serif; font-weight: 700; }
+.teacher-brand strong, .teacher-panels h2 { font-family: 'Fredoka', sans-serif; font-weight: 600; }
+.teacher-tags { display: flex; gap: 8px; flex-wrap: wrap; margin: 0; font-size: 13px; }
+.teacher-tags span, .teacher-tags strong { border: 2px solid var(--ink); border-radius: 24px; padding: 6px 14px; background: white; }.teacher-tags span { background: #ffda40; }
+.teacher-actions { display: flex; gap: 12px; margin-left: auto; white-space: nowrap; }
+.teacher-actions button { box-shadow: 0 4px var(--ink); }.teacher-actions button:last-child { background: #6c43ff; color: white; }
+.teacher-dashboard label { display: block; font-weight: 700; margin-bottom: 6px; }
+.teacher-dashboard select { width: min(100%, 420px); margin-bottom: 24px; background: white; }
+.teacher-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.teacher-dashboard section { background: white; border: 2px solid var(--ink); border-radius: 20px; box-shadow: 0 5px var(--ink); overflow: hidden; }
+.teacher-stats section { padding: 18px; background: #ffda40; }
+.teacher-stats section:nth-child(2) { background: #4bd9c2; }.teacher-stats section:nth-child(3) { background: #8cc9fa; }.teacher-stats section:nth-child(4) { background: #f79fc3; }
+.teacher-stats h2 { font-size: 13px; margin: 0; }.teacher-stats strong { display: block; font-size: 32px; }.teacher-stats small { font-size: 12px; }
+.teacher-panels { display: grid; grid-template-columns: minmax(0, 3fr) minmax(200px, 1fr); gap: 20px; }
+.teacher-panels h2 { margin: 0; padding: 20px; font-size: 22px; }.teacher-panels p { margin: 0 20px 20px; padding: 18px; border: 1px solid var(--ink); border-radius: 14px; background: #fff7e6; }
+.teacher-roster { min-height: 300px; }.teacher-support { align-self: start; }
+@media (max-width: 1100px) { .teacher-heading { flex-wrap: wrap; }.teacher-actions { margin-left: 0; }.teacher-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px) { .teacher-dashboard { display: block; }.teacher-sidebar nav { grid-template-columns: repeat(2, 1fr); }.teacher-brand { margin-bottom: 16px; }.teacher-dashboard main { padding: 20px; }.teacher-panels { grid-template-columns: 1fr; } }
