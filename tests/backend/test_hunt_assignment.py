@@ -52,6 +52,20 @@ def test_same_hunt_can_be_assigned_twice(access_db, client):
     assert len(assigned_hunts()) == 2
 
 
+def test_class_with_a_hunt_cannot_be_deleted(access_db, client):
+    login(client)
+    assert assign(client, access_db).status_code == 201
+    with pytest.raises(psycopg.errors.ForeignKeyViolation), get_connection() as db:
+        db.execute("DELETE FROM classes WHERE id = %s", (access_db,))
+    assert len(assigned_hunts()) == 1
+
+
+def test_class_without_hunts_can_still_be_deleted(access_db):
+    with get_connection() as db:
+        db.execute("DELETE FROM classes WHERE id = %s", (access_db,))
+        assert db.execute("SELECT id FROM classes WHERE id = %s", (access_db,)).fetchone() is None
+
+
 def test_other_teachers_class_is_forbidden(access_db, client):
     login(client)
     response = assign(client, other_teachers_class())
