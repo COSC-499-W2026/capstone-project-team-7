@@ -288,7 +288,7 @@ Finished games and other students' games are never listed; no unfinished games r
 The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
 
 After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, and `audio_url`.
-`GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the backend (`src/backend/audio/<language>/`) and
+`GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the `AUDIO_DIR` folder (`src/backend/audio/<language>/` by default) and
 never linked by name, so neither the clue nor the audio link reveals the room number.
 Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
 A missing audio file returns 404 `"Audio not found for this clue"`.
@@ -308,8 +308,10 @@ docker compose exec backend python -m utils.seed_locations   # or: cd src/backen
 ```
 
 The French audio clues live in `src/backend/audio/fr/`, named by building and room (e.g. `COM-316.mp3`).
+Docker bind-mounts that folder into the backend at `/app/audio` (`AUDIO_DIR` in `compose.yaml`), so the clips are not built into the image.
+Adding or replacing a file there plays straight away, with no rebuild. Outside Docker, set `AUDIO_DIR` to use another folder.
 To remake them: `pip install edge-tts`, then `cd src/backend && python -m utils.generate_audio`.
-Tests: `python -m pytest tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
+Tests: `python -m pytest tests/backend/test_audio_storage.py tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
 
 ### Current user API
 
