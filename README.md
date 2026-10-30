@@ -444,3 +444,16 @@ Testing focuses on:
 - Madiba Burks Magara
 - Ashish Nayak
 - Dan Rukundo
+
+### GPS validation for game answers
+
+`POST /api/game/{game_id}/answer` requires query parameters `latitude`, `longitude`,
+`accuracy` (positive metres), and `captured_at` (ISO 8601 with timezone), alongside the
+existing raw image body. The server checks the current spot's stored coordinates and
+radius before photo recognition. Stale/future, inaccurate, outside-radius, or invalid
+readings return 422 without changing attempts, points, or progress. Missing target
+configuration returns 503. Target coordinates are never returned to the student.
+After seeding demo locations, configure targets with
+`python -m utils.seed_target_coordinates` from `src/backend` (or run it in the backend
+container). Browser GPS capture is a separate frontend change; photo-only clients
+will receive 422 until updated to send GPS fields.

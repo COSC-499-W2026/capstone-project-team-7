@@ -1,16 +1,19 @@
 """Students start a game: five random locations in a fixed order."""
 
+from typing import Annotated
 from uuid import UUID
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
 from database import get_connection
 from difficulties import Difficulty
+from proximity import LocationReading
 from student_enrollment import require_student
 from teacher_access import database_unavailable
 from utils.answer_check import check_answer
+from utils.answer_location import validate_answer_location
 from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
 from utils.audio_storage import audio_path
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
@@ -78,7 +81,7 @@ def current_location(game_id, student_id):
         with get_connection() as connection:
             location = connection.execute(
                 """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
-                locations.building, locations.room_number
+                locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres
                 FROM game_sessions
                 JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
                     AND game_session_locations.position = game_sessions.current_position
@@ -129,10 +132,12 @@ async def read_photo(request: Request):
     return bytes(photo)
 
 
-@router.post("/{game_id}/answer", summary="Submit a photo for the current spot")
-def submit_answer(game_id: UUID, user=Depends(require_student), photo=Depends(read_photo)):
+@router.post("/{game_id}/answer", summary="Submit a photo and GPS reading for the current spot")
+def submit_answer(game_id: UUID, reading: Annotated[LocationReading, Query()],
+                  user=Depends(require_student), photo=Depends(read_photo)):
     location = current_location(game_id, user["id"])
     position = location["current_position"]
+    validate_answer_location(reading, location)
     try:
         correct = check_answer(photo, location)
     except InvalidPhoto as exc:
