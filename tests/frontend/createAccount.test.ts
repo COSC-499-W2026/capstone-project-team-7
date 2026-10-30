@@ -48,6 +48,24 @@ test('a short password says how long it must be', async () => {
   await expect(signup({ ...info, password: 'short' })).rejects.toThrow('Password must be between 8 and 72 characters.')
 })
 
+test('a long username says how long it can be', async () => {
+  fakeBackend(422, { detail: [{ type: 'string_too_long', loc: ['body', 'username'] }] })
+
+  await expect(signup({ ...info, username: 'a'.repeat(51) })).rejects.toThrow('Username must be 50 characters or fewer.')
+})
+
+test('a long student number says how long it can be', async () => {
+  fakeBackend(422, { detail: [{ type: 'string_too_long', loc: ['body', 'student_number'] }] })
+
+  await expect(signup({ ...info, student_number: '1'.repeat(31) })).rejects.toThrow('Student number must be 30 characters or fewer.')
+})
+
+test('a blank field still asks to fill in every field', async () => {
+  fakeBackend(422, { detail: [{ type: 'string_too_short', loc: ['body', 'username'] }] })
+
+  await expect(signup({ ...info, username: '   ' })).rejects.toThrow('Please fill in every field.')
+})
+
 test('server problems show a general message', async () => {
   fakeBackend(503)
 

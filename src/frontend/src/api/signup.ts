@@ -13,9 +13,12 @@ export interface SignupInfo {
 
 // Turns the backend's field validation errors into one message the student can act on.
 function invalidFieldMessage(detail: unknown): string {
-  const field = Array.isArray(detail) ? detail[0]?.loc?.[1] : null
+  const error = Array.isArray(detail) ? detail[0] : null
+  const field = error?.loc?.[1]
   if (field === 'password') return 'Password must be between 8 and 72 characters.'
   if (field === 'email') return 'Please enter a valid email.'
+  if (error?.type === 'string_too_long' && field === 'username') return 'Username must be 50 characters or fewer.'
+  if (error?.type === 'string_too_long' && field === 'student_number') return 'Student number must be 30 characters or fewer.'
   return 'Please fill in every field.'
 }
 
