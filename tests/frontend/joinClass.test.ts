@@ -69,7 +69,7 @@ test('shows a general message for server problems', async () => {
 })
 
 test('the join button is disabled until a code is typed, and codes are 12 characters at most', () => {
-  const html = renderToStaticMarkup(createElement(JoinClass, { onSessionEnded: () => {} }))
+  const html = renderToStaticMarkup(createElement(JoinClass, { onJoined: () => {}, onSessionEnded: () => {} }))
 
   expect(html).toContain('Class code')
   expect(html).toContain('maxLength="12"')
