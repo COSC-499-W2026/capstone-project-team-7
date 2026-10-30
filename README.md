@@ -299,6 +299,17 @@ A correct answer moves to the next spot; the 5th correct answer finishes the gam
 Apply `007_photo_verification_points.sql` and install the optional OCR requirements. Full building/room identifiers must match; points and progress commit together, preventing duplicate awards. GPS is outside this change.
 Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished or spot already answered, 503 OCR/database failure.
 
+### Badges API
+
+Each language has a First hunt badge (finish 1 game), one badge per difficulty (e.g. `fr_basic` "Baguette Buddy": find every location with a French clue in Basic games), and a Master badge (e.g. `fr_master` "Eiffel Elite": earn First hunt and every difficulty badge in that language). Names come from the badge designs (`BADGE_NAMES` in `badges.py`).
+Languages are read from the `languages` table, so a new language gets badges automatically, with plain names like "Italian First Hunt" until design names are added.
+The "Polyglot" badge (`language` is `null`) is earned by finishing a game in every language in the database.
+Badges are listed in `src/backend/badges.py`; add one with one line there. Apply `008_student_badges.sql`.
+A correct answer checks the student's progress and saves any new badges in `student_badges`, in the same transaction as the answer. A badge is never given twice.
+After login, `GET /api/student/badges` returns every badge with `id`, `name`, `language`, `earned`, and `earned_at` (`null` if locked). Students only see their own.
+Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
+Run `python -m pytest tests/backend/test_badges.py tests/backend/test_student_badges.py -v`; the progress tests need `TEST_DATABASE_URL`.
+
 ### Demo locations and audio
 
 After running migrations, add the 5 demo locations and their French clues (safe to run again):

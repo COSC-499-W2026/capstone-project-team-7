@@ -6,6 +6,7 @@ import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 
+from badges import award_badges
 from database import get_connection
 from difficulties import Difficulty
 from student_enrollment import require_student
@@ -162,6 +163,9 @@ def submit_answer(game_id: UUID, user=Depends(require_student), photo=Depends(re
             ).fetchone()
             if spot is None:
                 raise HTTPException(status_code=409, detail="This spot was already answered")
+            # Same transaction as the answer, so progress and badges are never out of step.
+            if correct:
+                award_badges(connection, user["id"])
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None
     finished = bool(game["finished_at"])
