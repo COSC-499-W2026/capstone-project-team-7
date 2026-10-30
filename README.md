@@ -438,3 +438,24 @@ Testing focuses on:
 - Madiba Burks Magara
 - Ashish Nayak
 - Dan Rukundo
+
+### GPS validation for game answers
+
+`POST /api/game/{game_id}/answer` requires query parameters `latitude`, `longitude`,
+`accuracy` (positive metres), and `captured_at` (ISO 8601 with timezone), alongside the
+existing raw image body. The server checks the current spot's stored coordinates and
+radius before photo recognition. Stale/future, inaccurate, outside-radius, or invalid
+readings return 422 without changing attempts, points, or progress. Missing target
+configuration returns 503. Target coordinates are never returned to the student.
+After seeding demo locations, configure targets with
+`python -m utils.seed_target_coordinates` from `src/backend` (or run it in the backend
+container). The photo submission page requests a fresh, high-accuracy browser location
+on each submission, then sends the photo with these GPS fields. Allow location access;
+denied permission, unavailable location, or a 10-second timeout keeps the photo for retry.
+Camera and location access require HTTPS or localhost.
+
+To test locally in Chrome, open DevTools → More tools → Sensors and select a custom
+location matching a seeded target. Submit a freshly captured photo; then retry with a
+faraway location or blocked location permission. Outside-radius readings must not award
+points, and blocked permission must prevent upload. The backend remains responsible for
+GPS accuracy/freshness checks and photo verification.

@@ -48,3 +48,9 @@ test('the existing finish screen shows server-awarded points', () => {
   expect(html).toContain('Total: 50 points.')
   expect(html).toContain('Back to dashboard')
 })
+
+
+test('explains location access and announces verification while sending', () => {
+  expect(renderPhotoPage()).toContain('Please allow location access')
+  expect(renderPhotoPage(true)).toContain('Checking your location and room...')
+})
