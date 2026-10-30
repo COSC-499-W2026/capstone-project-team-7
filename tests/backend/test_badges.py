@@ -9,6 +9,7 @@ from psycopg.conninfo import make_conninfo
 from badges import award_badges
 from database import get_connection
 from migrate import apply_migrations
+from test_game_session import add_locations
 
 
 @pytest.fixture
@@ -31,19 +32,6 @@ def student(monkeypatch):
             yield student_id
         finally:
             connection.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
-
-
-def add_locations(count, language):
-    """Create locations that only have a clue in one language; return their ids."""
-    with get_connection() as db:
-        ids = []
-        for _ in range(count):
-            location_id = db.execute("INSERT INTO locations (building, room_number) VALUES ('EME', %s) RETURNING id",
-                                     (uuid4().hex,)).fetchone()["id"]
-            db.execute("""INSERT INTO location_clues (location_id, language_code, number_text, description_text)
-                VALUES (%s, %s, 'cent', 'une salle')""", (location_id, language))
-            ids.append(location_id)
-        return ids
 
 
 def play_game(student_id, language, difficulty, location_ids, found_count):
