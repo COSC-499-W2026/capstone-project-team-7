@@ -1,4 +1,4 @@
-import { createElement } from 'react'
+import { createElement, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test, vi } from 'vitest'
 import { getOngoingGames, type OngoingGame } from '../../src/frontend/src/api/ongoingGames'
@@ -23,6 +23,19 @@ function fakeBackend(status: number, body: unknown = {}) {
 
 function renderList(games: OngoingGame[]) {
   return renderToStaticMarkup(createElement(OngoingGames, { games, disabled: false, onResume: () => {} }))
+}
+
+// OngoingGames has no hooks, so calling it directly gives the element tree without needing a browser.
+function resumeButtons(games: OngoingGame[], onResume: (game: OngoingGame) => void, disabled = false) {
+  const buttons: ReactElement<{ onClick: () => void; disabled: boolean }>[] = []
+  const walk = (node: ReactNode) => {
+    if (Array.isArray(node)) return node.forEach(walk)
+    if (!isValidElement<{ children?: ReactNode }>(node)) return
+    if (node.type === 'button') buttons.push(node as (typeof buttons)[number])
+    walk(node.props.children)
+  }
+  walk(OngoingGames({ games, disabled, onResume }))
+  return buttons
 }
 
 afterEach(() => {
@@ -60,4 +73,20 @@ test('each ongoing game shows its language, level and progress with a resume but
 
 test('the list is hidden when there are no ongoing games', () => {
   expect(renderList([])).toBe('')
+})
+
+test('clicking resume opens the game that was picked', () => {
+  const second = { ...GAME, game_id: 'def', current_position: 4 }
+  const onResume = vi.fn()
+
+  resumeButtons([GAME, second], onResume)[1].props.onClick()
+
+  expect(onResume).toHaveBeenCalledOnce()
+  expect(onResume).toHaveBeenCalledWith(second)
+})
+
+test('resume buttons are disabled while another game is starting', () => {
+  const buttons = resumeButtons([GAME], vi.fn(), true)
+
+  expect(buttons[0].props.disabled).toBe(true)
 })
