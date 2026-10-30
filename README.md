@@ -279,6 +279,10 @@ Fewer than 5 French locations returns 409 `"Not enough locations for this langua
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503. Deleting a student keeps their games with no student linked.
 Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE_URL` set.
 
+`GET /api/game/ongoing` lists the student's unfinished games, newest first, each with `game_id`, `language_code`, `difficulty`, `current_position`, `total_locations`, and `started_at`.
+Finished games and other students' games are never listed; no unfinished games returns `[]`. Missing sessions return 401, non-students get 403, and database failures return 503.
+The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
+
 After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, and `audio_url`.
 `GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the backend (`src/backend/audio/<language>/`) and
 never linked by name, so neither the clue nor the audio link reveals the room number.

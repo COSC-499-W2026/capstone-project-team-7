@@ -57,6 +57,21 @@ def start_game(user=Depends(require_student)):
     }
 
 
+@router.get("/ongoing", summary="Your unfinished games, newest first")
+def ongoing_games(user=Depends(require_student)):
+    try:
+        with get_connection() as connection:
+            games = connection.execute(
+                """SELECT id AS game_id, language_code, difficulty, current_position, started_at
+                FROM game_sessions WHERE student_id = %s AND finished_at IS NULL
+                ORDER BY started_at DESC, id""",
+                (user["id"],),
+            ).fetchall()
+    except (psycopg.Error, RuntimeError):
+        raise database_unavailable() from None
+    return [{**game, "total_locations": LOCATIONS_PER_HUNT} for game in games]
+
+
 def current_location(game_id, student_id):
     """The location at the game's current position, or a 404/409/503 error."""
     try:

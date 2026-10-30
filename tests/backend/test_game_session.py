@@ -161,6 +161,62 @@ def start(client):
     return client.post(URL).json()["game_id"]
 
 
+ONGOING_URL = "/api/game/ongoing"
+
+
+def other_students_game():
+    """An unfinished game that belongs to a second student."""
+    with get_connection() as db:
+        other = db.execute("""INSERT INTO users (email, username, password, first_name, last_name, role)
+            VALUES ('other@example.com', 'other', 'x', 'Other', 'Student', 'student') RETURNING id""").fetchone()["id"]
+        db.execute("INSERT INTO students (user_id, student_number) VALUES (%s, '87654321')", (other,))
+        return db.execute("""INSERT INTO game_sessions (student_id, language_code, difficulty)
+            VALUES (%s, 'fr', 'basic') RETURNING id""", (other,)).fetchone()["id"]
+
+
+def test_ongoing_lists_own_unfinished_games_newest_first(game_db, client):
+    first = start(client)
+    second = client.post(URL).json()["game_id"]
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET current_position = 3 WHERE id = %s", (first,))
+    response = client.get(ONGOING_URL)
+    assert response.status_code == 200
+    games = response.json()
+    assert [game["game_id"] for game in games] == [second, first]
+    assert games[1] == {"game_id": first, "language_code": "fr", "difficulty": "basic", "current_position": 3,
+                        "total_locations": 5, "started_at": games[1]["started_at"]}
+
+
+def test_ongoing_hides_finished_and_other_students_games(game_db, client):
+    finished = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET finished_at = now() WHERE id = %s", (finished,))
+    other_students_game()
+    response = client.get(ONGOING_URL)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.parametrize("role,status", [(None, 401), ("teacher", 403), ("admin", 403)])
+def test_ongoing_requires_student(game_db, client, role, status):
+    if role:
+        login(client, role)
+    assert client.get(ONGOING_URL).status_code == status
+
+
+def test_ongoing_database_failure_is_safe(client, monkeypatch):
+    def unavailable():
+        raise psycopg.OperationalError("private database details")
+    app.dependency_overrides[game_session.require_student] = lambda: {"id": uuid4(), "role": "student"}
+    monkeypatch.setattr(game_session, "get_connection", unavailable)
+    try:
+        response = client.get(ONGOING_URL)
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
 def test_student_gets_first_clue_without_the_room_number(game_db, client):
     game_id = start(client)
     response = client.get(clue_url(game_id))
