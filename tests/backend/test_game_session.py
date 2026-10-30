@@ -177,7 +177,7 @@ def test_clue_audio_plays_the_current_rooms_file(game_db, client, tmp_path, monk
             WHERE game_session_id = %s AND position = 1""", (game_id,)).fetchone()["room_number"]
     (tmp_path / "fr").mkdir()
     (tmp_path / "fr" / f"EME-{room}.mp3").write_bytes(b"fake mp3")
-    monkeypatch.setattr(game_session, "AUDIO_FOLDER", tmp_path / "fr")
+    monkeypatch.setenv("AUDIO_DIR", str(tmp_path))
     response = client.get(clue_url(game_id) + "/audio")
     assert response.status_code == 200
     assert response.headers["content-type"] == "audio/mpeg"
@@ -186,7 +186,7 @@ def test_clue_audio_plays_the_current_rooms_file(game_db, client, tmp_path, monk
 
 def test_missing_audio_file_is_not_found(game_db, client, tmp_path, monkeypatch):
     game_id = start(client)
-    monkeypatch.setattr(game_session, "AUDIO_FOLDER", tmp_path / "fr")
+    monkeypatch.setenv("AUDIO_DIR", str(tmp_path))
     response = client.get(clue_url(game_id) + "/audio")
     assert response.status_code == 404
     assert response.json() == {"detail": "Audio not found for this clue"}
