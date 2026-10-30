@@ -138,7 +138,7 @@ While building the create account page I noticed a security problem with teacher
 
 - `test_student_badges.py` (7 test cases): earned badges are marked earned and the rest locked; a new student gets every badge locked; no login gives 401; teachers and admins get 403; finding the last Basic French location awards French Basic; and finishing a first French game awards French First hunt (with 6 locations, so it can't also earn French Basic by accident).
 - The last two tests play a real game through the API, from start to the 5th answer, to make sure badges are awarded at the right moment and not earlier.
-- Regression: the full backend suite passed. Backend CI run: [CI Run](___)
+- Regression: the full backend suite passed. Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/41103928484)
 
 
 ## PR #165: Teachers assign hunts to their classes (branch `158-teacher-assign-levels-endpoint`, into `main`)
@@ -175,3 +175,25 @@ While building the create account page I noticed a security problem with teacher
 
 
 ## Code reviews for teammates
+
+These are some of my reviews this week, the ones where the feedback mattered most.
+
+**PR #133: Submit answer and finish screen (Ashish)**
+
+- I requested changes, then approved. On a 401, the student saw "Please log in again" but stayed on the game screen with no way to log in. I suggested sending them back to the login page, which #147 then added.
+
+**PR #134: GPS proximity validation (Dan)**
+
+- I approved. The validator is easy to follow and the tests cover the tricky edges. I agreed with Ashish on renaming the migration to `006`, since my #120 also used 005. Since our spots are indoors, phones might report accuracy worse than the radius, so I suggested testing with a real phone in a building.
+
+**PR #141: Verify room photos and award points (Madiba)**
+
+- I requested changes. Every photo now needs OCR, so if it isn't installed on the machine running the backend, every photo fails, and I asked to make sure it's installed and added to Docker before the demo. I also asked whether every correct answer should stay at 10 points, since we track attempts for points later, then said that one could wait.
+
+**PR #155: Capture and send GPS with game photos (Dan)**
+
+- I approved after trying it on my laptop with coordinates faked through devtools, and it worked well. I asked for screenshots in the PR description, and noted we still need to double check our accuracy radius on campus.
+
+**PR #171: Resume game sessions (Ashish)**
+
+- I approved. Resume works nicely because the game screen already gets the current clue from the server, and the safety tests are solid. I agreed with Dan's suggestion of a click test for Resume. I also noted that Start always makes a new game, so unfinished games could pile up, and suggested a follow-up issue (e.g. one unfinished game per language, or a "quit game" button).
