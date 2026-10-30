@@ -31,14 +31,12 @@ def found_every_location(difficulty):
 
 
 def in_every_language(rule):
-    return lambda progress: all(rule(progress[code]) for code in LANGUAGES)
+    return lambda progress: all(rule(language) for language in progress.values())
 
 
 def all_of(*rules):
     return lambda progress: all(rule(progress) for rule in rules)
 
-
-LANGUAGES = {"zh": "Chinese", "fr": "French", "de": "German", "ja": "Japanese", "ko": "Korean", "es": "Spanish"}
 
 # Names from the badge designs, in order: first hunt, basic, advanced, expert, master.
 BADGE_NAMES = {
@@ -53,18 +51,33 @@ BADGE_NAMES = {
     }.items()
 }
 
-# Add a badge by adding one line; earned badges are saved by id, so ids must never change.
-BADGES = [
-    *(Badge(f"{code}_first_hunt", BADGE_NAMES[code]["first_hunt"], code, finished_games(1)) for code in LANGUAGES),
-    *(Badge(f"{code}_{difficulty.value}", BADGE_NAMES[code][difficulty.value], code, found_every_location(difficulty))
-      for code in LANGUAGES for difficulty in Difficulty),
-    *(Badge(f"{code}_master", BADGE_NAMES[code]["master"], code, all_of(finished_games(1), *map(found_every_location, Difficulty)))
-      for code in LANGUAGES),
-    Badge("polyglot", "Polyglot", None, in_every_language(finished_games(1))),
-]
+def badge_name(code, language_name, kind):
+    """The design's name, or a plain one (e.g. "Italian First Hunt") for a language without designs yet."""
+    return BADGE_NAMES.get(code, {}).get(kind, f"{language_name} {kind.replace('_', ' ').title()}")
 
 
-def load_progress(connection, student_id):
+def load_languages(connection):
+    """Every language code and name, read from the database so new languages get badges too."""
+    rows = connection.execute("SELECT code, name FROM languages ORDER BY code").fetchall()
+    return {row["code"]: row["name"] for row in rows}
+
+
+def all_badges(languages):
+    """Every badge for these languages. Add a badge by adding one line; ids are saved, so must never change."""
+    return [
+        *(Badge(f"{code}_first_hunt", badge_name(code, name, "first_hunt"), code, finished_games(1))
+          for code, name in languages.items()),
+        *(Badge(f"{code}_{difficulty.value}", badge_name(code, name, difficulty.value), code,
+                found_every_location(difficulty))
+          for code, name in languages.items() for difficulty in Difficulty),
+        *(Badge(f"{code}_master", badge_name(code, name, "master"), code,
+                all_of(finished_games(1), *map(found_every_location, Difficulty)))
+          for code, name in languages.items()),
+        Badge("polyglot", "Polyglot", None, in_every_language(finished_games(1))),
+    ]
+
+
+def load_progress(connection, student_id, languages):
     """The student's progress in every language, keyed by language code."""
     totals = connection.execute(
         "SELECT language_code, count(*) AS n FROM location_clues GROUP BY language_code",
@@ -92,20 +105,21 @@ def load_progress(connection, student_id):
             found={row["difficulty"]: row["n"] for row in found if row["language_code"] == code},
             total_locations=next((row["n"] for row in totals if row["language_code"] == code), 0),
         )
-        for code in LANGUAGES
+        for code in languages
     }
 
 
-def earned_badges(progress):
+def earned_badges(badges, progress):
     """Every badge whose rule the progress meets."""
-    return [badge for badge in BADGES
+    return [badge for badge in badges
             if badge.rule(progress if badge.language is None else progress[badge.language])]
 
 
 def award_badges(connection, student_id):
     """Save badges the student has earned but doesn't have yet; return the new ones."""
+    languages = load_languages(connection)
     new = []
-    for badge in earned_badges(load_progress(connection, student_id)):
+    for badge in earned_badges(all_badges(languages), load_progress(connection, student_id, languages)):
         saved = connection.execute(
             """INSERT INTO student_badges (student_id, badge_id) VALUES (%s, %s)
             ON CONFLICT DO NOTHING RETURNING badge_id""",

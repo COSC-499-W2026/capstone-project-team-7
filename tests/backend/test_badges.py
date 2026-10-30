@@ -120,3 +120,26 @@ def test_finishing_games_in_all_six_languages_earns_polyglot(student):
 
     assert "polyglot" in check_badges(student)
     assert "polyglot" in saved_badges(student)
+
+
+def add_language(code, name):
+    with get_connection() as db:
+        db.execute("INSERT INTO languages (code, name) VALUES (%s, %s)", (code, name))
+
+
+def test_a_new_language_gets_badges_with_plain_names(student):
+    add_language("it", "Italian")
+    play_game(student, "it", "basic", add_locations(5, "it"), found_count=5)
+
+    with get_connection() as db:
+        names = {badge.id: badge.name for badge in award_badges(db, student)}
+    assert names == {"it_first_hunt": "Italian First Hunt", "it_basic": "Italian Basic"}
+
+
+def test_a_new_language_is_needed_for_polyglot(student):
+    add_language("it", "Italian")
+    for language in ("zh", "fr", "de", "ja", "ko", "es"):
+        play_game(student, language, "basic", add_locations(1, language), found_count=1)
+
+    assert "polyglot" not in check_badges(student)
+    assert "polyglot" not in saved_badges(student)
