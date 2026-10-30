@@ -273,6 +273,8 @@ After login, a student can `POST /api/student/classes/join` with `{"class_code":
 Success returns 201 with the class `id`, `name`, and `language_code`. An unknown code returns 404 `"Class not found"`, joining twice returns 409 `"Already enrolled"`, and a blank or over-long code returns 422.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
 Run `python -m pytest tests/backend/test_student_enrollment.py -v` with `TEST_DATABASE_URL` set.
+The student dashboard has a "Join a class" box that sends this request and shows the class name, or a message for each error.
+Above it, "My classes" lists the student's classes (name and language) from `GET /api/student/profile`, and refreshes after each join.
 
 ### Assigned hunts API
 
