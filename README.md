@@ -1,12 +1,16 @@
-## Lost In Translation
+## Lost In Translation!
 
 [Team Contract](docs/contract/499_team7_contract.pdf)
 
 A web-based language learning scavenger hunt game that combines language listening comprehension and physical navigation.
 
+## Project Goals
+
+Lost In Translation! aims to make language practice more interactive, contextual, and engaging by moving listening and vocabulary exercises beyond traditional screen-based quizzes.
+
 ## Overview
 
-(Game name) is designed for beginner language learners to practice recognizing numbers and simple location-based instructions in a real-world environment.
+Lost In Translation! is designed for beginner language learners to practice recognizing numbers and simple location-based instructions in a real-world environment.
 
 Players listen to audio instructions, navigate to locations, and verify their answers using GPS and image recognition.
 
@@ -288,8 +292,12 @@ Fewer than 5 French locations returns 409 `"Not enough locations for this langua
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503. Deleting a student keeps their games with no student linked.
 Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE_URL` set.
 
+`GET /api/game/ongoing` lists the student's unfinished games, newest first, each with `game_id`, `language_code`, `difficulty`, `current_position`, `total_locations`, and `started_at`.
+Finished games and other students' games are never listed; no unfinished games returns `[]`. Missing sessions return 401, non-students get 403, and database failures return 503.
+The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
+
 After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, and `audio_url`.
-`GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the backend (`src/backend/audio/<language>/`) and
+`GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the `AUDIO_DIR` folder (`src/backend/audio/<language>/` by default) and
 never linked by name, so neither the clue nor the audio link reveals the room number.
 Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
 A missing audio file returns 404 `"Audio not found for this clue"`.
@@ -300,6 +308,17 @@ A correct answer moves to the next spot; the 5th correct answer finishes the gam
 Apply `007_photo_verification_points.sql` and install the optional OCR requirements. Full building/room identifiers must match; points and progress commit together, preventing duplicate awards. GPS is outside this change.
 Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished or spot already answered, 503 OCR/database failure.
 
+### Badges API
+
+Each language has a First hunt badge (finish 1 game), one badge per difficulty (e.g. `fr_basic` "Baguette Buddy": find every location with a French clue in Basic games), and a Master badge (e.g. `fr_master` "Eiffel Elite": earn First hunt and every difficulty badge in that language). Names come from the badge designs (`BADGE_NAMES` in `badges.py`).
+Languages are read from the `languages` table, so a new language gets badges automatically, with plain names like "Italian First Hunt" until design names are added.
+The "Polyglot" badge (`language` is `null`) is earned by finishing a game in every language in the database.
+Badges are listed in `src/backend/badges.py`; add one with one line there. Apply `008_student_badges.sql`.
+A correct answer checks the student's progress and saves any new badges in `student_badges`, in the same transaction as the answer. A badge is never given twice.
+After login, `GET /api/student/badges` returns every badge with `id`, `name`, `language`, `earned`, and `earned_at` (`null` if locked). Students only see their own.
+Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
+Run `python -m pytest tests/backend/test_badges.py tests/backend/test_student_badges.py -v`; the progress tests need `TEST_DATABASE_URL`.
+
 ### Demo locations and audio
 
 After running migrations, add the 5 demo locations and their French clues (safe to run again):
@@ -309,8 +328,10 @@ docker compose exec backend python -m utils.seed_locations   # or: cd src/backen
 ```
 
 The French audio clues live in `src/backend/audio/fr/`, named by building and room (e.g. `COM-316.mp3`).
+Docker bind-mounts that folder into the backend at `/app/audio` (`AUDIO_DIR` in `compose.yaml`), so the clips are not built into the image.
+Adding or replacing a file there plays straight away, with no rebuild. Outside Docker, set `AUDIO_DIR` to use another folder.
 To remake them: `pip install edge-tts`, then `cd src/backend && python -m utils.generate_audio`.
-Tests: `python -m pytest tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
+Tests: `python -m pytest tests/backend/test_audio_storage.py tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
 
 ### Current user API
 
@@ -435,9 +456,6 @@ Testing focuses on:
 - Data handling
 - User interactions
 
-## Project Goals
-
-Lost In Translation! aims to make language practice more interactive, contextual, and engaging by moving listening and vocabulary exercises beyond traditional screen-based quizzes.
 
 ## Team
 

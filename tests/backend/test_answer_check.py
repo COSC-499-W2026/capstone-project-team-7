@@ -25,6 +25,7 @@ def api(monkeypatch):
 
     monkeypatch.setattr(connection, "execute", execute)
     monkeypatch.setattr(game_session, "get_connection", connection)
+    monkeypatch.setattr(game_session, "award_badges", lambda connection, student_id: [])
     monkeypatch.setattr(answer_check, "extract_room_numbers", lambda photo: state.candidates)
     app.dependency_overrides[game_session.require_student] = lambda: {"id": state.student, "role": "student"}
     with TestClient(app, base_url="https://testserver") as client:
