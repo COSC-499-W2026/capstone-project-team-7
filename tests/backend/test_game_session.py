@@ -161,6 +161,62 @@ def start(client):
     return client.post(URL).json()["game_id"]
 
 
+ONGOING_URL = "/api/game/ongoing"
+
+
+def other_students_game():
+    """An unfinished game that belongs to a second student."""
+    with get_connection() as db:
+        other = db.execute("""INSERT INTO users (email, username, password, first_name, last_name, role)
+            VALUES ('other@example.com', 'other', 'x', 'Other', 'Student', 'student') RETURNING id""").fetchone()["id"]
+        db.execute("INSERT INTO students (user_id, student_number) VALUES (%s, '87654321')", (other,))
+        return db.execute("""INSERT INTO game_sessions (student_id, language_code, difficulty)
+            VALUES (%s, 'fr', 'basic') RETURNING id""", (other,)).fetchone()["id"]
+
+
+def test_ongoing_lists_own_unfinished_games_newest_first(game_db, client):
+    first = start(client)
+    second = client.post(URL).json()["game_id"]
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET current_position = 3 WHERE id = %s", (first,))
+    response = client.get(ONGOING_URL)
+    assert response.status_code == 200
+    games = response.json()
+    assert [game["game_id"] for game in games] == [second, first]
+    assert games[1] == {"game_id": first, "language_code": "fr", "difficulty": "basic", "current_position": 3,
+                        "total_locations": 5, "started_at": games[1]["started_at"]}
+
+
+def test_ongoing_hides_finished_and_other_students_games(game_db, client):
+    finished = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET finished_at = now() WHERE id = %s", (finished,))
+    other_students_game()
+    response = client.get(ONGOING_URL)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.parametrize("role,status", [(None, 401), ("teacher", 403), ("admin", 403)])
+def test_ongoing_requires_student(game_db, client, role, status):
+    if role:
+        login(client, role)
+    assert client.get(ONGOING_URL).status_code == status
+
+
+def test_ongoing_database_failure_is_safe(client, monkeypatch):
+    def unavailable():
+        raise psycopg.OperationalError("private database details")
+    app.dependency_overrides[game_session.require_student] = lambda: {"id": uuid4(), "role": "student"}
+    monkeypatch.setattr(game_session, "get_connection", unavailable)
+    try:
+        response = client.get(ONGOING_URL)
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
 def test_student_gets_first_clue_without_the_room_number(game_db, client):
     game_id = start(client)
     response = client.get(clue_url(game_id))
@@ -191,7 +247,7 @@ def test_clue_audio_plays_the_current_rooms_file(game_db, client, tmp_path, monk
             WHERE game_session_id = %s AND position = 1""", (game_id,)).fetchone()["room_number"]
     (tmp_path / "fr").mkdir()
     (tmp_path / "fr" / f"EME-{room}.mp3").write_bytes(b"fake mp3")
-    monkeypatch.setattr(game_session, "AUDIO_FOLDER", tmp_path / "fr")
+    monkeypatch.setenv("AUDIO_DIR", str(tmp_path))
     response = client.get(clue_url(game_id) + "/audio")
     assert response.status_code == 200
     assert response.headers["content-type"] == "audio/mpeg"
@@ -200,7 +256,7 @@ def test_clue_audio_plays_the_current_rooms_file(game_db, client, tmp_path, monk
 
 def test_missing_audio_file_is_not_found(game_db, client, tmp_path, monkeypatch):
     game_id = start(client)
-    monkeypatch.setattr(game_session, "AUDIO_FOLDER", tmp_path / "fr")
+    monkeypatch.setenv("AUDIO_DIR", str(tmp_path))
     response = client.get(clue_url(game_id) + "/audio")
     assert response.status_code == 404
     assert response.json() == {"detail": "Audio not found for this clue"}

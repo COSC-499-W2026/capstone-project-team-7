@@ -12,7 +12,7 @@ from student_enrollment import require_student
 from teacher_access import database_unavailable
 from utils.answer_check import check_answer
 from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
-from utils.generate_audio import AUDIO_FOLDER, audio_filename
+from utils.audio_storage import audio_path
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
 
 router = APIRouter(prefix="/api/game", tags=["game"])
@@ -57,6 +57,21 @@ def start_game(user=Depends(require_student)):
     }
 
 
+@router.get("/ongoing", summary="Your unfinished games, newest first")
+def ongoing_games(user=Depends(require_student)):
+    try:
+        with get_connection() as connection:
+            games = connection.execute(
+                """SELECT id AS game_id, language_code, difficulty, current_position, started_at
+                FROM game_sessions WHERE student_id = %s AND finished_at IS NULL
+                ORDER BY started_at DESC, id""",
+                (user["id"],),
+            ).fetchall()
+    except (psycopg.Error, RuntimeError):
+        raise database_unavailable() from None
+    return [{**game, "total_locations": LOCATIONS_PER_HUNT} for game in games]
+
+
 def current_location(game_id, student_id):
     """The location at the game's current position, or a 404/409/503 error."""
     try:
@@ -98,7 +113,7 @@ def current_clue(game_id: UUID, user=Depends(require_student)):
 @router.get("/{game_id}/clue/audio", summary="Play the audio for the current clue")
 def current_clue_audio(game_id: UUID, user=Depends(require_student)):
     location = current_location(game_id, user["id"])
-    path = AUDIO_FOLDER.parent / location["language_code"] / audio_filename(location)
+    path = audio_path(location["language_code"], location)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Audio not found for this clue")
     return FileResponse(path, media_type="audio/mpeg")
