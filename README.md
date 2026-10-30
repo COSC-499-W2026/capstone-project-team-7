@@ -356,6 +356,11 @@ Open http://localhost:5173. The React/TypeScript frontend uses Vite, and
 edits in `src/frontend/src` reload in the browser automatically.
 Stop the containers with `Ctrl+C`, or run `docker compose down`.
 
+Teachers land on a dashboard styled after page 10 of `docs/design/Frontend Mockups/Lost In Translation Mockups.pdf`.
+They can select an assigned class, see its language and join code, retry loading
+failures, and log out. Roster management and statistics are marked coming soon.
+Typography uses Google Fonts: Fredoka for headings and Nunito for body text.
+
 After changing frontend dependencies, run `docker compose run --rm frontend npm ci`
 to update the dependency volume, then rebuild with `docker compose up --build`.
 
