@@ -1,6 +1,6 @@
 # Week 8 Individual Log: Gamu
 
-Team 7 | Repo: capstone-project-team-7 | PRs this week: #___ (create account page), #___ (badge rules), #___ (badges endpoint) and #___ (teacher-assigned hunts) all merged into main
+Team 7 | Repo: capstone-project-team-7 | PRs this week: #160 (create account page), #161 (badge rules), #163 (badges endpoint) and #165 (teacher-assigned hunts) all merged into main
 
 Last week we got a basic game session working from start to finish. This week I added the pieces around the game: a way for new students to make an account from the app, language-specific badges that are earned while playing, and a way for teachers to assign hunts to their classes. I kept the frontend plain on purpose, since the team agreed to finish the working features first and style everything later in Milestone 2.
 
@@ -9,24 +9,25 @@ While building the create account page I noticed a security problem with teacher
 ---
 
 
-## PR #___: Create account page (branch `159-demo-frontend-create-account-page`, into `main`)
+## PR #160: Create account page (branch `159-demo-frontend-create-account-page`, into `main`)
 
-**Size:** 5 files changed, +250 / -3 lines (`src/frontend/src/pages/CreateAccountPage.tsx` and `src/frontend/src/api/signup.ts` added, `src/frontend/src/App.tsx` and `src/frontend/src/pages/LoginPage.tsx` updated, `tests/frontend/createAccount.test.ts` added).
+**Size:** 5 files changed, +271 / -3 lines (`src/frontend/src/pages/CreateAccountPage.tsx` and `src/frontend/src/api/signup.ts` added, `src/frontend/src/App.tsx` and `src/frontend/src/pages/LoginPage.tsx` updated, `tests/frontend/createAccount.test.ts` added).
 
 - Up to now the only way to get a student account was to call the backend directly, so new students couldn't sign up from the app (task #159, Milestone 2 requirement #107).
 - Therefore, I added a **Create account** button to the login page that opens a simple signup form. The form sends the student's details to the existing student signup endpoint (`POST /api/auth/student/signup`, Madiba's #66), then logs the new student in automatically so they land straight on their dashboard.
 
 **Review receipts**
 
-- Reviewed by ___.
+- Reviewed by Ashish and Dan.
+- Ashish pointed out that a very long username or student number would be rejected by the backend, but the form would only say "Please fill in every field", which is confusing. I added clear messages for both cases.
 - The page is for students only. While testing I noticed the form asks for a student number, which teachers don't have. Teachers sign up through a separate endpoint that only checks their email is on the approved teacher list. Teacher emails are usually public, so a student could sign up with a teacher's email before the teacher does and get a teacher account. I raised this with the team and suggested that admins create teacher accounts and teachers set their own password through Forgot Password (#96), which proves they own the email or send out a verification link to the email to activate the account. This is a team decision since it changes Dan's teacher signup, so I didn't change the backend in this PR.
 - After a successful signup, the student is logged in automatically and goes straight to their dashboard, so they don't have to type their details twice. If the account is created but the automatic login fails, they're sent to the login page with "Account created! Please log in.", so they're never stuck. If signup itself fails, it never tries to log in.
-- If signup fails, the form keeps what the student typed so they don't have to fill it in again, and shows a clear message: already in use (409), password length or invalid email (422), or a general message for anything else. The page never shows raw server errors.
+- If signup fails, the form keeps what the student typed so they don't have to fill it in again, and shows a clear message: already in use (409), password length, username or student number too long, or invalid email (422), or a general message for anything else. The page never shows raw server errors.
 
 **Architecture receipts**
 
 - Same pattern as my login page (#117): the page calls `api/signup.ts`, and only that file talks to the backend. The automatic login reuses my existing `login()` from `api/login.ts` instead of a second copy of the login code. `App.tsx` decides which screen to show (login, create account, dashboard or game).
-- In the DFD, this adds a new data flow: the student's signup details go from the browser to the backend's student signup process, which writes to the `users` and `students` tables in PostgreSQL. The automatic login then goes through the existing login process, which creates a row in `sessions`.
+- This fits the existing auth DFD, so the diagram doesn't change. The form is the Guest's "Register request" going into 1.1 Create Account, which writes the new account to D1 User Data (the `users` and `students` tables). The automatic login then goes through the existing 1.2 Login and 1.3 Verify Account processes, and 1.6 Route by Role sends the student to their dashboard.
 - I didn't change any backend code. On the login page I only added the button, the success message and the game title.
 
 **Clean Code Check**
@@ -35,9 +36,9 @@ While building the create account page I noticed a security problem with teacher
 
 **Testing receipts**
 
-- `createAccount.test.ts` (10 tests): sends the details to the right endpoint; clear messages for an email already in use, a short password and server problems; a new account is logged straight in with the same email and password; if the automatic login fails the account is still created; if signup fails it never tries to log in; the login page has a Create account button and shows the "Account created" message; and the create account page asks for every signup field and links back to login.
+- `createAccount.test.ts` (13 tests): sends the details to the right endpoint; clear messages for an email already in use, a short password, a long username, a long student number, a blank field and server problems; a new account is logged straight in with the same email and password; if the automatic login fails the account is still created; if signup fails it never tries to log in; the login page has a Create account button and shows the "Account created" message; and the create account page asks for every signup field and links back to login.
 - The tests fake the backend's replies, so they run anywhere, including CI.
-- Regression: the full frontend suite passed. Frontend CI run: [CI Run](___)
+- Regression: the full frontend suite passed. Frontend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/41001624865)
 
 **Screenshots**
 ![Create account button on the login page](screenshots/week-8/image.png)
@@ -48,26 +49,24 @@ While building the create account page I noticed a security problem with teacher
 
 *The create account form: the six signup fields, the Create account button, and a link back to login.*
 
-![Logged straight in to the dashboard after signing up](screenshots/week-8/___.png)
 
-*After signing up, the new student is logged straight in to their dashboard.*
+## PR #161: Language badge rules (branch `157-language-specific-badges`, into `main`)
 
-
-## PR #___: Language badge rules (branch `157-language-specific-badges`, into `main`)
-
-**Size:** 3 files changed, +257 / -0 lines (`src/backend/badges.py`, `src/backend/migrations/008_student_badges.sql` and `tests/backend/test_badges.py` added).
+**Size:** 3 files changed, +282 / -0 lines (`src/backend/badges.py`, `src/backend/migrations/008_student_badges.sql` and `tests/backend/test_badges.py` added).
 
 - Our proposal includes language-specific badges, so students have something to work towards in each language (task #157).
-- Therefore, I added the badge rules and a function that saves any badges a student has earned. Each of the 6 languages has 5 badges, plus one **Polyglot** badge across all languages, for 31 in total:
+- Therefore, I added the badge rules and a function that saves any badges a student has earned. Each of the 6 languages has 5 badges, plus one **Polyglot** badge across all languages, for 31 in total today:
   - **First hunt**: finish 1 game in that language (e.g. French "Bon Appétit!")
   - **Basic, Advanced, Expert**: find every location that has a clue in that language, at that difficulty (e.g. "Baguette Buddy", "Triumphant!", "Louvre Legend")
   - **Master**: earn all 4 of the above in that language (e.g. "Eiffel Elite")
-  - **Polyglot**: earn First hunt in all 6 languages
-- The badge names match our badge designs in the "designs" folder under "docs" (also shown below). They're kept in one lookup table (`BADGE_NAMES`), so a name can be changed in one place. 
+  - **Polyglot**: earn First hunt in every language in the database (6 for now)
+- The badge names match our badge designs in `docs/design/Frontend Mockups` (also shown below). They're kept in one lookup table (`BADGE_NAMES`), so a name can be changed in one place. 
 
 **Review receipts**
 
-- Reviewed by ___.
+- Reviewed by Ashish and Dan.
+- Ashish asked me not to hardcode the languages, so new languages would appear on their own. At first I kept them hardcoded, because each language's badges use names from the designs, but I changed it: languages now come from the `languages` table, so a new language gets badges automatically. Existing languages keep their design names, and a language without designs yet gets plain names like "Italian First Hunt". Polyglot counts every language in the database.
+- Ashish also spotted that my `add_locations` test helper duplicated the one in `test_game_session.py`, so I removed mine and import the existing one.
 - I split badges into two PRs (rules first, then the endpoint) so each one is small and easy to review.
 - A location counts toward a difficulty badge if the student found it in any game at that difficulty, even a game they didn't finish. GPS and the photo check both passed, so they really found it. This can't be used to cheat, because the badge needs every location, and it's fairer if a student has to leave a game early. First hunt still needs a finished game, because that badge is about finishing.
 - Only locations that have a clue in that language count. Otherwise a student could never earn a badge for a language that doesn't have every clue yet.
@@ -79,21 +78,24 @@ While building the create account page I noticed a security problem with teacher
 
 **Architecture receipts**
 
-- The badges are a simple list in `badges.py`, like Dan's `difficulties.py` (#88). Adding Master and Polyglot was one line each, which proved the design works. Adding a badge later is one new line, with no new code and no migration, because the database only stores the badge's id. This follows the Open/Closed principle.
-- In the DFD, the badge process reads the student's progress from `game_sessions`, `game_session_locations` and `location_clues`, and writes earned badges to the new `student_badges` data store.
+- All the rules are in one place, `badges.py`, and the `all_badges` function builds the badge list from the languages in the database, using Dan's `Difficulty` values (#88). Adding Master and Polyglot was one entry each in that list, which proved the design works. Adding a badge later is one new entry with no migration, because the database only stores the badge's id. This follows the Open/Closed principle.
+- In the DFD, the badge process reads the list of languages from `languages` and the student's progress from `game_sessions`, `game_session_locations` and `location_clues`, and writes earned badges to the new `student_badges` data store.
 
 **Clean Code Check**
 
-- I re-read for hardcoded values, duplicate code, dead code and deep nesting. Each rule is a small function, and the comment above the badge list warns that badge ids must never change, since earned badges are saved by id. `badges.py` is under 100 lines.
+- I re-read for hardcoded values, duplicate code, dead code and deep nesting. Each rule is a small function, and the `all_badges` docstring warns that badge ids must never change, since earned badges are saved by id. `badges.py` is under 150 lines.
 
 **Testing receipts**
 
-- `test_badges.py` (8 tests): finding every Basic French location earns French Basic; finding only some earns nothing; checking twice doesn't give the badge twice; French progress never earns a Spanish badge; Basic and Advanced only doesn't earn French Master, but adding Expert does; and finishing games in 5 languages doesn't earn Polyglot, but all 6 does.
+- `test_badges.py` (10 tests): finding every Basic French location earns French Basic; finding only some earns nothing; checking twice doesn't give the badge twice; French progress never earns a Spanish badge; Basic and Advanced only doesn't earn French Master, but adding Expert does; finishing games in 5 languages doesn't earn Polyglot, but all 6 does; a new language gets badges with plain names; and a new language is needed for Polyglot.
 - The negative tests are the "almost there" cases (2 of 3 difficulties, 5 of 6 languages), since that's where a counting mistake would show up.
 - These use a real PostgreSQL database in a temporary schema and are skipped if `TEST_DATABASE_URL` isn't set.
-- Regression: the full backend suite passed. Backend CI run: [CI Run](___)
+- Regression: the full backend suite passed. Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/41004135190)
 
 **Screenshots**
+
+*Note: these are mockups for Milestone 2. The badge images aren't implemented in the app yet.*
+
 ![All 30 language badges, earned](screenshots/week-8/all-badges.png)
 
 *All 30 language badges, earned: one row per language with First hunt, Basic (1 star), Advanced (2 stars), Expert (3 stars) and Master (crown), at full and small size.*
@@ -107,16 +109,16 @@ While building the create account page I noticed a security problem with teacher
 *The Polyglot badge for all languages, earned and locked, at full and small size.*
 
 
-## PR #___: Badges endpoint and awarding badges during the game (branch `162-language-specific-badges-endpoint`, into `main`)
+## PR #163: Badges endpoint and awarding badges during the game (branch `162-language-specific-badges-endpoint`, into `main`)
 
-**Size:** 7 files changed, +154 / -0 lines on top of the badge rules PR (`src/backend/student_badges.py` and `tests/backend/test_student_badges.py` added; `src/backend/badges.py`, `src/backend/game_session.py`, `src/backend/main.py`, `tests/backend/test_answer_check.py` and `README.md` updated).
+**Size:** 7 files changed, +158 / -0 lines on top of the badge rules PR (`src/backend/student_badges.py` and `tests/backend/test_student_badges.py` added; `src/backend/badges.py`, `src/backend/game_session.py`, `src/backend/main.py`, `tests/backend/test_answer_check.py` and `README.md` updated).
 
 - Badges need to be given out automatically while students play, and the frontend needs a way to show them (task #162).
-- Therefore, a correct answer now checks the student's progress and saves any new badges. I also added `GET /api/student/badges`, which returns every badge with `id`, `name`, `language`, `earned` and `earned_at`. Polyglot has `language` set to `null`, since it belongs to every language.
+- Therefore, a correct answer now checks the student's progress and saves any new badges. I also added `GET /api/student/badges`, which returns every badge with `id`, `name`, `language`, `earned` and `earned_at`. Polyglot has `language` set to `null`, since it belongs to every language. The list uses the languages in the database, so a new language shows up here automatically.
 
 **Review receipts**
 
-- Reviewed by ___.
+- Reviewed by Ashish and Dan.
 - The endpoint returns all badges, not only earned ones, because the Milestone 2 badges screen shows locked badges greyed out. A brand new student gets every badge back as locked, not an error. The tests count the badge list instead of a fixed number, so adding Master and Polyglot didn't break them.
 - Badges are saved in the same database transaction as the answer, so a student's progress and their badges can never get out of step.
 - I thought about adding the newly earned badges to the game completion screen. Since the proper frontend comes later, I left it out of this PR to keep it small. The badges are still saved the moment they're earned, so the data will be ready when we build that screen.
@@ -139,16 +141,17 @@ While building the create account page I noticed a security problem with teacher
 - Regression: the full backend suite passed. Backend CI run: [CI Run](___)
 
 
-## PR #___: Teachers assign hunts to their classes (branch `158-teacher-assign-levels-endpoint`, into `main`)
+## PR #165: Teachers assign hunts to their classes (branch `158-teacher-assign-levels-endpoint`, into `main`)
 
-**Size:** 7 files changed, +285 / -0 lines (`src/backend/hunt_assignment.py`, `src/backend/student_hunts.py`, `src/backend/migrations/009_assigned_hunts.sql`, `tests/backend/test_hunt_assignment.py` and `tests/backend/test_student_hunts.py` added; `src/backend/main.py` and `README.md` updated).
+**Size:** 7 files changed, +300 / -0 lines (`src/backend/hunt_assignment.py`, `src/backend/student_hunts.py`, `src/backend/migrations/009_assigned_hunts.sql`, `tests/backend/test_hunt_assignment.py` and `tests/backend/test_student_hunts.py` added; `src/backend/main.py` and `README.md` updated).
 
 - We thought a cool feature would be teachers being able to assign levels in a specified difficulty to their class while students can still play whatever they want (task #158).
 - Therefore, I added `POST /api/teacher/classes/{class_id}/hunts`, where a teacher assigns a hunt (difficulty and an optional due date) to a class they own, and `GET /api/student/hunts`, where a student sees the hunts assigned to the classes they're in, soonest due first.
 
 **Review receipts**
 
-- Reviewed by ___.
+- Reviewed by Ashish and Dan.
+- Ashish asked me to use `ON DELETE RESTRICT` instead of `CASCADE` on the class link, to fit our pattern of keeping records for teachers. A class with assigned hunts now can't be deleted, and a class without any still can. There's no delete class feature yet, and we may need a way to archive hunts later so classes can be fully deleted.
 - The teacher doesn't pick a language. Every class already has a language (from Ashish's class creation, #76), so the hunt uses the class's language. This means a teacher can't assign a Spanish hunt to a French class by mistake. The language is copied onto the hunt so it stays the same even if the class changes later.
 - A due date can't be in the past, and the difficulty must be Basic, Advanced or Expert (Dan's `Difficulty` from #88).
 - Assigning the same hunt twice is allowed
@@ -165,10 +168,10 @@ While building the create account page I noticed a security problem with teacher
 
 **Testing receipts**
 
-- `test_hunt_assignment.py` (15 test cases): a teacher assigns a Basic hunt and it gets the class's language; works with a future due date; the same hunt can be assigned twice; another teacher's class gives 403 and nothing is saved; a missing class gives 404; bad requests (no difficulty, unknown difficulty, trying to send a language, bad date) give 422; a past due date gives 422; no login gives 401, and students and admins get 403; and a database failure gives 503.
+- `test_hunt_assignment.py` (17 test cases): a teacher assigns a Basic hunt and it gets the class's language; works with a future due date; the same hunt can be assigned twice; a class with a hunt can't be deleted, but a class without hunts can; another teacher's class gives 403 and nothing is saved; a missing class gives 404; bad requests (no difficulty, unknown difficulty, trying to send a language, bad date) give 422; a past due date gives 422; no login gives 401, and students and admins get 403; and a database failure gives 503.
 - `test_student_hunts.py` (8 test cases): a student sees their class's hunt; a student in two classes sees both; hunts from classes they're not in are hidden; a student with no classes gets an empty list; no login gives 401, and teachers and admins get 403; and a database failure gives 503.
-- Every "blocked" test also checks that nothing was saved, not just the error code.
-- Regression: the full backend suite passed. Backend CI run: [CI Run](___)
+- The blocked assign tests (401, 403, 404 and 422) also check that nothing was saved, not just the error code.
+- Regression: the full backend suite passed. Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/41005079893)
 
 
 ## Code reviews for teammates
