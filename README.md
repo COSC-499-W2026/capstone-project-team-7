@@ -290,7 +290,8 @@ Another student's game or an unknown id returns 404 `"Game not found"`, a finish
 A missing audio file returns 404 `"Audio not found for this clue"`.
 
 `POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 5 MiB).
-Each valid photo counts an attempt. A correct match awards 10 points; incorrect/unreadable photos award zero. Attempts and difficulty do not affect points.
+Each valid photo counts an attempt. A correct match awards points based on the game's stored difficulty: Basic 10, Advanced 20, Expert 30. Incorrect/unreadable photos award zero; attempts do not affect points. Games still start at Basic until difficulty selection is added.
+Unsupported stored difficulties log an error and return 500 with a friendly message before points, attempts, or progress change. The answer request does not accept a difficulty or point value.
 A correct answer moves to the next spot; the 5th correct answer finishes the game. Returns `correct`, `attempts`, `finished`, `next_position`, `points_awarded`, `total_points` (game total), and `message`.
 Apply `007_photo_verification_points.sql` and install the optional OCR requirements. Full building/room identifiers must match; points and progress commit together, preventing duplicate awards. GPS is outside this change.
 Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished or spot already answered, 503 OCR/database failure.

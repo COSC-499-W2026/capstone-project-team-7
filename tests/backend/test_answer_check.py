@@ -14,7 +14,8 @@ from utils.ocr import InvalidPhoto, OCRUnavailable
 @pytest.fixture
 def api(monkeypatch):
     state = SimpleNamespace(candidates=[], queries=[], student=uuid4())
-    state.location = {"building": "LIB", "room_number": "308", "current_position": 1, "finished_at": None}
+    state.location = {"building": "LIB", "room_number": "308", "current_position": 1,
+                      "finished_at": None, "difficulty": "basic"}
     state.game = {"current_position": 1, "finished_at": None, "points": 0}
     connection = FakeConnection(None)
 
@@ -57,3 +58,27 @@ def test_ocr_errors_are_safe_and_do_not_write(api, monkeypatch, error, status):
     response = api.submit()
     assert response.status_code == status and "private" not in response.text
     assert len(api.queries) == 1
+
+
+@pytest.mark.parametrize("difficulty,points", [("basic", 10), ("advanced", 20), ("expert", 30)])
+@pytest.mark.parametrize("correct", [True, False])
+def test_answer_uses_stored_difficulty(api, difficulty, points, correct):
+    api.location["difficulty"] = difficulty
+    api.candidates = ["LIB 308"] if correct else []
+    awarded = points if correct else 0
+    api.game.update(points=awarded, current_position=2 if correct else 1)
+    response = api.submit()
+    assert response.status_code == 200
+    assert response.json()["points_awarded"] == awarded
+    assert response.json()["total_points"] == awarded
+    assert api.queries[1][1][2] == awarded
+
+
+def test_invalid_stored_difficulty_does_not_write(api, caplog):
+    api.location["difficulty"] = "invalid"
+    api.candidates = ["LIB 308"]
+    response = api.submit()
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Could not calculate points. Please try again later."}
+    assert len(api.queries) == 1
+    assert "unsupported game difficulty" in caplog.text

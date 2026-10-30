@@ -14,13 +14,13 @@ from utils.answer_check import check_answer
 from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
 from utils.generate_audio import AUDIO_FOLDER, audio_filename
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
+from utils.scoring import points_for_difficulty
 
 router = APIRouter(prefix="/api/game", tags=["game"])
 
 # The demo game is always French Basic until students can choose.
 LANGUAGE = "fr"
 DIFFICULTY = Difficulty.BASIC
-POINTS_PER_LOCATION = 10
 
 
 @router.post("/start", status_code=201, summary="Start a game with five random locations")
@@ -63,7 +63,7 @@ def current_location(game_id, student_id):
         with get_connection() as connection:
             location = connection.execute(
                 """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
-                locations.building, locations.room_number
+                game_sessions.difficulty, locations.building, locations.room_number
                 FROM game_sessions
                 JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
                     AND game_session_locations.position = game_sessions.current_position
@@ -119,12 +119,16 @@ def submit_answer(game_id: UUID, user=Depends(require_student), photo=Depends(re
     location = current_location(game_id, user["id"])
     position = location["current_position"]
     try:
+        completion_points = points_for_difficulty(location["difficulty"])
+    except ValueError:
+        raise HTTPException(status_code=500, detail="Could not calculate points. Please try again later.") from None
+    try:
         correct = check_answer(photo, location)
     except InvalidPhoto as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     except OCRUnavailable:
         raise HTTPException(status_code=503, detail="Photo recognition is unavailable. Please try again later.") from None
-    awarded = POINTS_PER_LOCATION if correct else 0
+    awarded = completion_points if correct else 0
     try:
         with get_connection() as connection:
             # Gate both correct and incorrect submissions on the target that OCR checked.

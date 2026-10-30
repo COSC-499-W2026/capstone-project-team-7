@@ -275,6 +275,20 @@ def test_correct_answer_moves_to_next_spot(game_db, client):
     assert client.get(clue_url(game_id)).json()["position"] == 2
 
 
+@pytest.mark.parametrize("difficulty,points", [("basic", 10), ("advanced", 20), ("expert", 30)])
+def test_completion_points_follow_saved_game_difficulty(game_db, client, difficulty, points):
+    game_id = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET difficulty = %s WHERE id = %s", (difficulty, game_id))
+    response = answer(client, game_id)
+    assert response.status_code == 200
+    assert response.json()["points_awarded"] == points
+    with get_connection() as db:
+        game = db.execute("SELECT points, current_position FROM game_sessions WHERE id = %s", (game_id,)).fetchone()
+    assert game == {"points": points, "current_position": 2}
+    assert spot(game_id, 1)["found_at"] is not None
+
+
 def test_wrong_answer_stays_on_spot_and_counts_attempts(game_db, client, monkeypatch):
     game_id = start(client)
     monkeypatch.setattr(game_session, "check_answer", lambda photo, location: False)
