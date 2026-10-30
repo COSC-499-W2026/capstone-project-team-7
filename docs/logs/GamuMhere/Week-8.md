@@ -1,6 +1,6 @@
 # Week 8 Individual Log: Gamu
 
-Team 7 | Repo: capstone-project-team-7 | PRs this week: #160 (create account page), #161 (badge rules), #163 (badges endpoint) and #165 (teacher-assigned hunts) all merged into main
+Team 7 | Repo: capstone-project-team-7 | PRs this week: #160 (create account page), #161 (badge rules), #163 (badges endpoint) and #165 (teacher-assigned hunts) all merged into main, plus #177 (test speed refactor, not for PR grading)
 
 Last week we got a basic game session working from start to finish. This week I added the pieces around the game: a way for new students to make an account from the app, language-specific badges that are earned while playing, and a way for teachers to assign hunts to their classes. I kept the frontend plain on purpose, since the team agreed to finish the working features first and style everything later in Milestone 2.
 
@@ -172,6 +172,32 @@ While building the create account page I noticed a security problem with teacher
 - `test_student_hunts.py` (8 test cases): a student sees their class's hunt; a student in two classes sees both; hunts from classes they're not in are hidden; a student with no classes gets an empty list; no login gives 401, and teachers and admins get 403; and a database failure gives 503.
 - The blocked assign tests (401, 403, 404 and 422) also check that nothing was saved, not just the error code.
 - Regression: the full backend suite passed. Backend CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/41005079893)
+
+
+## PR #177: Speeding up backend tests and CI (branch `175-refactor-fixing-slow-tests-and-ci`, into `main`), not for PR grading
+
+**Size:** 2 files changed, +7 / -0 lines (`tests/backend/conftest.py` added, `.github/workflows/ci.yml` updated).
+
+- Backend tests were slow, locally and in CI, which meant waiting minutes on every PR (task #175). Almost all of that time was bcrypt password hashing: bcrypt is slow on purpose, and many test fixtures create 3 or 4 users before every test, and most tests also log in.
+- Therefore, I added a `conftest.py` that lowers the bcrypt strength to 4 in tests only, and turned on pip caching in CI so the backend packages aren't downloaded on every run.
+
+**Review receipts**
+
+- `src/backend/utils/passwords.py` is unchanged, so real passwords still use the default strength. Hashing still works the same way in tests, just faster.
+- We first thought re-running migrations before every test was the slow part, but timing showed bcrypt was the real cause, so I fixed that instead of restructuring the tests.
+
+**Architecture receipts**
+
+- pytest loads `conftest.py` automatically, so no existing test or app file needed to change. This doesn't change any data flows, since it only affects how tests run.
+
+**Clean Code Check**
+
+- It's 5 lines with one comment explaining why it exists and that it only applies to tests.
+
+**Testing receipts**
+
+- All 548 backend tests still pass, including the signup, login and password tests, so hashing and checking still work at the lower strength.548 tests passed in 31.08s vs 548 tests passed in 260.30s (4:20) before this refactor.
+- All 55 frontend tests still pass. CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/41135338781)
 
 
 ## Code reviews for teammates
