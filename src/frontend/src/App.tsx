@@ -127,7 +127,7 @@ export default function App() {
   }
 
   if (role === 'student') {
-    return <StudentDashboard onGameStarted={setGame} onLogout={() => setRole(null)} />
+    return <StudentDashboard onOpenGame={setGame} onLogout={() => setRole(null)} />
   }
 
   // Teacher and admin dashboards come later.
