@@ -6,6 +6,7 @@ import type { StartGameResult } from './api/game'
 import { SessionEndedError } from './api/sessionEnded'
 import FinishedScreen from './pages/FinishedScreen'
 import GameScreen from './pages/GameScreen'
+import CreateAccountPage from './pages/CreateAccountPage'
 import LoginPage from './pages/LoginPage'
 import PhotoSubmitPage from './pages/PhotoSubmitPage'
 import StudentDashboard from './pages/StudentDashboard'
@@ -20,6 +21,8 @@ export default function App() {
   const [sending, setSending] = useState(false)
   const inFlight = useRef(false)
   const [totalPoints, setTotalPoints] = useState(0)
+  const [creatingAccount, setCreatingAccount] = useState(false)
+  const [loginNotice, setLoginNotice] = useState('')
 
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
@@ -71,8 +74,27 @@ export default function App() {
     return <main><p>Loading...</p></main>
   }
 
+  if (!role && creatingAccount) {
+    return (
+      <CreateAccountPage
+        onCreated={(login) => {
+          setCreatingAccount(false)
+          if (login) setRole(login.role)
+          else setLoginNotice('Account created! Please log in.')
+        }}
+        onBack={() => setCreatingAccount(false)}
+      />
+    )
+  }
+
   if (!role) {
-    return <LoginPage onLogin={(result) => setRole(result.role)} />
+    return (
+      <LoginPage
+        notice={loginNotice}
+        onLogin={(result) => { setLoginNotice(''); setRole(result.role) }}
+        onCreateAccount={() => { setLoginNotice(''); setCreatingAccount(true) }}
+      />
+    )
   }
 
   if (game && finished) {

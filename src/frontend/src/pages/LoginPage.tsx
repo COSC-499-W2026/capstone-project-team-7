@@ -3,9 +3,11 @@ import { login, type LoginResult } from '../api/login'
 
 interface Props {
   onLogin: (result: LoginResult) => void
+  onCreateAccount: () => void
+  notice?: string
 }
 
-export default function LoginPage({ onLogin }: Props) {
+export default function LoginPage({ onLogin, onCreateAccount, notice }: Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -26,7 +28,8 @@ export default function LoginPage({ onLogin }: Props) {
 
   return (
     <main>
-      <h1>Log in</h1>
+      <h1>Lost In Translation!</h1>
+      {notice && <p role="status">{notice}</p>}
       <form onSubmit={handleSubmit}>
         <p>
           <label htmlFor="email">Email</label>
@@ -43,6 +46,7 @@ export default function LoginPage({ onLogin }: Props) {
           {loading ? 'Logging in...' : 'Log in'}
         </button>
       </form>
+      <p><button type="button" onClick={onCreateAccount}>Create account</button></p>
     </main>
   )
 }
