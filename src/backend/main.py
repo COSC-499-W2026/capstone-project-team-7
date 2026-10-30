@@ -10,11 +10,13 @@ from class_enrollment import router as class_enrollment_router
 from class_roster import router as class_roster_router
 from database import get_connection
 from game_session import router as game_session_router
+from hunt_assignment import router as hunt_assignment_router
 from password_change import router as password_change_router
 from password_reset import router as password_reset_router
 from student_enrollment import router as student_enrollment_router
 from student_signup import router as student_signup_router
 from student_profile import router as student_profile_router
+from student_hunts import router as student_hunts_router
 from student_badges import router as student_badges_router
 from admin_enrollment import router as admin_enrollment_router
 from teacher_signup import router as teacher_signup_router
@@ -42,6 +44,8 @@ app.include_router(class_enrollment_router)
 app.include_router(class_roster_router)
 app.include_router(student_enrollment_router)
 app.include_router(game_session_router)
+app.include_router(hunt_assignment_router)
+app.include_router(student_hunts_router)
 
 
 @app.get("/api/hello")
