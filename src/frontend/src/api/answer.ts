@@ -9,6 +9,7 @@ export interface AnswerResult {
   next_position: number | null
   points_awarded: number
   total_points: number
+  final_time_seconds: number | null
   message: string
 }
 
@@ -24,7 +25,8 @@ export async function submitAnswer(gameId: string, photo: File): Promise<AnswerR
   if (!body || typeof body.correct !== 'boolean' || typeof body.finished !== 'boolean' ||
       !Number.isSafeInteger(body.points_awarded) || !Number.isSafeInteger(body.total_points) ||
       (!body.correct && (body.points_awarded !== 0 || body.finished)) ||
-      body.points_awarded < 0 || body.total_points < body.points_awarded || typeof body.message !== 'string') {
+      body.points_awarded < 0 || body.total_points < body.points_awarded || typeof body.message !== 'string' ||
+      (body.finished && (!Number.isSafeInteger(body.final_time_seconds) || body.final_time_seconds < 0))) {
     throw new Error('Photo verification is unavailable. Please try again later.')
   }
   return body as AnswerResult

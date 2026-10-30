@@ -79,7 +79,8 @@ def current_location(game_id, student_id):
         with get_connection() as connection:
             location = connection.execute(
                 """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
-                locations.building, locations.room_number
+                locations.building, locations.room_number,
+                FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.started_at))::int AS elapsed_seconds
                 FROM game_sessions
                 JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
                     AND game_session_locations.position = game_sessions.current_position
@@ -106,6 +107,7 @@ def current_clue(game_id: UUID, user=Depends(require_student)):
         "total_locations": LOCATIONS_PER_HUNT,
         "building": location["building"],
         "audio_url": f"/api/game/{game_id}/clue/audio?position={location['current_position']}",
+        "elapsed_seconds": location["elapsed_seconds"],
     }
 
 
@@ -149,7 +151,8 @@ def submit_answer(game_id: UUID, user=Depends(require_student), photo=Depends(re
                 SET current_position = LEAST(current_position + %s, %s), points = points + %s,
                     finished_at = CASE WHEN %s AND current_position = %s THEN now() ELSE finished_at END
                 WHERE id = %s AND student_id = %s AND current_position = %s AND finished_at IS NULL
-                RETURNING current_position, finished_at, points""",
+                RETURNING current_position, finished_at, points,
+                    FLOOR(EXTRACT(EPOCH FROM finished_at - started_at))::int AS final_time_seconds""",
                 (int(correct), LOCATIONS_PER_HUNT, awarded, correct, LOCATIONS_PER_HUNT,
                  game_id, user["id"], position),
             ).fetchone()
@@ -176,5 +179,6 @@ def submit_answer(game_id: UUID, user=Depends(require_student), photo=Depends(re
         "next_position": game["current_position"] if correct and not finished else None,
         "points_awarded": awarded,
         "total_points": game["points"],
+        "final_time_seconds": game["final_time_seconds"],
         "message": "Correct room!" if correct else "The room number is incorrect or unreadable. Please retake the photo.",
     }

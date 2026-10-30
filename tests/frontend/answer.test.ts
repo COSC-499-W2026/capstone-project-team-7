@@ -4,7 +4,7 @@ import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 
 const photo = new File(['photo'], 'room.jpg', { type: 'image/jpeg' })
 const correct: AnswerResult = { correct: true, attempts: 1, finished: false, next_position: 2,
-  points_awarded: 10, total_points: 20, message: 'Correct room!' }
+  points_awarded: 10, total_points: 20, final_time_seconds: null, message: 'Correct room!' }
 function backend(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({ ok: status === 200, status, json: async () => body })
   vi.stubGlobal('fetch', fetchMock)
@@ -48,7 +48,13 @@ test('a network failure allows a retry instead of showing success', async () => 
   await expect(submitAnswer('abc', photo)).rejects.toThrow('Please try again')
 })
 
-test.each([{}, { ...correct, points_awarded: undefined }, { ...correct, correct: false }])(
+test('the last correct photo returns the final time', async () => {
+  backend(200, { ...correct, finished: true, next_position: null, final_time_seconds: 754 })
+  expect(await submitAnswer('abc', photo)).toMatchObject({ finished: true, final_time_seconds: 754 })
+})
+
+test.each([{}, { ...correct, points_awarded: undefined }, { ...correct, correct: false },
+  { ...correct, finished: true, final_time_seconds: null }, { ...correct, finished: true, final_time_seconds: -1 }])(
   'rejects incomplete or contradictory verification responses', async (body) => {
     backend(200, body)
     await expect(submitAnswer('abc', photo)).rejects.toThrow('verification is unavailable')

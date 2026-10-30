@@ -17,8 +17,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-test('gets the current clue for the game', async () => {
-  const clue = { position: 1, total_locations: 5, building: 'LIB', audio_url: '/api/game/abc/clue/audio' }
+test('gets the current clue and the time since the game started', async () => {
+  const clue = { position: 1, total_locations: 5, building: 'LIB', audio_url: '/api/game/abc/clue/audio',
+    elapsed_seconds: 90 }
   const fetchMock = fakeBackend(200, clue)
 
   expect(await getClue('abc')).toEqual(clue)

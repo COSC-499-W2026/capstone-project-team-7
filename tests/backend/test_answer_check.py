@@ -15,7 +15,7 @@ from utils.ocr import InvalidPhoto, OCRUnavailable
 def api(monkeypatch):
     state = SimpleNamespace(candidates=[], queries=[], student=uuid4())
     state.location = {"building": "LIB", "room_number": "308", "current_position": 1, "finished_at": None}
-    state.game = {"current_position": 1, "finished_at": None, "points": 0}
+    state.game = {"current_position": 1, "finished_at": None, "points": 0, "final_time_seconds": None}
     connection = FakeConnection(None)
 
     def execute(query, params):
