@@ -1,12 +1,16 @@
-## Lost In Translation
+## Lost In Translation!
 
 [Team Contract](docs/contract/499_team7_contract.pdf)
 
 A web-based language learning scavenger hunt game that combines language listening comprehension and physical navigation.
 
+## Project Goals
+
+Lost In Translation! aims to make language practice more interactive, contextual, and engaging by moving listening and vocabulary exercises beyond traditional screen-based quizzes.
+
 ## Overview
 
-(Game name) is designed for beginner language learners to practice recognizing numbers and simple location-based instructions in a real-world environment.
+Lost In Translation! is designed for beginner language learners to practice recognizing numbers and simple location-based instructions in a real-world environment.
 
 Players listen to audio instructions, navigate to locations, and verify their answers using GPS and image recognition.
 
@@ -426,9 +430,6 @@ Testing focuses on:
 - Data handling
 - User interactions
 
-## Project Goals
-
-Lost In Translation! aims to make language practice more interactive, contextual, and engaging by moving listening and vocabulary exercises beyond traditional screen-based quizzes.
 
 ## Team
 
