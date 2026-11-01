@@ -10,6 +10,7 @@ import CreateAccountPage from './pages/CreateAccountPage'
 import LoginPage from './pages/LoginPage'
 import PhotoSubmitPage from './pages/PhotoSubmitPage'
 import StudentDashboard from './pages/StudentDashboard'
+import TeacherDashboard from './pages/TeacherDashboard'
 
 export default function App() {
   const [role, setRole] = useState<string | null>(null)
@@ -130,7 +131,9 @@ export default function App() {
     return <StudentDashboard onOpenGame={setGame} onLogout={() => setRole(null)} />
   }
 
-  // Teacher and admin dashboards come later.
+  if (role === 'teacher') return <TeacherDashboard onLogout={sessionEnded} />
+
+  // Admin dashboard comes later.
   return (
     <main>
       <h1>Logged in</h1>
