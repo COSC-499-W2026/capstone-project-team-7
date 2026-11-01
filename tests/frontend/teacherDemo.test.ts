@@ -29,7 +29,7 @@ test('network failures show a friendly retry message', async () => {
   await expect(getTeacherClasses()).rejects.toThrow('Could not connect, please try again')
 })
 
-test('dashboard shows loading and logout without roster controls', () => {
+test('dashboard shows loading and logout before a class is selected', () => {
   const html = renderToStaticMarkup(createElement(TeacherDashboard, { onLogout: vi.fn() }))
   for (const label of ['Teacher dashboard', 'My classes', 'Loading classes...', 'Log out']) expect(html).toContain(label)
   for (const label of ['No classes assigned yet.', 'Class roster', 'Add student', 'Remove']) expect(html).not.toContain(label)
