@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { getTeacherClasses, type TeacherClass } from '../api/teacher'
 import { logout } from '../api/logout'
 import { SessionEndedError } from '../api/sessionEnded'
-
-const LANGUAGES = { zh: 'Chinese', fr: 'French', de: 'German', ja: 'Japanese', ko: 'Korean', es: 'Spanish' }
+import CreateClassForm from '../components/CreateClassForm'
+import { LANGUAGES } from '../languages'
 
 export default function TeacherDashboard({ onLogout }: { onLogout: () => void }) {
   const [classes, setClasses] = useState<TeacherClass[] | null>(null)
@@ -52,6 +52,10 @@ export default function TeacherDashboard({ onLogout }: { onLogout: () => void })
         </select>
         {selected && <p>Language: {LANGUAGES[selected.language_code as keyof typeof LANGUAGES] ?? selected.language_code} · Class code: <strong>{selected.class_code}</strong></p>}
       </>}
+      <CreateClassForm disabled={busy || classes === null} onSessionEnded={onLogout} onCreated={(classroom) => {
+        setClasses((items) => [...(items ?? []), classroom])
+        setSelectedId(classroom.id)
+      }} />
       <p><button onClick={handleLogout} disabled={busy}>Log out</button></p>
     </main>
   )
