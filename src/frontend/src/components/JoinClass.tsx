@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { joinClass } from '../api/joinClass'
+import { joinClass, type JoinedClass } from '../api/joinClass'
 import { SessionEndedError } from '../api/sessionEnded'
 
 interface Props {
+  onJoined: (classroom: JoinedClass) => void
   onSessionEnded: () => void
 }
 
@@ -10,7 +11,7 @@ export function joinedMessage(className: string) {
   return `You joined ${className}.`
 }
 
-export default function JoinClass({ onSessionEnded }: Props) {
+export default function JoinClass({ onJoined, onSessionEnded }: Props) {
   const [code, setCode] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
@@ -25,6 +26,7 @@ export default function JoinClass({ onSessionEnded }: Props) {
       const classroom = await joinClass(code)
       setJoined(classroom.name)
       setCode('')
+      onJoined(classroom)
     } catch (err) {
       if (err instanceof SessionEndedError) onSessionEnded()
       else setError((err as Error).message)
