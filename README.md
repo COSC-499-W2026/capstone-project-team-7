@@ -239,6 +239,11 @@ validation, so unauthenticated approval requests return 401 even with invalid in
 Teachers land on a basic dashboard matching the student demo. They can select an
 assigned class, view its language and join code, retry loading failures, and log out.
 Expired sessions return to login. Class creation and roster management are follow-up work.
+Language labels use the shared `languageName` helper to format language codes from the class API.
+
+Dashboard screenshots (sample data): [assigned classes](docs/screenshots/teacher-dashboard.png)
+and [no assigned classes](docs/screenshots/teacher-dashboard-empty.png).
+
 After login, `GET /api/teacher/classes` lists assigned classes; `GET /api/teacher/classes/{uuid}` returns one assigned class.
 `POST /api/teacher/classes` with `name` and `language_code` creates a class owned by the teacher and returns 201; a blank name or unknown language returns 422.
 All use the existing `session` cookie: 401 for missing/invalid/expired sessions, 403 for non-teachers, 404 for unassigned/missing classes, and 503 for database failures.

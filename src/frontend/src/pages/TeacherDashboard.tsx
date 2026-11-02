@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getTeacherClasses, type TeacherClass } from '../api/teacher'
 import { logout } from '../api/logout'
 import { SessionEndedError } from '../api/sessionEnded'
-
-const LANGUAGES = { zh: 'Chinese', fr: 'French', de: 'German', ja: 'Japanese', ko: 'Korean', es: 'Spanish' }
+import { languageName } from '../utils/languageName'
 
 export default function TeacherDashboard({ onLogout }: { onLogout: () => void }) {
   const [classes, setClasses] = useState<TeacherClass[] | null>(null)
@@ -50,7 +49,7 @@ export default function TeacherDashboard({ onLogout }: { onLogout: () => void })
         <select id="teacher-class" value={selectedId} disabled={busy} onChange={(e) => setSelectedId(e.target.value)}>
           {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
-        {selected && <p>Language: {LANGUAGES[selected.language_code as keyof typeof LANGUAGES] ?? selected.language_code} · Class code: <strong>{selected.class_code}</strong></p>}
+        {selected && <p>Language: {languageName(selected.language_code)} · Class code: <strong>{selected.class_code}</strong></p>}
       </>}
       <p><button onClick={handleLogout} disabled={busy}>Log out</button></p>
     </main>
