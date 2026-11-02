@@ -82,7 +82,7 @@ def current_location(game_id, student_id):
         with get_connection() as connection:
             location = connection.execute(
                 """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
-                locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
+                game_sessions.difficulty, locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
                 FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.started_at))::int AS elapsed_seconds
                 FROM game_sessions
                 JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
@@ -175,14 +175,6 @@ def submit_answer(game_id: UUID, reading: Annotated[LocationReading, Query()],
                  game_id, user["id"], position),
             ).fetchone()
             if game is None:
-                raise HTTPException(status_code=409, detail="This spot was already answered")
-            spot = connection.execute(
-                """UPDATE game_session_locations
-                SET attempts = attempts + 1, found_at = CASE WHEN %s THEN now() ELSE found_at END
-                WHERE game_session_id = %s AND position = %s AND found_at IS NULL RETURNING attempts""",
-                (correct, game_id, position),
-            ).fetchone()
-            if spot is None:
                 raise HTTPException(status_code=409, detail="This spot was already answered")
             # Same transaction as the answer, so progress and badges are never out of step.
             if correct:
