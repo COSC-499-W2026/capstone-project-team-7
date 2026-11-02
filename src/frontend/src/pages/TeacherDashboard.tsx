@@ -3,7 +3,6 @@ import { getTeacherClasses, type TeacherClass } from '../api/teacher'
 import { logout } from '../api/logout'
 import { SessionEndedError } from '../api/sessionEnded'
 import CreateClassForm from '../components/CreateClassForm'
-import { LANGUAGES } from '../languages'
 import { languageName } from '../utils/languageName'
 
 export default function TeacherDashboard({ onLogout }: { onLogout: () => void }) {
