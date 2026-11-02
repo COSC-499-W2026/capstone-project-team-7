@@ -18,7 +18,6 @@ While building the create account page I noticed a security problem with teacher
 
 **Review receipts**
 
-- Reviewed by Ashish and Dan.
 - Ashish pointed out that a very long username or student number would be rejected by the backend, but the form would only say "Please fill in every field", which is confusing. I added clear messages for both cases.
 - The page is for students only. While testing I noticed the form asks for a student number, which teachers don't have. Teachers sign up through a separate endpoint that only checks their email is on the approved teacher list. Teacher emails are usually public, so a student could sign up with a teacher's email before the teacher does and get a teacher account. I raised this with the team and suggested that admins create teacher accounts and teachers set their own password through Forgot Password (#96), which proves they own the email or send out a verification link to the email to activate the account. This is a team decision since it changes Dan's teacher signup, so I didn't change the backend in this PR.
 - After a successful signup, the student is logged in automatically and goes straight to their dashboard, so they don't have to type their details twice. If the account is created but the automatic login fails, they're sent to the login page with "Account created! Please log in.", so they're never stuck. If signup itself fails, it never tries to log in.
@@ -64,7 +63,6 @@ While building the create account page I noticed a security problem with teacher
 
 **Review receipts**
 
-- Reviewed by Ashish and Dan.
 - Ashish asked me not to hardcode the languages, so new languages would appear on their own. At first I kept them hardcoded, because each language's badges use names from the designs, but I changed it: languages now come from the `languages` table, so a new language gets badges automatically. Existing languages keep their design names, and a language without designs yet gets plain names like "Italian First Hunt". Polyglot counts every language in the database.
 - Ashish also spotted that my `add_locations` test helper duplicated the one in `test_game_session.py`, so I removed mine and import the existing one.
 - I split badges into two PRs (rules first, then the endpoint) so each one is small and easy to review.
@@ -118,11 +116,10 @@ While building the create account page I noticed a security problem with teacher
 
 **Review receipts**
 
-- Reviewed by Ashish and Dan.
 - The endpoint returns all badges, not only earned ones, because the Milestone 2 badges screen shows locked badges greyed out. A brand new student gets every badge back as locked, not an error. The tests count the badge list instead of a fixed number, so adding Master and Polyglot didn't break them.
 - Badges are saved in the same database transaction as the answer, so a student's progress and their badges can never get out of step.
 - I thought about adding the newly earned badges to the game completion screen. Since the proper frontend comes later, I left it out of this PR to keep it small. The badges are still saved the moment they're earned, so the data will be ready when we build that screen.
-- I added one line to `tests/backend/test_answer_check.py` (which Madiba last updated for OCR) so those tests skip the badge check. Without it, those tests would try to reach a real database. No logic in his code changed.
+- I added one line to `tests/backend/test_answer_check.py` (which Madiba last updated for OCR) so those tests skip the badge check. Without it, those tests would try to reach a real database. No logic in that code changed.
 
 **Architecture receipts**
 
@@ -150,7 +147,6 @@ While building the create account page I noticed a security problem with teacher
 
 **Review receipts**
 
-- Reviewed by Ashish and Dan.
 - Ashish asked me to use `ON DELETE RESTRICT` instead of `CASCADE` on the class link, to fit our pattern of keeping records for teachers. A class with assigned hunts now can't be deleted, and a class without any still can. There's no delete class feature yet, and we may need a way to archive hunts later so classes can be fully deleted.
 - The teacher doesn't pick a language. Every class already has a language (from Ashish's class creation, #76), so the hunt uses the class's language. This means a teacher can't assign a Spanish hunt to a French class by mistake. The language is copied onto the hunt so it stays the same even if the class changes later.
 - A due date can't be in the past, and the difficulty must be Basic, Advanced or Expert (Dan's `Difficulty` from #88).
@@ -164,7 +160,7 @@ While building the create account page I noticed a security problem with teacher
 
 **Clean Code Check**
 
-- Both files are under 50 lines. Two things to fix later: both tests borrow test setup from Dan's `test_teacher_access.py`, which should move into one shared `conftest.py` file; and both files import `database_unavailable` from `teacher_access.py` (same issue as the badges endpoint).
+- Both files are under 50 lines. Two things to fix later: both tests borrow test setup from Dan's `test_teacher_access.py`, which can move into the shared `conftest.py` that my #177 adds; and both files import `database_unavailable` from `teacher_access.py` (same issue as the badges endpoint).
 
 **Testing receipts**
 
@@ -196,7 +192,7 @@ While building the create account page I noticed a security problem with teacher
 
 **Testing receipts**
 
-- All 548 backend tests still pass, including the signup, login and password tests, so hashing and checking still work at the lower strength.548 tests passed in 31.08s vs 548 tests passed in 260.30s (4:20) before this refactor.
+- All 548 backend tests still pass, including the signup, login and password tests, so hashing and checking still work at the lower strength. 548 tests passed in 31.08s vs 548 tests passed in 260.30s (4:20) before this refactor.
 - All 55 frontend tests still pass. CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/41135338781)
 
 
@@ -223,3 +219,23 @@ These are some of my reviews this week, the ones where the feedback mattered mos
 **PR #171: Resume game sessions (Ashish)**
 
 - I approved. Resume works nicely because the game screen already gets the current clue from the server, and the safety tests are solid. I agreed with Dan's suggestion of a click test for Resume. I also noted that Start always makes a new game, so unfinished games could pile up, and suggested a follow-up issue (e.g. one unfinished game per language, or a "quit game" button).
+
+**PR #167: Stopwatch for game sessions (Ashish)**
+
+- I requested changes, then approved. The stopwatch works well, but the PR touched 14 files, so I asked if it could be split. Ashish explained the changes were small and needed each other, and that keeping them together let the frontend and backend run from one branch, so I agreed. The only thing left was a merge conflict from my create account page.
+
+**PR #178: Points based on game difficulty (Dan)**
+
+- I requested changes. We agreed points would also drop with photo attempts (full points on the first try, fewer on the second, a fixed minimum from the third), but the README said attempts don't affect points. Without that, everyone who finishes a game at the same level gets the same points, so the leaderboard can't show who played better. I asked for it to be added here or in a follow-up PR.
+
+**PR #182: List a student's enrolled classes (Ashish)**
+
+- I approved, and reminded Ashish to update the branch after #180 merges, since it includes that PR's commit.
+
+**PR #184: Teacher dashboard (Madiba)**
+
+- I approved, since teachers now land on a real page instead of "Logged in". I agreed with Ashish about the hardcoded language list and suggested using the shared `utils/languageName.ts` from #182, so language names stay in one place. I also asked for a frontend screenshot.
+
+**PR #186: Create a class from the dashboard (Madiba)**
+
+- I approved. Creating a class works well, and `classResponse` shares the session and permission checks between loading and creating. I asked for the branch to be updated from `main` after #184 merges, for the label to use `utils/languageName.ts`, for `languages.ts` to move into `utils/`, and for a screenshot of the form.
