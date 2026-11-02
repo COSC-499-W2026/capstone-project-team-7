@@ -32,20 +32,18 @@ October 26–November 1, 2026
 - **Ashish** built the stopwatch (#167), moved clue audio out of the backend image (#169), added resuming unfinished games (#171), and connected classes to the student dashboard: joining a class with a code (#180) and listing the student's classes (#182).
 - **Gamu** built the create account page (#160), the language badges (#161, #163), and teacher-assigned hunts, which was a new idea from this week's meeting (#165). She also sped up the backend tests and CI (#177).
 - **Dan** connected GPS to the game: the backend now checks the location with each answer (#154), and the frontend captures it and sends it with the photo (#155). He also made points depend on the game's difficulty and the number of photo attempts (#178).
-- **Madiba** built the teacher side of the demo. #184 adds a teacher dashboard, so a logged-in teacher now lands on a real page instead of the placeholder "Logged in" screen. Teachers can select one of their classes, see its language and join code, and log out. The page handles loading, teachers with no classes yet, and server or network errors with a retry option, and an expired session goes back to the login page. #186 adds a form on the dashboard to create a class with a name and one of the six languages. Names are trimmed, blank names are rejected, and the button can't be pressed twice while a request is running. The new class is selected straight away with its join code, ready to share with students, and a failed request keeps the name and language the teacher entered. Both PRs share their session and error handling through `api/teacher.ts`, include frontend tests for the success and failure cases, and needed no backend or database changes. #188 adds the class roster: teachers can view a class's students, add registered students by student number, and remove a student from a class while keeping their account.
+- **Madiba** built the teacher side of the demo: a dashboard showing each class's language and join code (#184), a form to create a class (#186), and a class roster where teachers add and remove students (#188).
 
 **Did we meet the goal?** Yes. The demo path now works from start to finish: a new student can create an account, join a class with a code, see their classes on the dashboard, resume an unfinished game, and play with a stopwatch running, with GPS checked on each answer. Badges are earned while playing. A teacher can log in, see their classes with each join code, create a new class, and manage its roster. Points depend on difficulty (Basic 10, Advanced 20, Expert 30 for a correct spot on the first try) and on attempts: a second try earns 60% and a third try or later earns 30%. Next week we continue extending the demo with levels, since every game still starts as French on Basic difficulty.
 
 ## Code-base health
 
-- **Dependent PRs.** #163 targeted #161's branch, so CI didn't run on it until we changed its target to `main`, because CI only runs on PRs into `main` or `dev`. #155 includes #154, #182 includes #180, and #186 includes #184. Including the earlier PR pushed #182 to 10 files, over our limit, until #180 merged and the branch was updated. Next sprint, PRs that build on each other will still target `main`, and we will agree on the merge order in the PR.
-- **Shared files.** Most features this week changed `game_session.py` or `App.tsx`, which caused a merge conflict between #167 and #160. Merging `main` into #178 also left a duplicate attempts update that would have counted every photo twice, which Dan fixed before merging. We should watch their size and split them if needed.
 - **Reuse.** #167 uses the existing `started_at` and `finished_at` columns, so it needed no migration. #178 reads the stored difficulty and attempts, and keeps the point values in `utils/scoring.py`. #180, #182, #184 and #186 use existing endpoints, so they needed no backend changes. #182 moved the language name helper into `utils/languageName.ts`, which #184 and #186 also use.
 - **Checks on the backend.** The stopwatch time comes from the backend, so a wrong phone clock can't change it (#167). Room coordinates stay on the server, and a rejected GPS reading doesn't change attempts, points or progress (#154).
 - **Schema changes.** `008_student_badges.sql` (#161) and `009_assigned_hunts.sql` (#165). Assigned hunts use `ON DELETE RESTRICT`, so a class with hunts can't be deleted.
 - **Configuration.** Clue audio now comes from a bind-mounted folder set by `AUDIO_DIR`, so new clips don't need an image rebuild (#169).
 - **Test speed.** #177 uses fewer bcrypt rounds in tests only and caches pip installs in CI, so the backend suite runs faster.
-- **Known debt.** `database_unavailable` is imported from `teacher_access.py` by student code and should move to a shared file. Several tests borrow setup from `test_teacher_access.py`; now that #177 added `conftest.py`, that setup can move there. Resume has no click test yet. Start always makes a new game, so unfinished games can pile up. Assigned hunts aren't linked to games yet.
+- **Known debt.** `database_unavailable` should move out of `teacher_access.py` into a shared file, and shared test setup should move into `conftest.py`. Start always makes a new game, so unfinished games can pile up. Assigned hunts aren't linked to games yet.
 
 ## Testing and validation
 
@@ -57,7 +55,7 @@ October 26–November 1, 2026
 
 Also checked in review:
 
-- #155: GPS flow run on a laptop with coordinates faked through devtools, by Gamu. 50 frontend tests and the build passed.
+- #155: GPS flow run on a laptop with coordinates faked through devtools. 50 frontend tests and the build passed.
 - #167: 34 game session tests and 51 frontend tests passed, including a wrong photo on the last spot not stopping the clock.
 - #169: 37 audio and game tests passed. Checked with Docker that the audio isn't in the image and that all 5 French clips come through the mount.
 - #171: 38 game session tests and 47 frontend tests passed. Checked by hand that finishing a game removes it from the ongoing list.
@@ -89,7 +87,6 @@ All PRs targeted `main` and went through teammate review. Reviews caught several
 - hardcoded languages, now read from the `languages` table, and a duplicated test helper (#161)
 - `ON DELETE CASCADE` on assigned hunts, which would have deleted hunts with their class (#165)
 - merging #154 before #155 would have made the game unplayable
-- a PR touching 14 files (#167). We discussed it and kept it together, since the changes were small and needed each other
 - a hardcoded language list in the teacher dashboard (#184), so new languages would need a code change. All the language helpers now live together in `utils/` (#184, #186)
 - points that ignored attempts (#178), so everyone finishing a game at the same level got the same score and the leaderboard couldn't show who played better. Points now drop to 60% on the second try and 30% after that
 - missing screenshots on frontend PRs (#155, #184, #186), now added so teammates can quickly see what changed
