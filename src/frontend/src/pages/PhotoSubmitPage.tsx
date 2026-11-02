@@ -124,6 +124,16 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, sending = fals
         <span className="photo-corner photo-corner--bottom-right" aria-hidden="true" />
       </div>
 
+      <div className="location-status" role="status" aria-live="polite">
+        <svg className="location-status-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+          <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" />
+          <circle cx="12" cy="10" r="2.5" />
+        </svg>
+        <div>
+          <strong>{sending ? 'Verifying your answer' : 'Location verification'}</strong>
+          <p>{sending ? 'Checking your location and room...' : 'Your location will be checked when you submit. Please allow location access.'}</p>
+        </div>
+      </div>
       {notice && <p role="alert">{notice}</p>}
       {error && <p className="error-message" role="alert">{error}</p>}
 
@@ -138,7 +148,7 @@ export default function PhotoSubmitPage({ spotNumber, totalSpots, sending = fals
               Retake photo
             </button>
             <button className="game-button" type="button" onClick={() => onSubmit(photo)} disabled={sending} aria-busy={sending}>
-              {sending ? 'Checking room...' : 'Submit photo'}
+              {sending ? 'Checking location and room...' : 'Submit photo'}
             </button>
           </>
         ) : (

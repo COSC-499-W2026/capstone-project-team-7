@@ -7,6 +7,7 @@ export interface Clue {
   total_locations: number
   building: string
   audio_url: string
+  elapsed_seconds: number
 }
 
 export async function getClue(gameId: string): Promise<Clue> {

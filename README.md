@@ -243,6 +243,15 @@ supported languages. A successful creation selects the new class and shows its j
 code; failures keep the entered details for retry. Selecting a class shows its roster.
 Teachers can add registered students by student number or remove their enrollment;
 student accounts are kept. Roster failures offer a reload button.
+Language labels use the shared `languageName` helper to format language codes from the class API.
+
+Dashboard screenshots (sample data): [assigned classes](docs/screenshots/teacher-dashboard.png)
+and [no assigned classes](docs/screenshots/teacher-dashboard-empty.png).
+Class creation screenshots (sample data): [New class form](docs/screenshots/create-class-form.png)
+and [new class selected](docs/screenshots/create-class-success.png).
+Roster screenshots (sample data): [enrolled students](docs/screenshots/manage-roster.png)
+and [empty class](docs/screenshots/manage-roster-empty.png).
+
 After login, `GET /api/teacher/classes` lists assigned classes; `GET /api/teacher/classes/{uuid}` returns one assigned class.
 `POST /api/teacher/classes` with `name` and `language_code` creates a class owned by the teacher and returns 201; a blank name or unknown language returns 422.
 All use the existing `session` cookie: 401 for missing/invalid/expired sessions, 403 for non-teachers, 404 for unassigned/missing classes, and 503 for database failures.
@@ -280,6 +289,8 @@ After login, a student can `POST /api/student/classes/join` with `{"class_code":
 Success returns 201 with the class `id`, `name`, and `language_code`. An unknown code returns 404 `"Class not found"`, joining twice returns 409 `"Already enrolled"`, and a blank or over-long code returns 422.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
 Run `python -m pytest tests/backend/test_student_enrollment.py -v` with `TEST_DATABASE_URL` set.
+The student dashboard has a "Join a class" box that sends this request and shows the class name, or a message for each error.
+Above it, "My classes" lists the student's classes (name and language) from `GET /api/student/profile`, and refreshes after each join.
 
 ### Assigned hunts API
 
@@ -297,21 +308,18 @@ The backend picks 5 random locations that have a French clue and saves them in o
 Success returns 201 with `game_id`, `language_code`, `difficulty`, `current_position` (1), and `total_locations` (5); locations and clues are not returned.
 Fewer than 5 French locations returns 409 `"Not enough locations for this language yet"` and saves nothing.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503. Deleting a student keeps their games with no student linked.
+
 Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE_URL` set.
 
-`GET /api/game/ongoing` lists the student's unfinished games, newest first, each with `game_id`, `language_code`, `difficulty`, `current_position`, `total_locations`, and `started_at`.
-Finished games and other students' games are never listed; no unfinished games returns `[]`. Missing sessions return 401, non-students get 403, and database failures return 503.
-The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
+`GET /api/game/ongoing` lists the student's unfinished games, newest first, each with `game_id`, `language_code`, `difficulty`, `current_position`, `total_locations`, and `started_at`. Finished games and other students' games are never listed; no unfinished games returns `[]`. Missing sessions return 401, non-students get 403, and database failures return 503. The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
 
-After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, and `audio_url`.
-`GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the `AUDIO_DIR` folder (`src/backend/audio/<language>/` by default) and
-never linked by name, so neither the clue nor the audio link reveals the room number.
-Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422.
-A missing audio file returns 404 `"Audio not found for this clue"`.
+After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, `audio_url`, and `elapsed_seconds` (whole seconds since the game started).
+`GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the `AUDIO_DIR` folder (`src/backend/audio/<language>/` by default) and never linked by name, so neither the clue nor the audio link reveals the room number. Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422. A missing audio file returns 404 `"Audio not found for this clue"`.
 
 `POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 5 MiB).
 Each valid photo counts an attempt. A correct match awards 10 points; incorrect/unreadable photos award zero. Attempts and difficulty do not affect points.
-A correct answer moves to the next spot; the 5th correct answer finishes the game. Returns `correct`, `attempts`, `finished`, `next_position`, `points_awarded`, `total_points` (game total), and `message`.
+A correct answer moves to the next spot; the 5th correct answer finishes the game. Returns `correct`, `attempts`, `finished`, `next_position`, `points_awarded`, `total_points` (game total), `final_time_seconds`, and `message`.
+`final_time_seconds` is the time from start to the 5th correct answer, and `null` until the game is finished.
 Apply `007_photo_verification_points.sql` and install the optional OCR requirements. Full building/room identifiers must match; points and progress commit together, preventing duplicate awards. GPS is outside this change.
 Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished or spot already answered, 503 OCR/database failure.
 
@@ -373,7 +381,8 @@ Administrators manage user accounts and support system maintenance.
 
 The live-camera page submits the captured JPEG to `/api/game/{game_id}/answer` with the login cookie.
 While checking, submission, retake and close controls are disabled. Correct matches show server-awarded
-points and the game total on the next clue; the existing finish screen shows the total after the final location.
+points and the game total on the next clue; the existing finish screen shows the total and the final time after the final location.
+The game screen shows a stopwatch that starts from the backend's `elapsed_seconds`, so a wrong phone clock doesn't change it.
 Incorrect/unreadable photos show zero awarded points and allow retaking; upload/network/OCR errors allow retry.
 This flow requires the backend verification API with `points_awarded`, `total_points` and `message` fields.
 
@@ -471,3 +480,24 @@ Testing focuses on:
 - Madiba Burks Magara
 - Ashish Nayak
 - Dan Rukundo
+
+### GPS validation for game answers
+
+`POST /api/game/{game_id}/answer` requires query parameters `latitude`, `longitude`,
+`accuracy` (positive metres), and `captured_at` (ISO 8601 with timezone), alongside the
+existing raw image body. The server checks the current spot's stored coordinates and
+radius before photo recognition. Stale/future, inaccurate, outside-radius, or invalid
+readings return 422 without changing attempts, points, or progress. Missing target
+configuration returns 503. Target coordinates are never returned to the student.
+After seeding demo locations, configure targets with
+`python -m utils.seed_target_coordinates` from `src/backend` (or run it in the backend
+container). The photo submission page requests a fresh, high-accuracy browser location
+on each submission, then sends the photo with these GPS fields. Allow location access;
+denied permission, unavailable location, or a 10-second timeout keeps the photo for retry.
+Camera and location access require HTTPS or localhost.
+
+To test locally in Chrome, open DevTools → More tools → Sensors and select a custom
+location matching a seeded target. Submit a freshly captured photo; then retry with a
+faraway location or blocked location permission. Outside-radius readings must not award
+points, and blocked permission must prevent upload. The backend remains responsible for
+GPS accuracy/freshness checks and photo verification.

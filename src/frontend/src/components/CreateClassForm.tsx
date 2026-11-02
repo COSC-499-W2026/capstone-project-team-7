@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createClass, type TeacherClass } from '../api/teacher'
 import { SessionEndedError } from '../api/sessionEnded'
-import { LANGUAGES } from '../languages'
+import { LANGUAGES } from '../utils/languages'
 
 interface Props {
   disabled: boolean

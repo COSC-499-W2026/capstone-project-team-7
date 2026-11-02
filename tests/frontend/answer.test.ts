@@ -1,23 +1,33 @@
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { submitAnswer, type AnswerResult } from '../../src/frontend/src/api/answer'
 import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 
 const photo = new File(['photo'], 'room.jpg', { type: 'image/jpeg' })
 const correct: AnswerResult = { correct: true, attempts: 1, finished: false, next_position: 2,
-  points_awarded: 10, total_points: 20, message: 'Correct room!' }
+  points_awarded: 10, total_points: 20, final_time_seconds: null, message: 'Correct room!' }
 function backend(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({ ok: status === 200, status, json: async () => body })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
 }
+const position = { coords: { latitude: 49.94, longitude: -119.4, accuracy: 10 }, timestamp: Date.now() }
+let getCurrentPosition = vi.fn()
+beforeEach(() => {
+  getCurrentPosition = vi.fn((success) => success(position))
+  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } })
+})
 afterEach(() => vi.unstubAllGlobals())
 
 test('sends the actual photo with session cookies and returns server-awarded points', async () => {
   const fetchMock = backend(200, correct)
   expect(await submitAnswer('abc', photo)).toEqual(correct)
-  expect(fetchMock).toHaveBeenCalledWith('/api/game/abc/answer', {
+  expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/^\/api\/game\/abc\/answer\?/), {
     method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'image/jpeg' }, body: photo,
   })
+  const url = new URL(fetchMock.mock.calls[0][0], 'https://testserver')
+  expect(Object.fromEntries(url.searchParams)).toEqual({ latitude: '49.94', longitude: '-119.4',
+    accuracy: '10', captured_at: new Date(position.timestamp).toISOString() })
+  expect(getCurrentPosition.mock.calls[0][2]).toEqual({ enableHighAccuracy: true, maximumAge: 0, timeout: 10000 })
 })
 
 test('an incorrect or unreadable photo stays incorrect and awards no points', async () => {
@@ -48,7 +58,13 @@ test('a network failure allows a retry instead of showing success', async () => 
   await expect(submitAnswer('abc', photo)).rejects.toThrow('Please try again')
 })
 
-test.each([{}, { ...correct, points_awarded: undefined }, { ...correct, correct: false }])(
+test('the last correct photo returns the final time', async () => {
+  backend(200, { ...correct, finished: true, next_position: null, final_time_seconds: 754 })
+  expect(await submitAnswer('abc', photo)).toMatchObject({ finished: true, final_time_seconds: 754 })
+})
+
+test.each([{}, { ...correct, points_awarded: undefined }, { ...correct, correct: false },
+  { ...correct, finished: true, final_time_seconds: null }, { ...correct, finished: true, final_time_seconds: -1 }])(
   'rejects incomplete or contradictory verification responses', async (body) => {
     backend(200, body)
     await expect(submitAnswer('abc', photo)).rejects.toThrow('verification is unavailable')
@@ -58,4 +74,50 @@ test('an oversized photo is rejected before upload', async () => {
   const fetchMock = backend(200, correct)
   await expect(submitAnswer('abc', new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'large.jpg'))).rejects.toThrow('too large')
   expect(fetchMock).not.toHaveBeenCalled()
+  expect(getCurrentPosition).not.toHaveBeenCalled()
+})
+
+
+test.each([[1, 'allow location access'], [2, 'Could not find'], [3, 'timed out']])(
+  'location failure %s blocks upload and allows a retry', async (code, message) => {
+    const fetchMock = backend(200, correct)
+    getCurrentPosition.mockImplementationOnce((_success, failure) => failure({ code }))
+    await expect(submitAnswer('abc', photo)).rejects.toThrow(message as string)
+    expect(fetchMock).not.toHaveBeenCalled()
+    await expect(submitAnswer('abc', photo)).resolves.toEqual(correct)
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2)
+  })
+
+test('unsupported location blocks upload', async () => {
+  vi.stubGlobal('navigator', {})
+  const fetchMock = backend(200, correct)
+  await expect(submitAnswer('abc', photo)).rejects.toThrow('Location is unavailable')
+  expect(fetchMock).not.toHaveBeenCalled()
+})
+
+test('waits for the location before uploading the photo', async () => {
+  let resolve: (position: unknown) => void = () => {}
+  getCurrentPosition.mockImplementationOnce((success) => { resolve = success })
+  const fetchMock = backend(200, correct)
+  const pending = submitAnswer('abc', photo)
+  expect(fetchMock).not.toHaveBeenCalled()
+  resolve(position)
+  await expect(pending).resolves.toEqual(correct)
+})
+
+test('each submission sends the latest reading', async () => {
+  const fetchMock = backend(200, correct)
+  await submitAnswer('abc', photo)
+  const newer = { coords: { ...position.coords, latitude: 49.95 }, timestamp: position.timestamp + 1000 }
+  getCurrentPosition.mockImplementationOnce((success) => success(newer))
+  await submitAnswer('abc', photo)
+  const url = new URL(fetchMock.mock.calls[1][0], 'https://testserver')
+  expect(url.searchParams.get('latitude')).toBe('49.95')
+  expect(url.searchParams.get('captured_at')).toBe(new Date(newer.timestamp).toISOString())
+})
+
+test('server GPS rejection is shown without logging out', async () => {
+  backend(422, { detail: 'You are too far from this spot. Move closer and try again.' })
+  await expect(submitAnswer('abc', photo)).rejects.toThrow('Move closer')
+  await expect(submitAnswer('abc', photo)).rejects.not.toBeInstanceOf(SessionEndedError)
 })
