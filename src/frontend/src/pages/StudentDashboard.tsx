@@ -3,6 +3,7 @@ import { startGame, type StartGameResult } from '../api/game'
 import { logout } from '../api/logout'
 import { getOngoingGames, type OngoingGame } from '../api/ongoingGames'
 import { SessionEndedError } from '../api/sessionEnded'
+import JoinClass from '../components/JoinClass'
 import OngoingGames from '../components/OngoingGames'
 
 interface Props {
@@ -11,7 +12,7 @@ interface Props {
 }
 
 // Buttons for features we haven't built yet. They show but can't be clicked.
-const COMING_SOON = ['Choose language', 'Choose difficulty', 'Join a class', 'My progress', 'Badges', 'Leaderboard']
+const COMING_SOON = ['Choose language', 'Choose difficulty', 'My progress', 'Badges', 'Leaderboard']
 
 export default function StudentDashboard({ onOpenGame, onLogout }: Props) {
   const [error, setError] = useState('')
@@ -51,6 +52,8 @@ export default function StudentDashboard({ onOpenGame, onLogout }: Props) {
       {error && <p role="alert">{error}</p>}
 
       <OngoingGames games={games} disabled={busy} onResume={onOpenGame} />
+
+      <JoinClass onSessionEnded={onLogout} />
 
       <h2>Coming soon</h2>
       {COMING_SOON.map((label) => (
