@@ -49,14 +49,21 @@ export default function ClassRoster({ classId, disabled, onSessionEnded }: Props
     if (students !== null && number.trim()) void run(() => addStudent(classId, number), true)
   }
 
+  function handleRemove(student: RosterStudent) {
+    if (disabled || inFlight.current) return
+    if (window.confirm(`Remove ${student.first_name} ${student.last_name} from this class? Their account will be kept.`)) {
+      void run(() => removeStudent(classId, student.student_id))
+    }
+  }
+
   return (
     <section aria-label="Class roster">
       <h2>Class roster</h2>
-      {error && <p role="alert">{error} <button disabled={disabled || busy} onClick={() => setAttempt(attempt + 1)}>Reload students</button></p>}
+      {error && <p role="alert">{error} {students === null && <button disabled={disabled || busy} onClick={() => setAttempt(attempt + 1)}>Reload students</button>}</p>}
       {students === null ? !error && <p role="status">Loading students...</p> : students.length === 0 ? <p>No students enrolled yet.</p> : <ul>
         {students.map((student) => <li key={student.student_id}>
           {student.first_name} {student.last_name} · {student.student_number}{' '}
-          <button disabled={disabled || busy} aria-label={`Remove ${student.first_name} ${student.last_name} from class`} onClick={() => run(() => removeStudent(classId, student.student_id))}>Remove</button>
+          <button disabled={disabled || busy} aria-label={`Remove ${student.first_name} ${student.last_name} from class`} onClick={() => handleRemove(student)}>Remove</button>
         </li>)}
       </ul>}
       <form onSubmit={handleAdd}>

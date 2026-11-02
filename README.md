@@ -241,8 +241,8 @@ assigned class, view its language and join code, retry loading failures, and log
 Expired sessions return to login. The New class form accepts a name and one of the six
 supported languages. A successful creation selects the new class and shows its join
 code; failures keep the entered details for retry. Selecting a class shows its roster.
-Teachers can add registered students by student number or remove their enrollment;
-student accounts are kept. Roster failures offer a reload button.
+Teachers can add registered students by student number or confirm removal of their
+enrollment; student accounts are kept. A reload button appears only when loading the roster fails.
 Language labels use the shared `languageName` helper to format language codes from the class API.
 
 Dashboard screenshots (sample data): [assigned classes](docs/screenshots/teacher-dashboard.png)
