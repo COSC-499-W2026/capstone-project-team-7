@@ -350,6 +350,52 @@ def test_correct_answer_moves_to_next_spot(game_db, client):
     assert client.get(clue_url(game_id)).json()["position"] == 2
 
 
+@pytest.mark.parametrize("difficulty,points", [("basic", 10), ("advanced", 20), ("expert", 30)])
+def test_completion_points_follow_saved_game_difficulty(game_db, client, difficulty, points):
+    game_id = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET difficulty = %s WHERE id = %s", (difficulty, game_id))
+    response = answer(client, game_id)
+    assert response.status_code == 200
+    assert response.json()["points_awarded"] == points
+    with get_connection() as db:
+        game = db.execute("SELECT points, current_position FROM game_sessions WHERE id = %s", (game_id,)).fetchone()
+    assert game == {"points": points, "current_position": 2}
+    assert spot(game_id, 1)["found_at"] is not None
+
+
+@pytest.mark.parametrize("difficulty,second_points,minimum_points",
+                         [("basic", 6, 3), ("advanced", 12, 6), ("expert", 18, 9)])
+@pytest.mark.parametrize("failed_attempts", [1, 2, 4])
+def test_retries_reduce_points_only_for_current_spot(game_db, client, monkeypatch, difficulty,
+                                                    second_points, minimum_points, failed_attempts):
+    game_id = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET difficulty = %s WHERE id = %s", (difficulty, game_id))
+    monkeypatch.setattr(game_session, "check_answer", lambda photo, location: False)
+    for attempt in range(1, failed_attempts + 1):
+        response = answer(client, game_id)
+        assert response.status_code == 200
+        assert response.json()["attempts"] == attempt
+        assert response.json()["points_awarded"] == response.json()["total_points"] == 0
+    monkeypatch.setattr(game_session, "check_answer", lambda photo, location: True)
+    response = answer(client, game_id)
+    awarded = second_points if failed_attempts == 1 else minimum_points
+    assert response.status_code == 200
+    assert response.json()["attempts"] == failed_attempts + 1
+    assert response.json()["points_awarded"] == response.json()["total_points"] == awarded
+    assert spot(game_id, 1)["attempts"] == failed_attempts + 1
+    response = answer(client, game_id)
+    full_points = {"basic": 10, "advanced": 20, "expert": 30}[difficulty]
+    assert response.status_code == 200
+    assert response.json()["attempts"] == 1
+    assert response.json()["points_awarded"] == full_points
+    assert response.json()["total_points"] == awarded + full_points
+    with get_connection() as db:
+        game = db.execute("SELECT points, current_position FROM game_sessions WHERE id = %s", (game_id,)).fetchone()
+    assert game == {"points": awarded + full_points, "current_position": 3}
+
+
 def test_wrong_answer_stays_on_spot_and_counts_attempts(game_db, client, monkeypatch):
     game_id = start(client)
     monkeypatch.setattr(game_session, "check_answer", lambda photo, location: False)

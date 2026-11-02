@@ -18,13 +18,13 @@ from utils.answer_location import validate_answer_location
 from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
 from utils.audio_storage import audio_path
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
+from utils.scoring import points_for_attempt, points_for_difficulty
 
 router = APIRouter(prefix="/api/game", tags=["game"])
 
 # The demo game is always French Basic until students can choose.
 LANGUAGE = "fr"
 DIFFICULTY = Difficulty.BASIC
-POINTS_PER_LOCATION = 10
 
 
 @router.post("/start", status_code=201, summary="Start a game with five random locations")
@@ -82,7 +82,7 @@ def current_location(game_id, student_id):
         with get_connection() as connection:
             location = connection.execute(
                 """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
-                locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
+                game_sessions.difficulty, locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
                 FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.started_at))::int AS elapsed_seconds
                 FROM game_sessions
                 JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
@@ -142,14 +142,27 @@ def submit_answer(game_id: UUID, reading: Annotated[LocationReading, Query()],
     position = location["current_position"]
     validate_answer_location(reading, location)
     try:
+        completion_points = points_for_difficulty(location["difficulty"])
+    except ValueError:
+        raise HTTPException(status_code=500, detail="Could not calculate points. Please try again later.") from None
+    try:
         correct = check_answer(photo, location)
     except InvalidPhoto as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     except OCRUnavailable:
         raise HTTPException(status_code=503, detail="Photo recognition is unavailable. Please try again later.") from None
-    awarded = POINTS_PER_LOCATION if correct else 0
     try:
         with get_connection() as connection:
+            # Increment atomically so concurrent photos use the latest attempt count.
+            spot = connection.execute(
+                """UPDATE game_session_locations
+                SET attempts = attempts + 1, found_at = CASE WHEN %s THEN now() ELSE found_at END
+                WHERE game_session_id = %s AND position = %s AND found_at IS NULL RETURNING attempts""",
+                (correct, game_id, position),
+            ).fetchone()
+            if spot is None:
+                raise HTTPException(status_code=409, detail="This spot was already answered")
+            awarded = points_for_attempt(completion_points, spot["attempts"]) if correct else 0
             # Gate both correct and incorrect submissions on the target that OCR checked.
             game = connection.execute(
                 """UPDATE game_sessions
@@ -162,14 +175,6 @@ def submit_answer(game_id: UUID, reading: Annotated[LocationReading, Query()],
                  game_id, user["id"], position),
             ).fetchone()
             if game is None:
-                raise HTTPException(status_code=409, detail="This spot was already answered")
-            spot = connection.execute(
-                """UPDATE game_session_locations
-                SET attempts = attempts + 1, found_at = CASE WHEN %s THEN now() ELSE found_at END
-                WHERE game_session_id = %s AND position = %s AND found_at IS NULL RETURNING attempts""",
-                (correct, game_id, position),
-            ).fetchone()
-            if spot is None:
                 raise HTTPException(status_code=409, detail="This spot was already answered")
             # Same transaction as the answer, so progress and badges are never out of step.
             if correct:
