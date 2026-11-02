@@ -274,6 +274,15 @@ Success returns 201 with the class `id`, `name`, and `language_code`. An unknown
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
 Run `python -m pytest tests/backend/test_student_enrollment.py -v` with `TEST_DATABASE_URL` set.
 
+### Assigned hunts API
+
+`POST /api/teacher/classes/{uuid}/hunts` with `{"difficulty": "basic", "due_date": "2026-11-30"}` assigns a hunt to a class the teacher owns and returns 201 with `id`, `class_id`, `language_code`, `difficulty`, and `due_date`.
+`difficulty` is `basic`, `advanced`, or `expert`; `due_date` is optional and can't be before today. The language is taken from the class. Assigning the same hunt twice is allowed.
+Errors: 401 no session, 403 students, admins, or another teacher's class, 404 `"Class not found"`, 422 invalid difficulty or due date, 503 database failure.
+`GET /api/student/hunts` lists hunts assigned to the student's classes, soonest due first, each with `id`, `class_id`, `class_name`, `language_code`, `difficulty`, and `due_date`. No hunts returns `[]`.
+Missing sessions return 401, non-students get 403.
+Run `python -m pytest tests/backend/test_hunt_assignment.py tests/backend/test_student_hunts.py -v` with `TEST_DATABASE_URL` set.
+
 ### Game session API
 
 After login, a student can `POST /api/game/start` to start a game. For now every game is French (`fr`) at Basic difficulty.
@@ -295,6 +304,17 @@ A correct answer moves to the next spot; the 5th correct answer finishes the gam
 `final_time_seconds` is the time from start to the 5th correct answer, and `null` until the game is finished.
 Apply `007_photo_verification_points.sql` and install the optional OCR requirements. Full building/room identifiers must match; points and progress commit together, preventing duplicate awards. GPS is outside this change.
 Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished or spot already answered, 503 OCR/database failure.
+
+### Badges API
+
+Each language has a First hunt badge (finish 1 game), one badge per difficulty (e.g. `fr_basic` "Baguette Buddy": find every location with a French clue in Basic games), and a Master badge (e.g. `fr_master` "Eiffel Elite": earn First hunt and every difficulty badge in that language). Names come from the badge designs (`BADGE_NAMES` in `badges.py`).
+Languages are read from the `languages` table, so a new language gets badges automatically, with plain names like "Italian First Hunt" until design names are added.
+The "Polyglot" badge (`language` is `null`) is earned by finishing a game in every language in the database.
+Badges are listed in `src/backend/badges.py`; add one with one line there. Apply `008_student_badges.sql`.
+A correct answer checks the student's progress and saves any new badges in `student_badges`, in the same transaction as the answer. A badge is never given twice.
+After login, `GET /api/student/badges` returns every badge with `id`, `name`, `language`, `earned`, and `earned_at` (`null` if locked). Students only see their own.
+Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
+Run `python -m pytest tests/backend/test_badges.py tests/backend/test_student_badges.py -v`; the progress tests need `TEST_DATABASE_URL`.
 
 ### Demo locations and audio
 
@@ -442,3 +462,24 @@ Testing focuses on:
 - Madiba Burks Magara
 - Ashish Nayak
 - Dan Rukundo
+
+### GPS validation for game answers
+
+`POST /api/game/{game_id}/answer` requires query parameters `latitude`, `longitude`,
+`accuracy` (positive metres), and `captured_at` (ISO 8601 with timezone), alongside the
+existing raw image body. The server checks the current spot's stored coordinates and
+radius before photo recognition. Stale/future, inaccurate, outside-radius, or invalid
+readings return 422 without changing attempts, points, or progress. Missing target
+configuration returns 503. Target coordinates are never returned to the student.
+After seeding demo locations, configure targets with
+`python -m utils.seed_target_coordinates` from `src/backend` (or run it in the backend
+container). The photo submission page requests a fresh, high-accuracy browser location
+on each submission, then sends the photo with these GPS fields. Allow location access;
+denied permission, unavailable location, or a 10-second timeout keeps the photo for retry.
+Camera and location access require HTTPS or localhost.
+
+To test locally in Chrome, open DevTools → More tools → Sensors and select a custom
+location matching a seeded target. Submit a freshly captured photo; then retry with a
+faraway location or blocked location permission. Outside-radius readings must not award
+points, and blocked permission must prevent upload. The backend remains responsible for
+GPS accuracy/freshness checks and photo verification.
