@@ -21,9 +21,9 @@ export default function App() {
   const [sending, setSending] = useState(false)
   const inFlight = useRef(false)
   const [totalPoints, setTotalPoints] = useState(0)
+  const [finalTime, setFinalTime] = useState(0)
   const [creatingAccount, setCreatingAccount] = useState(false)
   const [loginNotice, setLoginNotice] = useState('')
-
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
     getCurrentUser()
@@ -39,6 +39,7 @@ export default function App() {
     setNotice('')
     setFinished(false)
     setTotalPoints(0)
+    setFinalTime(0)
     setRole(null)
   }, [])
 
@@ -48,6 +49,7 @@ export default function App() {
     setNotice('')
     setFinished(false)
     setTotalPoints(0)
+    setFinalTime(0)
   }
 
   async function handlePhoto(photo: File) {
@@ -59,7 +61,10 @@ export default function App() {
       const result = await submitAnswer(game.game_id, photo)
       setTotalPoints(result.total_points)
       setNotice(`${result.message} ${result.points_awarded} points awarded. Total: ${result.total_points} points.`)
-      if (result.finished) setFinished(true)
+      if (result.finished) {
+        setFinalTime(result.final_time_seconds ?? 0)
+        setFinished(true)
+      }
       if (result.correct) setPhotoFor(null)
     } catch (err) {
       if (err instanceof SessionEndedError) sessionEnded()
@@ -98,7 +103,8 @@ export default function App() {
   }
 
   if (game && finished) {
-    return <FinishedScreen totalSpots={game.total_locations} totalPoints={totalPoints} onBack={backToDashboard} />
+    return <FinishedScreen totalSpots={game.total_locations} totalPoints={totalPoints}
+      timeSeconds={finalTime} onBack={backToDashboard} />
   }
 
   if (game && photoFor) {

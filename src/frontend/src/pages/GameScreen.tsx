@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getClue, type Clue } from '../api/clue'
 import { SessionEndedError } from '../api/sessionEnded'
+import Stopwatch from '../components/Stopwatch'
 
 interface Props {
   gameId: string
@@ -43,6 +44,7 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSe
     <main>
       {notice && <p role="status">{notice}</p>}
       <h1>Spot {clue.position} of {clue.total_locations}</h1>
+      <Stopwatch startSeconds={clue.elapsed_seconds} />
       <p>Building: {clue.building}</p>
 
       <p>Listen for the room number:</p>
