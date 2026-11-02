@@ -11,7 +11,7 @@ test.each([[], [{ id: 'c1', name: 'French 101', language_code: 'fr', class_code:
   const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => classes })
   vi.stubGlobal('fetch', fetchMock)
   expect(await getTeacherClasses()).toEqual(classes)
-  expect(fetchMock).toHaveBeenCalledWith('/api/teacher/classes')
+  expect(fetchMock).toHaveBeenCalledWith('/api/teacher/classes', undefined)
 })
 
 test('expired sessions request a return to login', async () => {
@@ -32,5 +32,5 @@ test('network failures show a friendly retry message', async () => {
 test('dashboard shows loading and logout before classes load', () => {
   const html = renderToStaticMarkup(createElement(TeacherDashboard, { onLogout: vi.fn() }))
   for (const label of ['Teacher dashboard', 'My classes', 'Loading classes...', 'Log out']) expect(html).toContain(label)
-  for (const label of ['No classes assigned yet.', 'Create class', 'Class roster', 'Add student', 'Remove']) expect(html).not.toContain(label)
+  for (const label of ['No classes assigned yet.', 'Class roster', 'Add student', 'Remove']) expect(html).not.toContain(label)
 })

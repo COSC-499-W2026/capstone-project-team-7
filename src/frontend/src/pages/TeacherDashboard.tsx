@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getTeacherClasses, type TeacherClass } from '../api/teacher'
 import { logout } from '../api/logout'
 import { SessionEndedError } from '../api/sessionEnded'
+import CreateClassForm from '../components/CreateClassForm'
 import { languageName } from '../utils/languageName'
 
 export default function TeacherDashboard({ onLogout }: { onLogout: () => void }) {
@@ -51,6 +52,10 @@ export default function TeacherDashboard({ onLogout }: { onLogout: () => void })
         </select>
         {selected && <p>Language: {languageName(selected.language_code)} · Class code: <strong>{selected.class_code}</strong></p>}
       </>}
+      <CreateClassForm disabled={busy || classes === null} onSessionEnded={onLogout} onCreated={(classroom) => {
+        setClasses((items) => [...(items ?? []), classroom])
+        setSelectedId(classroom.id)
+      }} />
       <p><button onClick={handleLogout} disabled={busy}>Log out</button></p>
     </main>
   )
