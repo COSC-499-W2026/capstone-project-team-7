@@ -1,4 +1,5 @@
 import type { OngoingGame } from '../api/ongoingGames'
+import { languageName } from '../utils/languageName'
 
 interface Props {
   games: OngoingGame[]
@@ -6,11 +7,9 @@ interface Props {
   onResume: (game: OngoingGame) => void
 }
 
-const languageNames = new Intl.DisplayNames(['en'], { type: 'language' })
-
 // e.g. "French · Basic · Spot 2 of 5"
 export function gameLabel(game: OngoingGame) {
-  const language = languageNames.of(game.language_code) ?? game.language_code
+  const language = languageName(game.language_code)
   const difficulty = game.difficulty.charAt(0).toUpperCase() + game.difficulty.slice(1)
   return `${language} · ${difficulty} · Spot ${game.current_position} of ${game.total_locations}`
 }
