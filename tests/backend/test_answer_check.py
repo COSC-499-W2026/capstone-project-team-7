@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -13,10 +14,10 @@ from utils.ocr import InvalidPhoto, OCRUnavailable
 
 @pytest.fixture
 def api(monkeypatch):
-    state = SimpleNamespace(candidates=[], queries=[], attempts=1, student=uuid4())
-    state.location = {"building": "LIB", "room_number": "308", "current_position": 1,
-                      "finished_at": None, "difficulty": "basic"}
-    state.game = {"current_position": 1, "finished_at": None, "points": 0}
+    state = SimpleNamespace(candidates=[], queries=[], student=uuid4())
+    state.location = {"building": "LIB", "room_number": "308", "current_position": 1, "finished_at": None}
+    state.location.update(latitude=49.94, longitude=-119.4, radius_metres=50)
+    state.game = {"current_position": 1, "finished_at": None, "points": 0, "final_time_seconds": None}
     connection = FakeConnection(None)
 
     def execute(query, params):
@@ -26,10 +27,16 @@ def api(monkeypatch):
 
     monkeypatch.setattr(connection, "execute", execute)
     monkeypatch.setattr(game_session, "get_connection", connection)
+    monkeypatch.setattr(game_session, "award_badges", lambda connection, student_id: [])
     monkeypatch.setattr(answer_check, "extract_room_numbers", lambda photo: state.candidates)
     app.dependency_overrides[game_session.require_student] = lambda: {"id": state.student, "role": "student"}
     with TestClient(app, base_url="https://testserver") as client:
-        state.submit = lambda: client.post(f"/api/game/{uuid4()}/answer", content=b"photo")
+        def submit(**changes):
+            reading = dict(latitude=49.94, longitude=-119.4, accuracy=10,
+                           captured_at=datetime.now(timezone.utc).isoformat())
+            reading.update(changes)
+            return client.post(f"/api/game/{uuid4()}/answer", content=b"photo", params=reading)
+        state.submit = submit
         yield state
     app.dependency_overrides.clear()
 
@@ -99,3 +106,23 @@ def test_answer_points_depend_on_recorded_attempt(api, difficulty, second_points
     assert response.json()["attempts"] == attempt
     assert response.json()["points_awarded"] == response.json()["total_points"] == awarded
     assert api.queries[2][1][2] == awarded
+@pytest.mark.parametrize("changes", [
+    {"latitude": 49.95}, {"accuracy": 51}, {"latitude": "nan"},
+    {"longitude": -181}, {"radius_metres": 999999},
+])
+def test_invalid_or_outside_gps_blocks_answer(api, changes):
+    response = api.submit(**changes)
+    assert response.status_code == 422
+    assert len(api.queries) <= 1
+
+
+def test_expired_gps_blocks_answer(api):
+    response = api.submit(captured_at=(datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat())
+    assert response.status_code == 422
+    assert len(api.queries) == 1
+
+
+def test_missing_target_blocks_answer(api):
+    api.location.update(latitude=None, longitude=None, radius_metres=None)
+    assert api.submit().status_code == 503
+    assert len(api.queries) == 1

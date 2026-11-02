@@ -8,3 +8,16 @@ body { margin: 0; }
 main { max-width: 720px; margin: 15vh auto; padding: 2rem; }
 h1 { font-size: clamp(2.5rem, 7vw, 4rem); line-height: 1.1; }
 .eyebrow { color: #28735b; font-weight: 600; }
+
+.location-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid #c9dfd2;
+  border-radius: 12px;
+  background: #eaf3ed;
+}
+.location-status-icon { flex-shrink: 0; margin-top: 0.15rem; color: #28735b; }
+.location-status p { margin: 0.25rem 0 0; font-size: 0.9rem; }

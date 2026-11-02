@@ -5,3 +5,5 @@ venv/
 .env
 Dockerfile
 tests/
+# Clue audio comes from the bind mount in compose.yaml, not the image.
+audio/

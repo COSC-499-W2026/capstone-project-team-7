@@ -10,6 +10,7 @@ import CreateAccountPage from './pages/CreateAccountPage'
 import LoginPage from './pages/LoginPage'
 import PhotoSubmitPage from './pages/PhotoSubmitPage'
 import StudentDashboard from './pages/StudentDashboard'
+import TeacherDashboard from './pages/TeacherDashboard'
 
 export default function App() {
   const [role, setRole] = useState<string | null>(null)
@@ -21,9 +22,9 @@ export default function App() {
   const [sending, setSending] = useState(false)
   const inFlight = useRef(false)
   const [totalPoints, setTotalPoints] = useState(0)
+  const [finalTime, setFinalTime] = useState(0)
   const [creatingAccount, setCreatingAccount] = useState(false)
   const [loginNotice, setLoginNotice] = useState('')
-
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
     getCurrentUser()
@@ -39,6 +40,7 @@ export default function App() {
     setNotice('')
     setFinished(false)
     setTotalPoints(0)
+    setFinalTime(0)
     setRole(null)
   }, [])
 
@@ -48,6 +50,7 @@ export default function App() {
     setNotice('')
     setFinished(false)
     setTotalPoints(0)
+    setFinalTime(0)
   }
 
   async function handlePhoto(photo: File) {
@@ -59,7 +62,10 @@ export default function App() {
       const result = await submitAnswer(game.game_id, photo)
       setTotalPoints(result.total_points)
       setNotice(`${result.message} ${result.points_awarded} points awarded. Total: ${result.total_points} points.`)
-      if (result.finished) setFinished(true)
+      if (result.finished) {
+        setFinalTime(result.final_time_seconds ?? 0)
+        setFinished(true)
+      }
       if (result.correct) setPhotoFor(null)
     } catch (err) {
       if (err instanceof SessionEndedError) sessionEnded()
@@ -98,7 +104,8 @@ export default function App() {
   }
 
   if (game && finished) {
-    return <FinishedScreen totalSpots={game.total_locations} totalPoints={totalPoints} onBack={backToDashboard} />
+    return <FinishedScreen totalSpots={game.total_locations} totalPoints={totalPoints}
+      timeSeconds={finalTime} onBack={backToDashboard} />
   }
 
   if (game && photoFor) {
@@ -127,10 +134,12 @@ export default function App() {
   }
 
   if (role === 'student') {
-    return <StudentDashboard onGameStarted={setGame} onLogout={() => setRole(null)} />
+    return <StudentDashboard onOpenGame={setGame} onLogout={() => setRole(null)} />
   }
 
-  // Teacher and admin dashboards come later.
+  if (role === 'teacher') return <TeacherDashboard onLogout={sessionEnded} />
+
+  // Admin dashboard comes later.
   return (
     <main>
       <h1>Logged in</h1>
