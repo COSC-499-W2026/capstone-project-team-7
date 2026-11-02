@@ -14,7 +14,7 @@ from utils.answer_check import check_answer
 from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
 from utils.generate_audio import AUDIO_FOLDER, audio_filename
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
-from utils.scoring import points_for_difficulty
+from utils.scoring import points_for_attempt, points_for_difficulty
 
 router = APIRouter(prefix="/api/game", tags=["game"])
 
@@ -128,9 +128,18 @@ def submit_answer(game_id: UUID, user=Depends(require_student), photo=Depends(re
         raise HTTPException(status_code=422, detail=str(exc)) from None
     except OCRUnavailable:
         raise HTTPException(status_code=503, detail="Photo recognition is unavailable. Please try again later.") from None
-    awarded = completion_points if correct else 0
     try:
         with get_connection() as connection:
+            # Increment atomically so concurrent photos use the latest attempt count.
+            spot = connection.execute(
+                """UPDATE game_session_locations
+                SET attempts = attempts + 1, found_at = CASE WHEN %s THEN now() ELSE found_at END
+                WHERE game_session_id = %s AND position = %s AND found_at IS NULL RETURNING attempts""",
+                (correct, game_id, position),
+            ).fetchone()
+            if spot is None:
+                raise HTTPException(status_code=409, detail="This spot was already answered")
+            awarded = points_for_attempt(completion_points, spot["attempts"]) if correct else 0
             # Gate both correct and incorrect submissions on the target that OCR checked.
             game = connection.execute(
                 """UPDATE game_sessions
@@ -142,14 +151,6 @@ def submit_answer(game_id: UUID, user=Depends(require_student), photo=Depends(re
                  game_id, user["id"], position),
             ).fetchone()
             if game is None:
-                raise HTTPException(status_code=409, detail="This spot was already answered")
-            spot = connection.execute(
-                """UPDATE game_session_locations
-                SET attempts = attempts + 1, found_at = CASE WHEN %s THEN now() ELSE found_at END
-                WHERE game_session_id = %s AND position = %s AND found_at IS NULL RETURNING attempts""",
-                (correct, game_id, position),
-            ).fetchone()
-            if spot is None:
                 raise HTTPException(status_code=409, detail="This spot was already answered")
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None
