@@ -67,7 +67,7 @@ Also checked in review:
 
 **Manual demo check:** we demoed to the TA on Thursday, October 29, and it went well. The main things to follow up on are tweaking the location check and figuring out elevation.
 
-## Architecture alignment
+## Architecture and DFD alignment
 
 This sprint adds these data flows:
 
