@@ -67,7 +67,7 @@ Last week I added the badge rules and the badges endpoint, but students still ha
 
 - Last week I added the endpoint for teachers to assign hunts to their classes (#165), but teachers had no way to use it from the app (task #191).
 - Therefore, I added an **Assign a hunt** form under the class roster on the teacher dashboard, for whichever class the teacher has selected. The teacher picks a difficulty (Basic, Advanced or Expert) and an optional due date, then clicks **Assign hunt**. On success it shows "Hunt assigned!" and resets the form.
-- This PR is the teacher side only. Students seeing their assigned hunts will be a separate PR, so each one stays small.
+
 
 **Review receipts**
 
