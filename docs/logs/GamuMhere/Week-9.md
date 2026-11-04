@@ -1,8 +1,8 @@
 # Week 9 Individual Log: Gamu
 
-Team 7 | Repo: capstone-project-team-7 | PRs this week: #194 (badges page), open and waiting for review, not merged yet; 
+Team 7 | Repo: capstone-project-team-7 | PRs this week: #194 (badges page) and #196 (assign hunts form), both open and waiting for review, not merged yet
 
-Last week I added the badge rules and the badges endpoint, but students still had no way to see their badges in the app. This week I added a simple badges page so students can see which badges they've earned, which ones are still locked, and what each one is for. Like the other demo pages, I kept it plain on purpose, since the team agreed to finish the working features first and style everything later in Milestone 2.
+Last week I added the badge rules and the badges endpoint, but students still had no way to see their badges in the app. This week I added a simple badges page so students can see which badges they've earned, which ones are still locked, and what each one is for. I also started the frontend for last week's teacher-assigned hunts, beginning with the teacher side: a small form on the teacher dashboard to assign a hunt to a class. Like the other demo pages, I kept it plain on purpose, since the team agreed to finish the working features first and style everything later in Milestone 2.
 
 ---
 
@@ -59,6 +59,60 @@ Last week I added the badge rules and the badges endpoint, but students still ha
 ![Hovering over a badge](screenshots/week-9/badge-hover.png)
 
 *Hovering over a badge also shows how it is earned.*
+
+
+## PR #196: Teacher assigns hunts to a class (branch `191-demo-frontend-teacher-assigned-hunts`, into `main`), open, not merged yet
+
+**Size:** 4 files changed, +145 / -0 lines (`src/frontend/src/api/assignHunt.ts`, `src/frontend/src/components/AssignHuntForm.tsx` and `tests/frontend/assignHunt.test.ts` added; `src/frontend/src/pages/TeacherDashboard.tsx` updated).
+
+- Last week I added the endpoint for teachers to assign hunts to their classes (#165), but teachers had no way to use it from the app (task #191).
+- Therefore, I added an **Assign a hunt** form under the class roster on the teacher dashboard, for whichever class the teacher has selected. The teacher picks a difficulty (Basic, Advanced or Expert) and an optional due date, then clicks **Assign hunt**. On success it shows "Hunt assigned!" and resets the form.
+- This PR is the teacher side only. Students seeing their assigned hunts will be a separate PR, so each one stays small.
+
+**Review receipts**
+
+- The form doesn't ask for a language, because the backend uses the class's language automatically. A teacher can't assign a Spanish hunt to a French class by mistake.
+- The date picker greys out past days. The backend also rejects past dates (422), and the form shows "Due date can't be in the past" if one gets through.
+- Leaving the due date empty sends `null`, which means the hunt has no due date.
+- Errors have friendly messages: another teacher's class or a missing class (403/404) shows "You can't assign hunts to this class", and anything else, including no connection, shows "Could not assign the hunt, please try again". If the login session has ended (401), the teacher is sent back to the login page.
+- The button is disabled and says "Assigning hunt..." while it's sending, so a hunt can't be assigned twice by double-clicking.
+- Each class gets a fresh form, so switching class clears the old message.
+
+**Architecture receipts**
+
+- I made a new `api/assignHunt.ts` instead of adding to `api/teacher.ts`. That file's shared helper turns every 403 into "Teacher access required", and changing it would have meant editing a teammate's code.
+- The form copies the style of Madiba's `CreateClassForm.tsx`, and reuses the existing `SessionEndedError`.
+- In `TeacherDashboard.tsx` (Madiba's file) I only added 2 lines: the import and the form next to `ClassRoster`.
+- This fits the DFD from last week's hunt assignment endpoint, so the diagram doesn't change: the teacher's request goes to the hunt assignment process, which checks the class belongs to them and writes to `assigned_hunts`.
+- I didn't change any backend code.
+
+**Clean Code Check**
+
+- The api file only talks to the backend and the form only handles what the teacher sees, so each has one job. All files are under 70 lines.
+
+**Testing receipts**
+
+- `assignHunt.test.ts` (9 tests): sends the right URL and body and returns the hunt; an empty due date is sent as `null`; a 401 throws `SessionEndedError`; 422, 403, 404 and 503 each show the right message; a network failure shows the friendly message; and the form has three difficulties, an optional due date and an Assign hunt button.
+- The tests fake the backend's replies, so they run anywhere, including CI.
+- Regression: the full frontend suite passed (131 tests), and type checking and the build pass. CI run: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/41902889336)
+
+**Screenshots**
+
+![Assign a hunt form on the teacher dashboard](screenshots/week-9/assign-hunt-form.png)
+
+*The Assign a hunt form on the teacher dashboard for the selected class.*
+
+![Choosing a difficulty](screenshots/week-9/assign-hunt-difficulty.png)
+
+*The teacher picks a difficulty. The language comes from the class automatically.*
+
+![Choosing a due date](screenshots/week-9/assign-hunt-due-date.png)
+
+*The optional due date. The browser's calendar greys out past dates.*
+
+![Hunt assigned message](screenshots/week-9/assign-hunt-success.png)
+
+*The success message after assigning a hunt.*
 
 
 ## Code reviews for teammates
