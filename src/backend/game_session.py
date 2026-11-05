@@ -18,6 +18,7 @@ from utils.answer_location import validate_answer_location
 from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
 from utils.audio_storage import audio_path
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
+from utils.request_body import read_limited_body
 from utils.scoring import points_for_attempt, points_for_difficulty
 
 router = APIRouter(prefix="/api/game", tags=["game"])
@@ -125,14 +126,8 @@ def current_clue_audio(game_id: UUID, user=Depends(require_student)):
 
 async def read_photo(request: Request):
     """The photo sent as the request body (e.g. image/jpeg)."""
-    photo = bytearray()
-    async for chunk in request.stream():
-        if len(photo) + len(chunk) > MAX_PHOTO_BYTES:
-            raise HTTPException(status_code=413, detail="Photo is too large")
-        photo.extend(chunk)
-    if not photo:
-        raise HTTPException(status_code=422, detail="Please take a photo of the room number")
-    return bytes(photo)
+    return await read_limited_body(request, MAX_PHOTO_BYTES, "Photo is too large",
+                                   "Please take a photo of the room number")
 
 
 @router.post("/{game_id}/answer", summary="Submit a photo and GPS reading for the current spot")
