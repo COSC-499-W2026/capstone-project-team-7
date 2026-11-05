@@ -27,9 +27,11 @@ export function profileIconStyle(id: string, size: number, locked = false): CSSP
     style.borderRadius = '50%'
   } else {
     const column = SHEET[row].indexOf(id)
+    const columns = SHEET[0].length
+    const rows = SHEET.length
     style.backgroundImage = `url(${iconsUrl})`
-    style.backgroundSize = `${SHEET[0].length * 100}% ${SHEET.length * 100}%`
-    style.backgroundPosition = `${column * 50}% ${row * 20}%`
+    style.backgroundSize = `${columns * 100}% ${rows * 100}%`
+    style.backgroundPosition = `${(column * 100) / (columns - 1)}% ${(row * 100) / (rows - 1)}%`
   }
   if (locked) {
     style.filter = 'grayscale(1)'

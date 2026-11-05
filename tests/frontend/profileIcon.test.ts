@@ -14,6 +14,10 @@ test('finds an icon in the last tile', () => {
   expect(profileIconStyle('horangi_the_tiger', 96).backgroundPosition).toBe('100% 100%')
 })
 
+test('finds an icon in a middle tile', () => {
+  expect(profileIconStyle('cuckoo_buddy', 96).backgroundPosition).toBe('50% 40%')
+})
+
 test('keeps the same tile at a different size', () => {
   const small = profileIconStyle('speedy_escargot', 40)
   expect(small.backgroundPosition).toBe(profileIconStyle('speedy_escargot', 96).backgroundPosition)
