@@ -1,6 +1,6 @@
 # Week 9 Individual Log: Gamu
 
-Team 7 | Repo: capstone-project-team-7 | PRs this week: #194 (badges page), #196 (assign hunts form) and #204 (list and remove assigned hunts), open and waiting for review; #205 (redeem points endpoints, draft) and #206 (icon store page, draft). None are merged yet.
+Team 7 | Repo: capstone-project-team-7 | PRs this week: #194 (badges page) merged into main; #196 (assign hunts form), #204 (list and remove assigned hunts), #205 (redeem points endpoints) and #206 (icon store page), open and not merged yet.
 
 Last week I added the badge rules and the badges endpoint, but students still had no way to see their badges in the app. This week I added a simple badges page so students can see which badges they've earned, which ones are still locked, and what each one is for. I also built the frontend for last week's teacher-assigned hunts: a small form on the teacher dashboard to assign a hunt to a class, and a list under it where teachers can see and remove the hunts they've assigned. Finally, I started on points: students can now spend the points they earn in games on profile icons, with a backend for redeeming and a store page. Like the other demo pages, I kept it plain on purpose, since the team agreed to finish the working features first and style everything later in Milestone 2.
 
@@ -8,10 +8,12 @@ Some of these PRs build on PRs that aren't merged yet (mine and Ashish's), so th
 
 CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job was not started because your account is locked due to a billing issue"), so every CI run this week shows as failed after 3 seconds without running a single test, on every branch. For those PRs I list the test results from my own machine instead.
 
+After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204, #205 and #206), so they're all up to date and can merge without conflicts.
+
 ---
 
 
-## PR #194: Badges page (branch `190-demo-frontend-badges-page`, into `main`), open, not merged yet
+## PR #194: Badges page (branch `190-demo-frontend-badges-page`, into `main`), merged
 
 **Size:** 7 files changed, +200 / -3 lines (`src/frontend/src/pages/BadgesPage.tsx`, `src/frontend/src/api/badges.ts`, `src/frontend/src/assets/badges.png` and `tests/frontend/badges.test.ts` added; `src/frontend/src/App.tsx`, `src/frontend/src/pages/StudentDashboard.tsx` and `README.md` updated).
 
@@ -21,6 +23,7 @@ CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job 
 
 **Review receipts**
 
+- Ashish and Dan both approved, and it was merged on Nov 6. Later I swapped in transparent badge pictures and made Polyglot a big badge at the top, in #206 (see below).
 - All 31 badge pictures are in one sprite sheet (`badges.png`, 5 columns × 7 rows) instead of 31 separate images, to keep the PR under our file limit. Each badge shows its part of the sheet using CSS `background-position`, and one small helper (`badgeTile`) turns a badge id like `es_advanced` into its row and column.
 - A badge that isn't in the sheet (e.g. a language added later, since badges come from the `languages` table) shows a plain box with its name instead of breaking the page.
 - I added click/tap as well as hover for the descriptions, because students will mostly use phones during the hunt, and phones can't hover.
@@ -131,6 +134,7 @@ CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job 
 
 **Review receipts**
 
+- Dan approved it.
 - I did the backend and frontend on one branch so they could be tested together. That puts this PR over our 200-line target (mostly tests), but well under the 500-line limit. I kept removing hunts in this PR because it changes the same files.
 - Removing a hunt deletes it for real, since nothing else in the database refers to a hunt yet. Last week's `ON DELETE RESTRICT` (from Ashish's review on #165) still keeps hunts when someone tries to delete a class.
 - The remove confirmation shows on the page ("Remove this hunt? Students in this class will no longer see it." with **Yes, remove** and **Cancel**) instead of the browser's pop-up, so it looks like part of the app. Removing a student from the roster still uses the browser pop-up, since that's Madiba's code.
@@ -176,7 +180,7 @@ CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job 
 *After Yes, remove: "Hunt removed." shows and the hunt is gone from the list.*
 
 
-## PR #205: Redeeming points for profile icons (branch `156-redeeming-points-endpoints`, into `main`), draft, not merged yet
+## PR #205: Redeeming points for profile icons (branch `156-redeeming-points-endpoints`, into `main`), open, not merged yet
 
 **Size:** 5 files changed, +212 / -0 lines once #198 merges (`src/backend/icon_store.py`, `src/backend/migrations/011_icon_points_spent.sql` and `tests/backend/test_icon_store.py` added; `src/backend/main.py` and `README.md` updated). It builds on Ashish's profile icons (#198), so until that merges GitHub also counts #198's changes.
 
@@ -185,6 +189,7 @@ CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job 
 
 **Review receipts**
 
+- Dan approved it.
 - There's no stored balance. A student's balance is the points from all their games minus the points they've spent on icons, worked out each time, so it can never get out of step with their games.
 - To know what each icon cost, I added a `points_spent` column to Ashish's `student_icons` table in a new migration (`011`) instead of editing his `010`. Icons given for free (like from his demo seed) cost 0, so they don't lower the balance.
 - Prices are in my file (`ICON_PRICES`: 50, 100 and 150 points), so I didn't edit Ashish's `profile_icons.py`. An icon with no price isn't for sale.
@@ -207,38 +212,48 @@ CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job 
 - Regression (locally): 655 backend tests passed. There's no CI run for this PR yet, and CI is locked anyway (see the note at the top).
 
 
-## PR #206: Icon store page (branch `192-demo-frontend-store-to-redeem-points`, into `main`), draft, not merged yet
+## PR #206: Icon store page (branch `192-demo-frontend-store-to-redeem-points`, into `main`), open, not merged yet
 
-**Size:** 6 files changed, +243 / -2 lines once #198, #200 and #205 merge (`src/frontend/src/api/store.ts`, `src/frontend/src/components/StoreView.tsx`, `src/frontend/src/pages/StorePage.tsx` and `tests/frontend/store.test.ts` added; `src/frontend/src/App.tsx` and `src/frontend/src/pages/StudentDashboard.tsx` updated). It builds on Ashish's #198 and #200 and my #205, so until those merge GitHub also counts their changes.
+**Size:** 11 files changed, +319 / -38 lines once #198, #200 and #205 merge (`src/frontend/src/api/store.ts`, `src/frontend/src/components/StoreView.tsx`, `src/frontend/src/pages/StorePage.tsx`, `src/frontend/src/assets/polyglot.png` and `tests/frontend/store.test.ts` added; `src/frontend/src/App.tsx`, `src/frontend/src/pages/StudentDashboard.tsx`, `src/frontend/src/pages/BadgesPage.tsx`, `src/frontend/src/assets/badges.png`, `tests/frontend/badges.test.ts` and `README.md` updated). It builds on Ashish's #198 and #200 and my #205, so until those merge GitHub also counts their changes.
 
 - With the redeem endpoints from #205, students still had no way to use the store from the app (task #192).
-- Therefore, I added a **Store** button next to Start game on the student dashboard. It opens a page that shows "You have X coins" (1 point = 1 coin) and a grid of every icon, drawn with Ashish's `ProfileIcon` from #200.
+- Therefore, I added a **Store** button next to My badges on the student dashboard. It opens a page that shows "You have X coins" (1 point = 1 coin) and a grid of every icon, drawn with Ashish's `ProfileIcon` from #200.
 - Each icon shows the right button: **Buy for X coins** if the student can afford it; a greyed-out (locked) icon with a disabled **Need X more coins** if they can't; **Equip** if they own it; and **Equipped ✓** for the one they're using. After buying or equipping, the store reloads so the coins and buttons are up to date.
+- This PR also improves my badges page from #194, since both pages are rewards and the store already touched the same dashboard files:
+  - The badges now use a transparent picture, so they no longer sit in cream boxes on the green page.
+  - The Polyglot badge has its own picture (`polyglot.png`) and shows large at the top of the page, so students see the big goal first. When it's locked it uses its own locked design instead of the grey filter.
+  - The page is wider so each language's five badges fit on one row.
 
 **Review receipts**
 
+- Dan approved it.
+- When I merged `main` (with my badges page from #194), I moved the Store button next to My badges, so the two reward pages sit together.
+- To get rid of the cream boxes I first tried the CSS `mix-blend-mode: multiply` to blend them into the page, but it had no effect: the page colour is set on the root of the page, and the browser doesn't blend with that. So I re-exported the badges with a transparent background instead, which is simpler and needs no extra CSS.
+- The new export is laid out differently from the old sheet (more space between badges, plus small copies on the right), so I measured each badge's position in pixels and put the numbers in `SHEET` and `POLYGLOT` in `BadgesPage.tsx`. If a picture is re-exported, those numbers need re-measuring, which I noted in the README.
+- On a phone the rows still wrap to fewer badges, so nothing gets squashed.
 - Once an icon is bought, its price is hidden, since it doesn't matter anymore.
 - Buttons are disabled while a request is sending, and a `useRef` flag blocks a fast double click straight away, so an icon can't be bought twice by accident.
 - Errors have friendly messages: not enough coins (400) shows "You don't have enough coins for this", already owned (409) shows "You already own this icon", and anything else, including no connection, shows "Something went wrong, please try again". If the login session has ended (401), the student goes back to the login page.
-- I thought about moving the Store button somewhere else on the dashboard, but kept it next to Start game so it's easy to find.
 
 **Architecture receipts**
 
 - Same pattern as my other pages: only `api/store.ts` talks to the backend, and its three calls (get the store, buy, equip) share one small `send` helper for errors. Equipping reuses Ashish's existing endpoint instead of a new one.
 - The page is split in two: `StorePage.tsx` loads the data and handles the buttons, and `StoreView.tsx` only draws the coins and the grid. This let me test every button state without a real browser.
 - `App.tsx` opens the store with one on/off switch, the same way it opens the create account page. In `StudentDashboard.tsx` I only added the Store button.
-- This doesn't add any new data flows to the DFD: the page uses the store and redeem processes from #205 and Ashish's equip process from #198.
+- On the badges page, a new `badgeSpot` function works out which picture a badge is in and where, and `badgeStyle` scales that picture so only the badge shows. The grid and the big Polyglot share one `renderBadge` helper, so the click and hover code isn't written twice.
+- This doesn't add any new data flows to the DFD: the page uses the store and redeem processes from #205 and Ashish's equip process from #198, and the badges page still only reads `student_badges`.
 - I didn't change any backend code.
 
 **Clean Code Check**
 
-- Each file has one job and they're all small: `store.ts` is 44 lines, `StoreView.tsx` 37 and `StorePage.tsx` 54.
+- Each file has one job and they're all small: `store.ts` is 44 lines, `StoreView.tsx` 37 and `StorePage.tsx` 54. `BadgesPage.tsx` is now about 135 lines.
 
 **Testing receipts**
 
 - `store.test.ts` (14 tests): getting the store returns the coins and icons; buying and equipping send the right URL, method and body; a 401 goes back to login for all three calls; 400 and 409 show the friendly messages, and 404, 503 and a network failure show the general one; the page shows the coin balance; an affordable icon shows "Buy for 100 coins"; an unaffordable one is grey with "Need 30 more coins"; an owned icon shows "Equip" and the equipped one shows "Equipped ✓"; and owned icons hide their price.
-- The tests fake the backend's replies. Clicking buy and equip, and the reload afterwards, were checked by hand in the running app.
-- Regression (locally): 143 frontend tests passed, and type checking passes. CI couldn't run because of the billing lock: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/42155225789)
+- `badges.test.ts` (updated, 7 tests): a new test checks each badge is cut from the right box of its picture (Spanish Advanced, Korean Master, and earned and locked Polyglot), and the locked style test checks that locked Polyglot uses its own design instead of the grey filter.
+- The tests fake the backend's replies. Clicking buy and equip, and the reload afterwards, were checked by hand in the running app, and so were the new badge pictures and the 5-per-row layout.
+- Regression (locally): 150 frontend tests passed, and type checking and the build pass. CI couldn't run because of the billing lock: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/42248309996)
 
 **Screenshots**
 
@@ -249,4 +264,17 @@ CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job 
 
 ## Code reviews for teammates
 
+These are my reviews this week on teammates' PRs that are still open.
+
+**PR #198: Profile icon methods (Ashish)**
+
+- I approved. The code is clean and well tested, and I liked that the database blocks equipping an icon you don't own and that a failed equip keeps your old icon. I raised two things that weren't blocking: new students don't have an icon yet, so should everyone get a free default icon when they sign up, or should the frontend show a placeholder? And the database doesn't check that an icon id is real, so I made sure my redeem endpoint (#205) checks it before saving.
+
+**PR #200: Profile icon art and demo seed (Ashish)**
+
+- I requested changes, then approved. The sprite sheet approach is the same one I used for the badges, and I liked the plain-circle fallback for unknown ids. The picture positions were hardcoded (50% and 20%), which only work for a 3 × 6 grid, so adding more icons later would show the wrong picture. I asked for them to be calculated from the grid size, which Ashish did.
+
+**PR #202: Teachers view locations and upload clue audio (Ashish)**
+
+- I requested changes. A teacher's upload replaces the audio clip for every class that uses that location, including the client's recordings. I suggested saving uploads per class, with the game using the class's clip if there is one and the normal shared clip otherwise. I said it could be a follow-up PR, but that we should decide as a team before the frontend for it goes in.
 
