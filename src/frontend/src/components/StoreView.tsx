@@ -22,7 +22,7 @@ export default function StoreView({ store, busy, onBuy, onEquip }: Props) {
           return (
             <li key={icon.id}>
               <ProfileIcon id={icon.id} name={icon.name} size={96} locked={locked} />
-              <p>{icon.name}<br />{icon.price === null ? 'Not for sale' : `${icon.price} coins`}</p>
+              <p>{icon.name}{!icon.owned && <><br />{icon.price === null ? 'Not for sale' : `${icon.price} coins`}</>}</p>
               {icon.equipped ? <p>Equipped ✓</p>
                 : icon.owned ? <button onClick={() => onEquip(icon.id)} disabled={busy}>Equip</button>
                 : icon.price === null ? null

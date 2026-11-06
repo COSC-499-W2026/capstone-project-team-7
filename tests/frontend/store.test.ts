@@ -89,3 +89,10 @@ test('an owned icon can be equipped and the equipped one says so', () => {
   expect(renderStore(STORE)).toContain('Equipped ✓')
   expect(renderStore(STORE)).not.toContain('>Equip</button>')
 })
+
+test('owned icons hide their price and icons for sale show it', () => {
+  const html = renderStore(STORE)
+  expect(html).toContain('<p>Croissant Cutie</p>')
+  expect(html).not.toContain('<br/>50 coins')
+  expect(html).toContain('Mac the Macaron<br/>100 coins')
+})
