@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { assignHunt } from '../../src/frontend/src/api/assignHunt'
+import { assignHunt, getAssignedHunts } from '../../src/frontend/src/api/assignHunt'
 import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 import AssignHuntForm from '../../src/frontend/src/components/AssignHuntForm'
 
@@ -49,4 +49,36 @@ test('form offers three difficulties, an optional due date and an assign button'
   expect(html).toContain('type="date"')
   expect(html).not.toContain('required')
   expect(html).toContain('<button type="submit">Assign hunt</button>')
+})
+
+test('lists the hunts already assigned to the class', async () => {
+  const hunts = [{ id: 'h1', difficulty: 'expert', due_date: '2026-12-01', assigned_at: '2026-11-05T18:00:00Z' }]
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => hunts })
+  vi.stubGlobal('fetch', fetchMock)
+  expect(await getAssignedHunts('c1')).toEqual(hunts)
+  expect(fetchMock).toHaveBeenCalledWith('/api/teacher/classes/c1/hunts')
+})
+
+test('an expired session while listing hunts requests a return to login', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }))
+  await expect(getAssignedHunts('c1')).rejects.toThrow(SessionEndedError)
+})
+
+test.each([
+  [403, "You can't see hunts for this class"], [404, "You can't see hunts for this class"],
+  [503, 'Could not load assigned hunts, please try again'],
+] as const)('listing hunts explains failures (%s)', async (status, message) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status }))
+  await expect(getAssignedHunts('c1')).rejects.toThrow(message)
+})
+
+test('network failures while listing hunts explain that the teacher can retry', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  await expect(getAssignedHunts('c1')).rejects.toThrow('Could not load assigned hunts, please try again')
+})
+
+test('form has a currently assigned section that starts by loading', () => {
+  const html = renderToStaticMarkup(createElement(AssignHuntForm, { classId: 'c1', disabled: false, onSessionEnded: vi.fn() }))
+  expect(html).toContain('<h3>Currently assigned</h3>')
+  expect(html).toContain('Loading hunts...')
 })

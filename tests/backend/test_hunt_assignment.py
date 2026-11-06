@@ -5,6 +5,7 @@ import psycopg
 import pytest
 
 import hunt_assignment
+import teacher_access
 from database import get_connection
 from test_teacher_access import access_db, client, login
 
@@ -106,6 +107,50 @@ def test_requires_teacher(access_db, client, role, status):
         login(client, role)
     assert assign(client, access_db).status_code == status
     assert assigned_hunts() == []
+
+
+def test_teacher_lists_class_hunts_newest_first(access_db, client):
+    login(client)
+    due_date = (date.today() + timedelta(days=7)).isoformat()
+    assign(client, access_db)
+    assign(client, access_db, difficulty="expert", due_date=due_date)
+    response = client.get(URL.format(access_db))
+    assert response.status_code == 200
+    hunts = response.json()
+    assert [(hunt["difficulty"], hunt["due_date"]) for hunt in hunts] == [("expert", due_date), ("basic", None)]
+    assert all(hunt["id"] and hunt["assigned_at"] for hunt in hunts)
+
+
+def test_class_without_hunts_lists_nothing(access_db, client):
+    login(client)
+    response = client.get(URL.format(access_db))
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.parametrize("class_id", [other_teachers_class, uuid4])
+def test_listing_another_teachers_or_missing_class_is_not_found(access_db, client, class_id):
+    login(client)
+    response = client.get(URL.format(class_id()))
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Class not found"}
+
+
+@pytest.mark.parametrize("role,status", [(None, 401), ("student", 403), ("admin", 403)])
+def test_listing_requires_teacher(access_db, client, role, status):
+    if role:
+        login(client, role)
+    assert client.get(URL.format(access_db)).status_code == status
+
+
+def test_listing_database_failure_is_safe(access_db, client, monkeypatch):
+    login(client)
+    def unavailable():
+        raise psycopg.OperationalError("private database details")
+    monkeypatch.setattr(teacher_access, "get_connection", unavailable)
+    response = client.get(URL.format(access_db))
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
 
 
 def test_database_failure_is_safe(access_db, client, monkeypatch):
