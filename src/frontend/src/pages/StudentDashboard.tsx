@@ -10,13 +10,14 @@ import OngoingGames from '../components/OngoingGames'
 
 interface Props {
   onOpenGame: (game: StartGameResult) => void
+  onOpenStore: () => void
   onLogout: () => void
 }
 
 // Buttons for features we haven't built yet. They show but can't be clicked.
 const COMING_SOON = ['Choose language', 'Choose difficulty', 'My progress', 'Badges', 'Leaderboard']
 
-export default function StudentDashboard({ onOpenGame, onLogout }: Props) {
+export default function StudentDashboard({ onOpenGame, onOpenStore, onLogout }: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [games, setGames] = useState<OngoingGame[]>([])
@@ -56,6 +57,7 @@ export default function StudentDashboard({ onOpenGame, onLogout }: Props) {
       <button onClick={() => run(async () => onOpenGame(await startGame()))} disabled={busy}>
         Start game
       </button>
+      {' '}<button onClick={onOpenStore} disabled={busy}>Store</button>
       {error && <p role="alert">{error}</p>}
 
       <OngoingGames games={games} disabled={busy} onResume={onOpenGame} />

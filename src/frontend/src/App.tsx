@@ -9,6 +9,7 @@ import GameScreen from './pages/GameScreen'
 import CreateAccountPage from './pages/CreateAccountPage'
 import LoginPage from './pages/LoginPage'
 import PhotoSubmitPage from './pages/PhotoSubmitPage'
+import StorePage from './pages/StorePage'
 import StudentDashboard from './pages/StudentDashboard'
 import TeacherDashboard from './pages/TeacherDashboard'
 
@@ -25,6 +26,7 @@ export default function App() {
   const [finalTime, setFinalTime] = useState(0)
   const [creatingAccount, setCreatingAccount] = useState(false)
   const [loginNotice, setLoginNotice] = useState('')
+  const [inStore, setInStore] = useState(false)
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
     getCurrentUser()
@@ -133,8 +135,12 @@ export default function App() {
     )
   }
 
+  if (role === 'student' && inStore) {
+    return <StorePage onBack={() => setInStore(false)} onSessionEnded={() => { setInStore(false); setRole(null) }} />
+  }
+
   if (role === 'student') {
-    return <StudentDashboard onOpenGame={setGame} onLogout={() => setRole(null)} />
+    return <StudentDashboard onOpenGame={setGame} onOpenStore={() => setInStore(true)} onLogout={() => setRole(null)} />
   }
 
   if (role === 'teacher') return <TeacherDashboard onLogout={sessionEnded} />
