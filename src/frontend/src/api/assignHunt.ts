@@ -43,3 +43,18 @@ export async function getAssignedHunts(classId: string): Promise<ClassHunt[]> {
 
   return res.json() as Promise<ClassHunt[]>
 }
+
+export async function deleteHunt(classId: string, huntId: string): Promise<void> {
+  const res = await fetch(`/api/teacher/classes/${encodeURIComponent(classId)}/hunts/${encodeURIComponent(huntId)}`, {
+    method: 'DELETE',
+  }).catch(() => { throw new Error('Could not remove the hunt, please try again') })
+
+  if (res.status === 401) throw new SessionEndedError()
+  if (res.status === 404) throw new Error('That hunt was already removed')
+  if (!res.ok) throw new Error('Could not remove the hunt, please try again')
+}
+
+// today is "YYYY-MM-DD", so dates compare correctly as text. Hunts with no due date never go past due.
+export function hideOverdue(hunts: ClassHunt[], today: string): ClassHunt[] {
+  return hunts.filter((hunt) => !hunt.due_date || hunt.due_date >= today)
+}

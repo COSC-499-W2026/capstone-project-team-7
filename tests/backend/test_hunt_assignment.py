@@ -26,6 +26,17 @@ def assign(client, class_id, **body):
     return client.post(URL.format(class_id), json={"difficulty": "basic", **body})
 
 
+def add_hunt(class_id):
+    """Save a hunt straight to the database, e.g. in a class the logged-in teacher doesn't own."""
+    with get_connection() as db:
+        return str(db.execute("""INSERT INTO assigned_hunts (class_id, language_code, difficulty)
+            VALUES (%s, 'fr', 'basic') RETURNING id""", (class_id,)).fetchone()["id"])
+
+
+def hunt_url(class_id, hunt_id):
+    return f"{URL.format(class_id)}/{hunt_id}"
+
+
 def test_teacher_assigns_basic_hunt_with_class_language(access_db, client):
     login(client)
     response = assign(client, access_db)
@@ -149,6 +160,52 @@ def test_listing_database_failure_is_safe(access_db, client, monkeypatch):
         raise psycopg.OperationalError("private database details")
     monkeypatch.setattr(teacher_access, "get_connection", unavailable)
     response = client.get(URL.format(access_db))
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
+def test_teacher_deletes_a_hunt(access_db, client):
+    login(client)
+    kept = assign(client, access_db).json()["id"]
+    deleted = assign(client, access_db, difficulty="expert").json()["id"]
+    assert client.delete(hunt_url(access_db, deleted)).status_code == 204
+    assert [hunt["id"] for hunt in client.get(URL.format(access_db)).json()] == [kept]
+
+
+def test_deleting_a_missing_hunt_or_one_from_another_class_is_not_found(access_db, client):
+    login(client)
+    for hunt_id in (uuid4(), add_hunt(other_teachers_class())):
+        response = client.delete(hunt_url(access_db, hunt_id))
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Hunt not found"}
+    assert len(assigned_hunts()) == 1
+
+
+def test_deleting_from_another_teachers_class_is_not_found(access_db, client):
+    login(client)
+    other_class = other_teachers_class()
+    response = client.delete(hunt_url(other_class, add_hunt(other_class)))
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Class not found"}
+    assert len(assigned_hunts()) == 1
+
+
+@pytest.mark.parametrize("role,status", [(None, 401), ("student", 403), ("admin", 403)])
+def test_deleting_requires_teacher(access_db, client, role, status):
+    hunt_id = add_hunt(access_db)
+    if role:
+        login(client, role)
+    assert client.delete(hunt_url(access_db, hunt_id)).status_code == status
+    assert len(assigned_hunts()) == 1
+
+
+def test_deleting_database_failure_is_safe(access_db, client, monkeypatch):
+    login(client)
+    hunt_id = add_hunt(access_db)
+    def unavailable():
+        raise psycopg.OperationalError("private database details")
+    monkeypatch.setattr(hunt_assignment, "get_connection", unavailable)
+    response = client.delete(hunt_url(access_db, hunt_id))
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
 
