@@ -11,12 +11,13 @@ import OngoingGames from '../components/OngoingGames'
 interface Props {
   onOpenGame: (game: StartGameResult) => void
   onLogout: () => void
+  onOpenBadges: () => void
 }
 
 // Buttons for features we haven't built yet. They show but can't be clicked.
-const COMING_SOON = ['Choose language', 'Choose difficulty', 'My progress', 'Badges', 'Leaderboard']
+const COMING_SOON = ['Choose language', 'Choose difficulty', 'My progress', 'Leaderboard']
 
-export default function StudentDashboard({ onOpenGame, onLogout }: Props) {
+export default function StudentDashboard({ onOpenGame, onLogout, onOpenBadges }: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [games, setGames] = useState<OngoingGame[]>([])
@@ -62,6 +63,10 @@ export default function StudentDashboard({ onOpenGame, onLogout }: Props) {
 
       {classes && <MyClasses classes={classes} />}
       <JoinClass onJoined={loadClasses} onSessionEnded={onLogout} />
+
+      <p>
+        <button onClick={onOpenBadges}>My badges</button>
+      </p>
 
       <h2>Coming soon</h2>
       {COMING_SOON.map((label) => (
