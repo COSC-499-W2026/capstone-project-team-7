@@ -4,8 +4,6 @@ Team 7 | Repo: capstone-project-team-7 | PRs this week: #194 (badges page) merge
 
 Last week I added the badge rules and the badges endpoint, but students still had no way to see their badges in the app. This week I added a simple badges page so students can see which badges they've earned, which ones are still locked, and what each one is for. I also built the frontend for last week's teacher-assigned hunts: a small form on the teacher dashboard to assign a hunt to a class, and a list under it where teachers can see and remove the hunts they've assigned. Finally, I started on points: students can now spend the points they earn in games on profile icons, with a backend for redeeming and a store page. Like the other demo pages, I kept it plain on purpose, since the team agreed to finish the working features first and style everything later in Milestone 2.
 
-Some of these PRs build on PRs that aren't merged yet (mine and Ashish's), so the sizes below are what each PR will show once the PRs it builds on are merged. Until then, GitHub also counts those other PRs' changes.
-
 CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job was not started because your account is locked due to a billing issue"), so every CI run this week shows as failed after 3 seconds without running a single test, on every branch. For those PRs I list the test results from my own machine instead.
 
 After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204, #205 and #206), so they're all up to date and can merge without conflicts.
@@ -23,13 +21,13 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 **Review receipts**
 
-- Ashish and Dan both approved, and it was merged on Nov 6. Later I swapped in transparent badge pictures and made Polyglot a big badge at the top, in #206 (see below).
+- I swapped in transparent badge pictures and made Polyglot a big badge at the top, in #206 (see below).
 - All 31 badge pictures are in one sprite sheet (`badges.png`, 5 columns × 7 rows) instead of 31 separate images, to keep the PR under our file limit. Each badge shows its part of the sheet using CSS `background-position`, and one small helper (`badgeTile`) turns a badge id like `es_advanced` into its row and column.
 - A badge that isn't in the sheet (e.g. a language added later, since badges come from the `languages` table) shows a plain box with its name instead of breaking the page.
 - I added click/tap as well as hover for the descriptions, because students will mostly use phones during the hunt, and phones can't hover.
 - The descriptions are written in the frontend from the badge id, so I didn't need to change the backend. They match the rules in `src/backend/badges.py`
 - If the login session has ended (401), the student is sent back to the login page, the same as the other pages.
-- The PR is exactly at our 200-line target, so I shortened the tests by grouping related checks rather than going over.
+
 
 **Architecture receipts**
 
@@ -102,7 +100,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 - `assignHunt.test.ts` (9 tests): sends the right URL and body and returns the hunt; an empty due date is sent as `null`; a 401 throws `SessionEndedError`; 422, 403, 404 and 503 each show the right message; a network failure shows the friendly message; and the form has three difficulties, an optional due date and an Assign hunt button.
 - The tests fake the backend's replies, so they run anywhere, including CI.
-- Regression: the full frontend suite passed (131 tests), and type checking and the build pass. CI passed before the fix: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/41902889336). The CI run for the fix didn't start because of the billing lock ([CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/42147412307)); locally, all 131 frontend tests and type checking pass with the fix.
+- Regression: the full frontend suite passed (131 tests), and type checking and the build pass. locally, all 131 frontend tests and type checking pass with the fix.
 
 **Screenshots**
 
@@ -125,7 +123,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 ## PR #204: Show and remove assigned hunts per class (branch `203-currently-assigned-hunts-show-up-on-teacher-dashboard-per-class`, into `main`), open, not merged yet
 
-**Size:** 6 files changed, +294 / -8 lines once #196 merges (`src/backend/hunt_assignment.py`, `src/frontend/src/api/assignHunt.ts`, `src/frontend/src/components/AssignHuntForm.tsx`, `tests/backend/test_hunt_assignment.py`, `tests/frontend/assignHunt.test.ts` and `README.md` updated). It builds on #196, so until that merges GitHub also counts #196's changes.
+**Size:** 6 files changed, +294 / -8 lines once #196 merges (`src/backend/hunt_assignment.py`, `src/frontend/src/api/assignHunt.ts`, `src/frontend/src/components/AssignHuntForm.tsx`, `tests/backend/test_hunt_assignment.py`, `tests/frontend/assignHunt.test.ts` and `README.md` updated). 
 
 - After #196, teachers could assign hunts but couldn't see which hunts a class already had, so they could easily assign the same one twice by mistake (task #203).
 - Therefore, I added a **Currently assigned** list under the Assign a hunt form. It shows each of the selected class's hunts, newest first, with its difficulty, the date it was assigned and its due date (or "No due date"), and it updates straight after a hunt is assigned or removed.
@@ -134,12 +132,10 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 **Review receipts**
 
-- Dan approved it.
 - I did the backend and frontend on one branch so they could be tested together. That puts this PR over our 200-line target (mostly tests), but well under the 500-line limit. I kept removing hunts in this PR because it changes the same files.
-- Removing a hunt deletes it for real, since nothing else in the database refers to a hunt yet. Last week's `ON DELETE RESTRICT` (from Ashish's review on #165) still keeps hunts when someone tries to delete a class.
-- The remove confirmation shows on the page ("Remove this hunt? Students in this class will no longer see it." with **Yes, remove** and **Cancel**) instead of the browser's pop-up, so it looks like part of the app. Removing a student from the roster still uses the browser pop-up, since that's Madiba's code.
+- Removing a hunt deletes it for real, since nothing else in the database refers to a hunt yet. 
+- The remove confirmation shows on the page ("Remove this hunt? Students in this class will no longer see it." with **Yes, remove** and **Cancel**) instead of the browser's pop-up, so it looks like part of the app. 
 - Hunts with no due date never count as past due, and a hunt due today still shows.
-- Hiding past-due hunts on the student side will be a separate PR, so this one stays about the teacher dashboard.
 - For another teacher's class or a missing class, the new endpoints return 404 "Class not found", the same as the other class endpoints, so they don't reveal whether a class exists. A hunt that isn't in the class gives 404 "Hunt not found".
 
 **Architecture receipts**
@@ -151,15 +147,15 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 **Clean Code Check**
 
-- I re-read for duplicate and dead code. `hunt_assignment.py` is 75 lines and the form is 115. The `database_unavailable` import from `teacher_access.py` is still a refactor for later (same as last week).
+- I re-read for duplicate and dead code. `hunt_assignment.py` is 75 lines and the form is 115. The `database_unavailable` import from `teacher_access.py` is planned as a refactor for Reading Week.
 
 **Testing receipts**
 
 - `test_hunt_assignment.py` (15 new test cases, 32 in total): a class's hunts are listed newest first with their dates; a class with no hunts gives an empty list; another teacher's class or a missing class gives 404; no login gives 401, and students and admins get 403; a database failure gives 503; a teacher deletes one of two hunts and only the other is left; a missing hunt or one from another class gives "Hunt not found"; deleting from another teacher's class gives "Class not found" and their hunt is kept; no login, students and admins can't delete; and a database failure while deleting gives 503.
 - `assignHunt.test.ts` (14 new tests, 23 in total): loading and removing send the right requests; a 401 goes back to login; 403, 404 and 503 show the right messages; a network failure shows a friendly message; past-due hunts are hidden but hunts due today, later or with no due date are kept; and the page shows the "Currently assigned" section with the checkbox unticked.
 - The backend tests use a real PostgreSQL database in a temporary schema. The frontend tests fake the backend's replies.
-- The on-page remove confirmation was checked by hand, since the project has no tool for clicking buttons in tests.
-- Regression (locally): 629 backend tests and 145 frontend tests passed, and type checking passes. CI couldn't run because of the billing lock: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/42152622825)
+- The on-page remove confirmation was checked by hand
+- Regression (locally): 629 backend tests and 145 frontend tests passed, and type checking passes. CI couldn't run because of the billing lock
 
 **Screenshots**
 
@@ -182,19 +178,18 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 ## PR #205: Redeeming points for profile icons (branch `156-redeeming-points-endpoints`, into `main`), open, not merged yet
 
-**Size:** 5 files changed, +212 / -0 lines once #198 merges (`src/backend/icon_store.py`, `src/backend/migrations/011_icon_points_spent.sql` and `tests/backend/test_icon_store.py` added; `src/backend/main.py` and `README.md` updated). It builds on Ashish's profile icons (#198), so until that merges GitHub also counts #198's changes.
+**Size:** 5 files changed, +212 / -0 lines once #198 merges (`src/backend/icon_store.py`, `src/backend/migrations/011_icon_points_spent.sql` and `tests/backend/test_icon_store.py` added; `src/backend/main.py` and `README.md` updated). It builds on Ashish's profile icons (#198)
 
 - Students earn points in every game, but there was nothing to spend them on (task #156).
 - Therefore, I added an icon store on the backend. `GET /api/student/store` returns the student's points balance and every profile icon with its price and whether they own it or have it equipped. `POST /api/student/store/{icon_id}/redeem` buys an icon.
 
 **Review receipts**
 
-- Dan approved it.
 - There's no stored balance. A student's balance is the points from all their games minus the points they've spent on icons, worked out each time, so it can never get out of step with their games.
 - To know what each icon cost, I added a `points_spent` column to Ashish's `student_icons` table in a new migration (`011`) instead of editing his `010`. Icons given for free (like from his demo seed) cost 0, so they don't lower the balance.
 - Prices are in my file (`ICON_PRICES`: 50, 100 and 150 points), so I didn't edit Ashish's `profile_icons.py`. An icon with no price isn't for sale.
 - The checks run in a set order: an unknown icon, or one that isn't for sale, gives 404 before touching the database; an icon the student already owns gives 409; and not enough points gives 400 and nothing changes. Buying doesn't equip the icon, because equipping is Ashish's endpoint.
-- Before checking the balance, redeem locks the student's row (`SELECT ... FOR UPDATE`). Without it, two buys at the same moment could both see the same balance and both go through, spending points the student doesn't have. With the lock, the second buy waits for the first to finish and then sees the real balance. I tested this with a separate script (not in the PR): with 120 points and two buys (100 and 50) at the same moment, 20 times, 0 rounds double-spent with the lock, and 18 out of 20 did without it.
+- Before checking the balance, redeem locks the student's row (`SELECT ... FOR UPDATE`). Without it, two buys at the same moment could both see the same balance and both go through, spending points the student doesn't have. With the lock, the second buy waits for the first to finish and then sees the real balance. 
 
 **Architecture receipts**
 
@@ -214,19 +209,18 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 ## PR #206: Icon store page (branch `192-demo-frontend-store-to-redeem-points`, into `main`), open, not merged yet
 
-**Size:** 11 files changed, +319 / -38 lines once #198, #200 and #205 merge (`src/frontend/src/api/store.ts`, `src/frontend/src/components/StoreView.tsx`, `src/frontend/src/pages/StorePage.tsx`, `src/frontend/src/assets/polyglot.png` and `tests/frontend/store.test.ts` added; `src/frontend/src/App.tsx`, `src/frontend/src/pages/StudentDashboard.tsx`, `src/frontend/src/pages/BadgesPage.tsx`, `src/frontend/src/assets/badges.png`, `tests/frontend/badges.test.ts` and `README.md` updated). It builds on Ashish's #198 and #200 and my #205, so until those merge GitHub also counts their changes.
+**Size:** 11 files changed, +319 / -38 lines once #198, #200 and #205 merge (`src/frontend/src/api/store.ts`, `src/frontend/src/components/StoreView.tsx`, `src/frontend/src/pages/StorePage.tsx`, `src/frontend/src/assets/polyglot.png` and `tests/frontend/store.test.ts` added; `src/frontend/src/App.tsx`, `src/frontend/src/pages/StudentDashboard.tsx`, `src/frontend/src/pages/BadgesPage.tsx`, `src/frontend/src/assets/badges.png`, `tests/frontend/badges.test.ts` and `README.md` updated). It builds on Ashish's #198 and #200 and my #205
 
 - With the redeem endpoints from #205, students still had no way to use the store from the app (task #192).
 - Therefore, I added a **Store** button next to My badges on the student dashboard. It opens a page that shows "You have X coins" (1 point = 1 coin) and a grid of every icon, drawn with Ashish's `ProfileIcon` from #200.
 - Each icon shows the right button: **Buy for X coins** if the student can afford it; a greyed-out (locked) icon with a disabled **Need X more coins** if they can't; **Equip** if they own it; and **Equipped ✓** for the one they're using. After buying or equipping, the store reloads so the coins and buttons are up to date.
 - This PR also improves my badges page from #194, since both pages are rewards and the store already touched the same dashboard files:
-  - The badges now use a transparent picture, so they no longer sit in cream boxes on the green page.
-  - The Polyglot badge has its own picture (`polyglot.png`) and shows large at the top of the page, so students see the big goal first. When it's locked it uses its own locked design instead of the grey filter.
+  - The badges now use a transparent picture
+  - The Polyglot badge has its own picture (`polyglot.png`) and shows large at the top of the page, so students see the big goal first. 
   - The page is wider so each language's five badges fit on one row.
 
 **Review receipts**
 
-- Dan approved it.
 - When I merged `main` (with my badges page from #194), I moved the Store button next to My badges, so the two reward pages sit together.
 - To get rid of the cream boxes I first tried the CSS `mix-blend-mode: multiply` to blend them into the page, but it had no effect: the page colour is set on the root of the page, and the browser doesn't blend with that. So I re-exported the badges with a transparent background instead, which is simpler and needs no extra CSS.
 - The new export is laid out differently from the old sheet (more space between badges, plus small copies on the right), so I measured each badge's position in pixels and put the numbers in `SHEET` and `POLYGLOT` in `BadgesPage.tsx`. If a picture is re-exported, those numbers need re-measuring, which I noted in the README.
@@ -253,7 +247,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 - `store.test.ts` (14 tests): getting the store returns the coins and icons; buying and equipping send the right URL, method and body; a 401 goes back to login for all three calls; 400 and 409 show the friendly messages, and 404, 503 and a network failure show the general one; the page shows the coin balance; an affordable icon shows "Buy for 100 coins"; an unaffordable one is grey with "Need 30 more coins"; an owned icon shows "Equip" and the equipped one shows "Equipped ✓"; and owned icons hide their price.
 - `badges.test.ts` (updated, 7 tests): a new test checks each badge is cut from the right box of its picture (Spanish Advanced, Korean Master, and earned and locked Polyglot), and the locked style test checks that locked Polyglot uses its own design instead of the grey filter.
 - The tests fake the backend's replies. Clicking buy and equip, and the reload afterwards, were checked by hand in the running app, and so were the new badge pictures and the 5-per-row layout.
-- Regression (locally): 150 frontend tests passed, and type checking and the build pass. CI couldn't run because of the billing lock: [CI Run](https://github.com/COSC-499-W2026/capstone-project-team-7/actions/runs/42248309996)
+- Regression (locally): 150 frontend tests passed, and type checking and the build pass. CI couldn't run because of the billing lock
 
 **Screenshots**
 
@@ -264,7 +258,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 ## Code reviews for teammates
 
-These are my reviews this week on teammates' PRs that are still open.
+These are some of my reviews this week on teammates' PRs 
 
 **PR #198: Profile icon methods (Ashish)**
 
