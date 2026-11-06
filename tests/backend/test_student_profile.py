@@ -20,7 +20,7 @@ def client(monkeypatch):
     app.dependency_overrides[auth.current_user] = lambda: USER
     class Connection(FakeConnection):
         def __init__(self):
-            self.results = [{"username": "learner"}, [], []]
+            self.results = [{"username": "learner", "equipped_icon_id": None}, [], []]
         def execute(self, query, params):
             assert all(value == USER["id"] for value in params)
             return self
