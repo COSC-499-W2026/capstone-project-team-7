@@ -255,6 +255,10 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 *The store with 180 coins: Croissant Cutie is equipped, Mac the Macaron is owned and can be equipped, and Speedy Escargot can be bought for 150 coins. Owned icons don't show a price.*
 
+![Updated badges page](screenshots/week-9/badges-page-updated.png)
+
+*The updated badges page: the locked Polyglot badge large at the top in its own locked design, then the French badges on one row with transparent backgrounds. Bon Appétit! and Baguette Buddy are earned; the rest are greyed out with a lock.*
+
 
 ## Code reviews for teammates
 
