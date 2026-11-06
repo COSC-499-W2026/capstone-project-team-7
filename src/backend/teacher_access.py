@@ -1,0 +1,84 @@
+"""Classes owned by the signed-in teacher: create, list, and read."""
+
+import logging
+from typing import Annotated
+from uuid import UUID
+
+import psycopg
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
+
+from auth import current_user
+from database import get_connection
+from schemas import RequiredText
+
+router = APIRouter(prefix="/api/teacher/classes", tags=["teacher"])
+
+
+class ClassCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: RequiredText
+    language_code: Annotated[RequiredText, Field(max_length=5, description="Language code, e.g. 'fr'")]
+
+
+def database_unavailable():
+    logging.getLogger(__name__).warning("Teacher class access database operation failed")
+    return HTTPException(status_code=503, detail="Database unavailable")
+
+
+def require_teacher(user=Depends(current_user)):
+    """Only let logged-in teachers through; current_user already rejects missing or expired sessions."""
+    if user["role"] != "teacher":
+        raise HTTPException(status_code=403, detail="Teacher access required")
+    return user
+
+
+def teacher_connection(user=Depends(require_teacher)):
+    try:
+        with get_connection() as connection:
+            yield connection, user["id"]
+    except (psycopg.Error, RuntimeError):
+        raise database_unavailable() from None
+
+
+@router.post("", status_code=201, summary="Create a class owned by the signed-in teacher")
+def create_class(info: ClassCreate, user=Depends(require_teacher)):
+    try:
+        with get_connection() as connection:
+            return connection.execute(
+                """INSERT INTO classes (teacher_id, name, language_code) VALUES (%s, %s, %s)
+                RETURNING id, name, language_code, class_code""",
+                (user["id"], info.name, info.language_code),
+            ).fetchone()
+    except psycopg.errors.ForeignKeyViolation as error:
+        if error.diag.constraint_name != "classes_language_code_fkey":
+            raise database_unavailable() from None
+        raise HTTPException(status_code=422, detail="Unknown language") from None
+    except (psycopg.Error, RuntimeError):
+        raise database_unavailable() from None
+
+
+@router.get("")
+def list_classes(access=Depends(teacher_connection)):
+    connection, teacher_id = access
+    return connection.execute(
+        """SELECT id, name, language_code, class_code FROM classes
+        WHERE teacher_id = %s ORDER BY name, id""", (teacher_id,),
+    ).fetchall()
+
+
+def owned_class(connection, class_id, teacher_id):
+    """The class if this teacher owns it, otherwise None."""
+    return connection.execute(
+        """SELECT id, name, language_code, class_code FROM classes
+        WHERE id = %s AND teacher_id = %s""", (class_id, teacher_id),
+    ).fetchone()
+
+
+@router.get("/{class_id}")
+def get_class(class_id: UUID, access=Depends(teacher_connection)):
+    connection, teacher_id = access
+    classroom = owned_class(connection, class_id, teacher_id)
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Class not found")
+    return classroom

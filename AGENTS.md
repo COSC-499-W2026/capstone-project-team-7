@@ -12,7 +12,7 @@ Lost In Translation. A web-based scavenger hunt game for beginner language stude
 - Each session picks 5 random locations from a pool of 15-20.
 - Game sessions support pause, resume, reset, and shuffle.
 - Points, badges, and leaderboards for students. Dashboard for teachers. Admin accounts for account management.
-- Requirements and test cases: `docs/Proposal/499 - Team 7 Project Proposal.md` on `dev`.
+- Requirements and test cases: `docs/Proposal/499 - Team 7 Project Proposal.md` on `main`.
 
 ## Stack
 
@@ -25,7 +25,7 @@ Lost In Translation. A web-based scavenger hunt game for beginner language stude
 | Tests | Pytest (`tests/backend`), Vitest (`tests/frontend`) |
 | CI | GitHub Actions (`.github/workflows/ci.yml`) |
 
-`dev` is the most up-to-date branch. Read it before assuming something does not exist.
+`main` is the most up-to-date branch and the target for PRs. Read it before assuming something does not exist.
 
 ## Code rules
 

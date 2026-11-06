@@ -1,29 +1,157 @@
-import { useEffect, useState } from 'react'
-
-interface HelloResponse {
-  message: string
-}
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { submitAnswer } from './api/answer'
+import type { Clue } from './api/clue'
+import { getCurrentUser } from './api/currentUser'
+import type { StartGameResult } from './api/game'
+import { SessionEndedError } from './api/sessionEnded'
+import BadgesPage from './pages/BadgesPage'
+import FinishedScreen from './pages/FinishedScreen'
+import GameScreen from './pages/GameScreen'
+import CreateAccountPage from './pages/CreateAccountPage'
+import LoginPage from './pages/LoginPage'
+import PhotoSubmitPage from './pages/PhotoSubmitPage'
+import StudentDashboard from './pages/StudentDashboard'
+import TeacherDashboard from './pages/TeacherDashboard'
 
 export default function App() {
-  const [message, setMessage] = useState('Loading...')
-
+  const [role, setRole] = useState<string | null>(null)
+  const [checkingLogin, setCheckingLogin] = useState(true)
+  const [game, setGame] = useState<StartGameResult | null>(null)
+  const [photoFor, setPhotoFor] = useState<Clue | null>(null)
+  const [notice, setNotice] = useState('')
+  const [finished, setFinished] = useState(false)
+  const [sending, setSending] = useState(false)
+  const inFlight = useRef(false)
+  const [totalPoints, setTotalPoints] = useState(0)
+  const [finalTime, setFinalTime] = useState(0)
+  const [creatingAccount, setCreatingAccount] = useState(false)
+  const [loginNotice, setLoginNotice] = useState('')
+  const [showBadges, setShowBadges] = useState(false)
+  // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
-    fetch('/api/hello')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json() as Promise<HelloResponse>
-      })
-      .then((data) => setMessage(data.message))
-      .catch((err: Error) => setMessage(`Could not reach backend: ${err.message}`))
+    getCurrentUser()
+      .then((user) => setRole(user?.role ?? null))
+      .finally(() => setCheckingLogin(false))
   }, [])
 
+  // The login session ended mid-game, so drop the game and show the login page.
+  // useCallback keeps it the same function, so GameScreen doesn't reload the clue on every render.
+  const sessionEnded = useCallback(() => {
+    setGame(null)
+    setPhotoFor(null)
+    setNotice('')
+    setFinished(false)
+    setTotalPoints(0)
+    setFinalTime(0)
+    setRole(null)
+  }, [])
+
+  function backToDashboard() {
+    setGame(null)
+    setPhotoFor(null)
+    setNotice('')
+    setFinished(false)
+    setTotalPoints(0)
+    setFinalTime(0)
+  }
+
+  async function handlePhoto(photo: File) {
+    if (!game || inFlight.current) return
+    inFlight.current = true
+    setNotice('')
+    setSending(true)
+    try {
+      const result = await submitAnswer(game.game_id, photo)
+      setTotalPoints(result.total_points)
+      setNotice(`${result.message} ${result.points_awarded} points awarded. Total: ${result.total_points} points.`)
+      if (result.finished) {
+        setFinalTime(result.final_time_seconds ?? 0)
+        setFinished(true)
+      }
+      if (result.correct) setPhotoFor(null)
+    } catch (err) {
+      if (err instanceof SessionEndedError) sessionEnded()
+      else setNotice((err as Error).message)
+    } finally {
+      inFlight.current = false
+      setSending(false)
+    }
+  }
+
+  if (checkingLogin) {
+    return <main><p>Loading...</p></main>
+  }
+
+  if (!role && creatingAccount) {
+    return (
+      <CreateAccountPage
+        onCreated={(login) => {
+          setCreatingAccount(false)
+          if (login) setRole(login.role)
+          else setLoginNotice('Account created! Please log in.')
+        }}
+        onBack={() => setCreatingAccount(false)}
+      />
+    )
+  }
+
+  if (!role) {
+    return (
+      <LoginPage
+        notice={loginNotice}
+        onLogin={(result) => { setLoginNotice(''); setRole(result.role) }}
+        onCreateAccount={() => { setLoginNotice(''); setCreatingAccount(true) }}
+      />
+    )
+  }
+
+  if (game && finished) {
+    return <FinishedScreen totalSpots={game.total_locations} totalPoints={totalPoints}
+      timeSeconds={finalTime} onBack={backToDashboard} />
+  }
+
+  if (game && photoFor) {
+    return (
+      <PhotoSubmitPage
+        spotNumber={photoFor.position}
+        totalSpots={photoFor.total_locations}
+        sending={sending}
+        notice={notice}
+        onSubmit={handlePhoto}
+        onClose={() => setPhotoFor(null)}
+      />
+    )
+  }
+
+  if (game) {
+    return (
+      <GameScreen
+        gameId={game.game_id}
+        notice={notice}
+        onSubmitPhoto={(clue) => { setNotice(''); setPhotoFor(clue) }}
+        onBack={backToDashboard}
+        onSessionEnded={sessionEnded}
+      />
+    )
+  }
+
+  if (role === 'student' && showBadges) {
+    return <BadgesPage onBack={() => setShowBadges(false)}
+      onSessionEnded={() => { setShowBadges(false); setRole(null) }} />
+  }
+
+  if (role === 'student') {
+    return <StudentDashboard onOpenGame={setGame} onLogout={() => setRole(null)}
+      onOpenBadges={() => setShowBadges(true)} />
+  }
+
+  if (role === 'teacher') return <TeacherDashboard onLogout={sessionEnded} />
+
+  // Admin dashboard comes later.
   return (
     <main>
-      <p className="eyebrow">Language learning meets adventure</p>
-      <h1>Lost In Translation</h1>
-      <p>Listen, explore, and learn through real-world scavenger hunts.</p>
-      <p>Your React frontend is ready. Gameplay is coming soon.</p>
-      <p>Backend says: {message}</p>
+      <h1>Logged in</h1>
+      <p>You are logged in as a {role}.</p>
     </main>
   )
 }
