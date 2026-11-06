@@ -362,6 +362,14 @@ The French audio clues live in `src/backend/audio/fr/`, named by building and ro
 Docker bind-mounts that folder into the backend at `/app/audio` (`AUDIO_DIR` in `compose.yaml`), so the clips are not built into the image.
 Adding or replacing a file there plays straight away, with no rebuild. Outside Docker, set `AUDIO_DIR` to use another folder.
 To remake them: `pip install edge-tts`, then `cd src/backend && python -m utils.generate_audio`.
+The generator now produces all three difficulties using the shared clue rules:
+Basic contains only `number_text`, Advanced combines `number_text` and `description_text`,
+and Expert contains only `description_text`. Required text must not be blank.
+Basic keeps its existing path (`fr/COM-316.mp3`); Advanced and Expert use
+`fr/advanced/COM-316.mp3` and `fr/expert/COM-316.mp3` under `AUDIO_DIR` (or the default audio folder).
+Gameplay still plays Basic audio; selecting clips using a game's difficulty is follow-up work.
+The demo descriptions need review before Expert gameplay: LIB 312 and LIB 317 currently share
+the same description, so audio generation alone does not make them distinguishable.
 Tests: `python -m pytest tests/backend/test_audio_storage.py tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
 
 ### Current user API
