@@ -340,6 +340,7 @@ Badges are listed in `src/backend/badges.py`; add one with one line there. Apply
 A correct answer checks the student's progress and saves any new badges in `student_badges`, in the same transaction as the answer. A badge is never given twice.
 After login, `GET /api/student/badges` returns every badge with `id`, `name`, `language`, `earned`, and `earned_at` (`null` if locked). Students only see their own.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
+The student dashboard's "My badges" button shows every badge in a grid with an "earned X of Y" count; locked badges are grey with a 🔒, and hovering or tapping a badge says what it's for. Pictures come from one sprite sheet, `src/frontend/src/assets/badges.png` (rows fr, es, de, zh, ja, ko, then polyglot; columns first hunt, basic, advanced, expert, master; 160×202 tiles). Badges not in the sheet show a plain box with their name.
 Run `python -m pytest tests/backend/test_badges.py tests/backend/test_student_badges.py -v`; the progress tests need `TEST_DATABASE_URL`.
 
 ### Profile icons API

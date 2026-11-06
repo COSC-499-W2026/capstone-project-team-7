@@ -12,12 +12,13 @@ interface Props {
   onOpenGame: (game: StartGameResult) => void
   onOpenStore: () => void
   onLogout: () => void
+  onOpenBadges: () => void
 }
 
 // Buttons for features we haven't built yet. They show but can't be clicked.
-const COMING_SOON = ['Choose language', 'Choose difficulty', 'My progress', 'Badges', 'Leaderboard']
+const COMING_SOON = ['Choose language', 'Choose difficulty', 'My progress', 'Leaderboard']
 
-export default function StudentDashboard({ onOpenGame, onOpenStore, onLogout }: Props) {
+export default function StudentDashboard({ onOpenGame, onOpenStore, onLogout, onOpenBadges }: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [games, setGames] = useState<OngoingGame[]>([])
@@ -57,13 +58,17 @@ export default function StudentDashboard({ onOpenGame, onOpenStore, onLogout }: 
       <button onClick={() => run(async () => onOpenGame(await startGame()))} disabled={busy}>
         Start game
       </button>
-      {' '}<button onClick={onOpenStore} disabled={busy}>Store</button>
       {error && <p role="alert">{error}</p>}
 
       <OngoingGames games={games} disabled={busy} onResume={onOpenGame} />
 
       {classes && <MyClasses classes={classes} />}
       <JoinClass onJoined={loadClasses} onSessionEnded={onLogout} />
+
+      <p>
+        <button onClick={onOpenBadges}>My badges</button>
+        {' '}<button onClick={onOpenStore} disabled={busy}>Store</button>
+      </p>
 
       <h2>Coming soon</h2>
       {COMING_SOON.map((label) => (
