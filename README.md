@@ -343,6 +343,13 @@ Missing/invalid/expired sessions return 401, non-students get 403, and database 
 The student dashboard's "My badges" button shows every badge in a grid with an "earned X of Y" count; locked badges are grey with a 🔒, and hovering or tapping a badge says what it's for. Pictures come from one sprite sheet, `src/frontend/src/assets/badges.png` (rows fr, es, de, zh, ja, ko, then polyglot; columns first hunt, basic, advanced, expert, master; 160×202 tiles). Badges not in the sheet show a plain box with their name.
 Run `python -m pytest tests/backend/test_badges.py tests/backend/test_student_badges.py -v`; the progress tests need `TEST_DATABASE_URL`.
 
+### Profile icons API
+
+Icons are listed in `src/backend/profile_icons.py`; add one with one line there. Apply `010_profile_icons.sql`.
+After login, `GET /api/student/icons` returns every icon with `id`, `name`, `owned`, and `equipped`. `PUT /api/student/profile/icon` with `{"icon_id": "croissant_cutie"}` equips an icon the student owns, and `GET /api/student/profile` then returns its id as `profile_icon`.
+An icon the student doesn't own returns 403 and an unknown icon returns 404; the previous icon stays equipped in both cases. Bad input returns 422, missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
+Run `python -m pytest tests/backend/test_student_icons.py -v`; the database tests need `TEST_DATABASE_URL`.
+
 ### Demo locations and audio
 
 After running migrations, add the 5 demo locations and their French clues (safe to run again):
