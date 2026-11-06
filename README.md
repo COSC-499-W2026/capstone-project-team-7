@@ -349,6 +349,11 @@ After login, `GET /api/student/icons` returns every icon with `id`, `name`, `own
 An icon the student doesn't own returns 403 and an unknown icon returns 404; the previous icon stays equipped in both cases. Bad input returns 422, missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
 Run `python -m pytest tests/backend/test_student_icons.py -v`; the database tests need `TEST_DATABASE_URL`.
 
+Students spend the points they earn in games on icons. Prices are in `ICON_PRICES` in `src/backend/icon_store.py`; an icon with no price isn't for sale. Apply `011_icon_points_spent.sql`.
+A student's balance is the points from all their games minus the points spent on icons. `GET /api/student/store` returns `balance` and every icon with `id`, `name`, `price`, `owned`, and `equipped`.
+`POST /api/student/store/{icon_id}/redeem` buys an icon and returns 201 with `icon_id` and the new `balance`; it isn't equipped automatically. Errors: 404 `"Profile icon not found"` (unknown or not for sale), 409 `"You already own this icon"`, 400 `"Not enough points"` (nothing is spent), 401/403/503 as above.
+Run `python -m pytest tests/backend/test_icon_store.py -v`; the database tests need `TEST_DATABASE_URL`.
+
 ### Demo locations and audio
 
 After running migrations, add the 5 demo locations and their French clues (safe to run again):
