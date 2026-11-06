@@ -4,7 +4,7 @@
 (`id`, `name`, `language_code`) and languages (`code`, `name`). Languages combine
 explicit study records with enrolled-class languages, without duplicates.
 Students with no enrollments or study records receive empty lists.
-`profile_icon` is returned as null until profile-icon storage is implemented.
+`profile_icon` is the id of the equipped icon, or null if none is equipped.
 
 The student is identified only by their session; no student ID parameter is
 accepted. ID-based profile paths return 404. Missing or expired sessions return
