@@ -4,12 +4,12 @@ from datetime import date
 from uuid import UUID
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from database import get_connection
 from difficulties import Difficulty
-from teacher_access import database_unavailable, require_teacher
+from teacher_access import database_unavailable, owned_class, require_teacher, teacher_connection
 
 router = APIRouter(prefix="/api/teacher/classes", tags=["teacher"])
 
@@ -46,3 +46,30 @@ def assign_hunt(class_id: UUID, info: HuntAssignmentRequest, user=Depends(requir
             ).fetchone()
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None
+
+
+@router.get("/{class_id}/hunts", summary="List the hunts assigned to a class you own, newest first")
+def list_hunts(class_id: UUID, access=Depends(teacher_connection)):
+    connection, teacher_id = access
+    if not owned_class(connection, class_id, teacher_id):
+        raise HTTPException(status_code=404, detail="Class not found")
+    return connection.execute(
+        """SELECT id, difficulty, due_date, assigned_at FROM assigned_hunts
+        WHERE class_id = %s ORDER BY assigned_at DESC, id""", (class_id,),
+    ).fetchall()
+
+
+@router.delete("/{class_id}/hunts/{hunt_id}", status_code=204, summary="Delete a hunt from a class you own")
+def delete_hunt(class_id: UUID, hunt_id: UUID, user=Depends(require_teacher)):
+    try:
+        with get_connection() as connection:
+            if not owned_class(connection, class_id, user["id"]):
+                raise HTTPException(status_code=404, detail="Class not found")
+            deleted = connection.execute(
+                "DELETE FROM assigned_hunts WHERE id = %s AND class_id = %s", (hunt_id, class_id),
+            ).rowcount
+    except (psycopg.Error, RuntimeError):
+        raise database_unavailable() from None
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Hunt not found")
+    return Response(status_code=204)

@@ -297,6 +297,10 @@ Above it, "My classes" lists the student's classes (name and language) from `GET
 `POST /api/teacher/classes/{uuid}/hunts` with `{"difficulty": "basic", "due_date": "2026-11-30"}` assigns a hunt to a class the teacher owns and returns 201 with `id`, `class_id`, `language_code`, `difficulty`, and `due_date`.
 `difficulty` is `basic`, `advanced`, or `expert`; `due_date` is optional and can't be before today. The language is taken from the class. Assigning the same hunt twice is allowed.
 Errors: 401 no session, 403 students, admins, or another teacher's class, 404 `"Class not found"`, 422 invalid difficulty or due date, 503 database failure.
+`GET /api/teacher/classes/{uuid}/hunts` lists a class's hunts, newest first, each with `id`, `difficulty`, `due_date`, and `assigned_at`; no hunts returns `[]`.
+Errors: 401 no session, 403 students and admins, 404 `"Class not found"` (missing or another teacher's class), 503 database failure.
+`DELETE /api/teacher/classes/{uuid}/hunts/{hunt_uuid}` deletes a hunt and returns 204. Same errors, plus 404 `"Hunt not found"` if the hunt isn't in that class.
+The teacher dashboard hides hunts whose due date has passed unless "Show past-due hunts" is ticked.
 `GET /api/student/hunts` lists hunts assigned to the student's classes, soonest due first, each with `id`, `class_id`, `class_name`, `language_code`, `difficulty`, and `due_date`. No hunts returns `[]`.
 Missing sessions return 401, non-students get 403.
 Run `python -m pytest tests/backend/test_hunt_assignment.py tests/backend/test_student_hunts.py -v` with `TEST_DATABASE_URL` set.
