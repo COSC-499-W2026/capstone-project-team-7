@@ -257,7 +257,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 ![Updated badges page](screenshots/week-9/badges-page-updated.png)
 
-*The updated badges page: the locked Polyglot badge large at the top in its own locked design, then the French badges on one row with transparent backgrounds. Bon Appétit! and Baguette Buddy are earned; the rest are greyed out with a lock.*
+*The updated badges page: the locked Polyglot badge large at the top in its own locked design, then the rest of the badges on one row for each language with transparent backgrounds.
 
 
 ## Code reviews for teammates
