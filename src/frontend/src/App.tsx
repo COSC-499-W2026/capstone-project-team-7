@@ -4,6 +4,7 @@ import type { Clue } from './api/clue'
 import { getCurrentUser } from './api/currentUser'
 import type { StartGameResult } from './api/game'
 import { SessionEndedError } from './api/sessionEnded'
+import BadgesPage from './pages/BadgesPage'
 import FinishedScreen from './pages/FinishedScreen'
 import GameScreen from './pages/GameScreen'
 import CreateAccountPage from './pages/CreateAccountPage'
@@ -25,6 +26,7 @@ export default function App() {
   const [finalTime, setFinalTime] = useState(0)
   const [creatingAccount, setCreatingAccount] = useState(false)
   const [loginNotice, setLoginNotice] = useState('')
+  const [showBadges, setShowBadges] = useState(false)
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
     getCurrentUser()
@@ -133,8 +135,14 @@ export default function App() {
     )
   }
 
+  if (role === 'student' && showBadges) {
+    return <BadgesPage onBack={() => setShowBadges(false)}
+      onSessionEnded={() => { setShowBadges(false); setRole(null) }} />
+  }
+
   if (role === 'student') {
-    return <StudentDashboard onOpenGame={setGame} onLogout={() => setRole(null)} />
+    return <StudentDashboard onOpenGame={setGame} onLogout={() => setRole(null)}
+      onOpenBadges={() => setShowBadges(true)} />
   }
 
   if (role === 'teacher') return <TeacherDashboard onLogout={sessionEnded} />
