@@ -117,7 +117,10 @@ def current_clue(game_id: UUID, user=Depends(require_student)):
 @router.get("/{game_id}/clue/audio", summary="Play the audio for the current clue")
 def current_clue_audio(game_id: UUID, user=Depends(require_student)):
     location = current_location(game_id, user["id"])
-    path = audio_path(location["language_code"], location)
+    try:
+        path = audio_path(location["language_code"], location, location["difficulty"])
+    except ValueError:
+        raise HTTPException(status_code=500, detail="Could not select clue audio. Please try again later.") from None
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Audio not found for this clue")
     return FileResponse(path, media_type="audio/mpeg")
