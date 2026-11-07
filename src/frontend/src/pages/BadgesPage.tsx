@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { getBadges, type Badge } from '../api/badges'
 import { SessionEndedError } from '../api/sessionEnded'
 import badgesUrl from '../assets/badges.png'
+import polyglotUrl from '../assets/polyglot.png'
 import { languageName } from '../utils/languageName'
 
 interface Props {
@@ -9,15 +10,17 @@ interface Props {
   onSessionEnded: () => void
 }
 
-// The order of rows and columns in badges.png.
+// The order of rows and columns of big badges in badges.png (the small copies on its right aren't used).
 const ROWS = ['fr', 'es', 'de', 'zh', 'ja', 'ko']
 const COLUMNS = ['first_hunt', 'basic', 'advanced', 'expert', 'master']
-const TILE_WIDTH = 160
-const TILE_HEIGHT = 202
+// Pixel sizes measured from the pictures. polyglot.png has the earned badge first, then its own locked design.
+const SHEET = { width: 1935, height: 1779, left: 40, top: 34, stepX: 246, stepY: 286.4, badgeWidth: 205, badgeHeight: 254 }
+const POLYGLOT = { width: 1520, height: 680, earnedLeft: 58, lockedLeft: 586, top: 66, badgeWidth: 460, badgeHeight: 550 }
+const BADGE_WIDTH = 160
+const POLYGLOT_WIDTH = 240
 
-// Turns a badge id like "es_advanced" into its place in badges.png, or null if it isn't in the picture.
+// Turns a badge id like "es_advanced" into its row and column in badges.png, or null if it isn't in the picture.
 export function badgeTile(id: string): { row: number; column: number } | null {
-  if (id === 'polyglot') return { row: 6, column: 0 }
   const split = id.indexOf('_')
   const row = ROWS.indexOf(id.slice(0, split))
   const column = COLUMNS.indexOf(id.slice(split + 1))
@@ -25,17 +28,33 @@ export function badgeTile(id: string): { row: number; column: number } | null {
   return { row, column }
 }
 
-// Locked badges are grey and faded; earned ones keep their colour.
-export function badgeStyle(badge: Badge): CSSProperties {
-  const tile = badgeTile(badge.id)
-  const style: CSSProperties = { width: TILE_WIDTH, height: TILE_HEIGHT }
-  if (tile) {
-    style.backgroundImage = `url(${badgesUrl})`
-    style.backgroundPosition = `-${tile.column * TILE_WIDTH}px -${tile.row * TILE_HEIGHT}px`
-  } else {
-    style.border = '1px solid #c9dfd2'
+// Which picture a badge is in, and the box (in pixels) it sits in there. Null if there's no picture for it.
+export function badgeSpot(badge: Badge) {
+  if (badge.id === 'polyglot') {
+    const left = badge.earned ? POLYGLOT.earnedLeft : POLYGLOT.lockedLeft
+    return { url: polyglotUrl, sheetWidth: POLYGLOT.width, sheetHeight: POLYGLOT.height, left, top: POLYGLOT.top,
+      width: POLYGLOT.badgeWidth, height: POLYGLOT.badgeHeight }
   }
-  if (!badge.earned) {
+  const tile = badgeTile(badge.id)
+  if (!tile) return null
+  return { url: badgesUrl, sheetWidth: SHEET.width, sheetHeight: SHEET.height,
+    left: SHEET.left + tile.column * SHEET.stepX, top: SHEET.top + Math.round(tile.row * SHEET.stepY),
+    width: SHEET.badgeWidth, height: SHEET.badgeHeight }
+}
+
+// Shrinks the whole picture so the badge's box is `width` wide, then slides it so only that badge shows.
+// Locked badges are grey and faded, except Polyglot, which has its own locked design.
+export function badgeStyle(badge: Badge, width = BADGE_WIDTH): CSSProperties {
+  const spot = badgeSpot(badge)
+  if (!spot) return { width, height: width, border: '1px solid #c9dfd2' }
+  const scale = width / spot.width
+  const style: CSSProperties = {
+    width, height: Math.round(spot.height * scale),
+    backgroundImage: `url(${spot.url})`,
+    backgroundSize: `${spot.sheetWidth * scale}px ${spot.sheetHeight * scale}px`,
+    backgroundPosition: `-${spot.left * scale}px -${spot.top * scale}px`,
+  }
+  if (!badge.earned && badge.id !== 'polyglot') {
     style.filter = 'grayscale(1)'
     style.opacity = 0.4
   }
@@ -71,8 +90,30 @@ export default function BadgesPage({ onBack, onSessionEnded }: Props) {
     })
   }, [])
 
+  // One badge: its picture (click or hover for what it's for), a lock if it isn't earned yet, and its description once clicked.
+  function renderBadge(badge: Badge, width: number) {
+    return (
+      <div key={badge.id} style={{ position: 'relative', width }}>
+        <button
+          onClick={() => setOpenId(openId === badge.id ? null : badge.id)}
+          title={`${badge.name}: ${badgeDescription(badge)}`}
+          style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}
+        >
+          <div role="img" aria-label={badge.name} style={badgeStyle(badge, width)}>
+            {!badgeSpot(badge) && badge.name}
+          </div>
+        </button>
+        {!badge.earned && badge.id !== 'polyglot' && <span style={{ position: 'absolute', top: 4, right: 4 }}>🔒</span>}
+        {openId === badge.id && <p>{badgeDescription(badge)}</p>}
+      </div>
+    )
+  }
+
+  const polyglot = badges?.find((badge) => badge.id === 'polyglot')
+
   return (
-    <main>
+    // Wider than other pages so five badges (one language) fit on each row.
+    <main style={{ maxWidth: 960 }}>
       <h1>My badges</h1>
       <button onClick={onBack}>Back</button>
       {error && <p role="alert">{error}</p>}
@@ -80,22 +121,13 @@ export default function BadgesPage({ onBack, onSessionEnded }: Props) {
       {badges && (
         <>
           <p>{earnedText(badges)}</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-            {badges.map((badge) => (
-              <div key={badge.id} style={{ position: 'relative', width: TILE_WIDTH }}>
-                <button
-                  onClick={() => setOpenId(openId === badge.id ? null : badge.id)}
-                  title={`${badge.name}: ${badgeDescription(badge)}`}
-                  style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}
-                >
-                  <div role="img" aria-label={badge.name} style={badgeStyle(badge)}>
-                    {!badgeTile(badge.id) && badge.name}
-                  </div>
-                </button>
-                {!badge.earned && <span style={{ position: 'absolute', top: 4, right: 4 }}>🔒</span>}
-                {openId === badge.id && <p>{badgeDescription(badge)}</p>}
-              </div>
-            ))}
+          {polyglot && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              {renderBadge(polyglot, POLYGLOT_WIDTH)}
+            </div>
+          )}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem' }}>
+            {badges.filter((badge) => badge.id !== 'polyglot').map((badge) => renderBadge(badge, BADGE_WIDTH))}
           </div>
         </>
       )}
