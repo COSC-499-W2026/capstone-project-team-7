@@ -303,13 +303,24 @@ Run `python -m pytest tests/backend/test_hunt_assignment.py tests/backend/test_s
 
 ### Game session API
 
-After login, a student can `POST /api/game/start` to start a game. For now every game is French (`fr`) at Basic difficulty.
-The backend picks 5 random locations that have a French clue and saves them in order in `game_sessions` and `game_session_locations`.
+After login, a student can start a game with their chosen language and difficulty.
+The dashboard's **Start game** button opens a language and difficulty form.
+Choose Chinese, French, German, Japanese, Korean, or Spanish and Basic, Advanced, or Expert,
+then select **Begin hunt**; Cancel returns to the dashboard without starting a game.
+The form retains selections after an error and disables its controls while starting.
+`POST /api/game/start` accepts `{"language_code": "es", "difficulty": "expert"}` and saves
+both choices on the game, selecting locations only from that language's clue pool.
+Omitting the body or either field defaults to French (`fr`) and Basic for existing clients.
+Unsupported values, null fields, and extra fields return 422. A language with fewer than five
+clue locations returns 409 without creating a game. Audio availability is checked at playback;
+Only French locations are seeded for the demo. Advanced/Expert audio needs the generator
+from #209 run first; serving difficulty-specific audio is covered by #208.
+The backend picks 5 random locations that have a clue in the selected language and saves them in order in `game_sessions` and `game_session_locations`.
 Success returns 201 with `game_id`, `language_code`, `difficulty`, `current_position` (1), and `total_locations` (5); locations and clues are not returned.
-Fewer than 5 French locations returns 409 `"Not enough locations for this language yet"` and saves nothing.
+Fewer than 5 locations for the selected language returns 409 `"Not enough locations for this language yet"` and saves nothing.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503. Deleting a student keeps their games with no student linked.
 
-Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE_URL` set.
+Run `python -m pytest tests/backend/test_game_session.py tests/backend/test_start_game_choices.py -v` with `TEST_DATABASE_URL` set.
 
 `GET /api/game/ongoing` lists the student's unfinished games, newest first, each with `game_id`, `language_code`, `difficulty`, `current_position`, `total_locations`, and `started_at`. Finished games and other students' games are never listed; no unfinished games returns `[]`. Missing sessions return 401, non-students get 403, and database failures return 503. The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
 
@@ -325,7 +336,7 @@ Each valid photo counts an attempt per spot, including incorrect/unreadable phot
 | Advanced | 20 | 12 | 6 |
 | Expert | 30 | 18 | 9 |
 
-Incorrect/unreadable photos award zero. Invalid uploads and OCR service failures do not count as attempts. Each new spot starts at the full-point tier. Games still start at Basic until difficulty selection is added.
+Incorrect/unreadable photos award zero. Invalid uploads and OCR service failures do not count as attempts. Each new spot starts at the full-point tier. Scoring uses the difficulty saved when the game starts.
 Unsupported stored difficulties log an error and return 500 with a friendly message before points, attempts, or progress change. The answer request does not accept a difficulty or point value.
 A correct answer moves to the next spot; the 5th correct answer finishes the game. Returns `correct`, `attempts`, `finished`, `next_position`, `points_awarded`, `total_points` (game total), and `message`.
 Apply `007_photo_verification_points.sql` and install the optional OCR requirements. Full building/room identifiers must match; points and progress commit together, preventing duplicate awards. GPS is outside this change.
