@@ -7,6 +7,7 @@ export interface Clue {
   total_locations: number
   building: string
   audio_url: string
+  audio_plays_remaining: number | null
   elapsed_seconds: number
 }
 

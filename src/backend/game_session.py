@@ -1,11 +1,12 @@
 """Students start a game: five random locations in a fixed order."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict
 
 from badges import award_badges
 from database import get_connection
@@ -17,29 +18,31 @@ from utils.answer_check import check_answer
 from utils.answer_location import validate_answer_location
 from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
 from utils.audio_storage import audio_path
+from utils.audio_plays import consume_play, remaining_plays
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
 from utils.scoring import points_for_attempt, points_for_difficulty
 
 router = APIRouter(prefix="/api/game", tags=["game"])
 
-# The demo game is always French Basic until students can choose.
-LANGUAGE = "fr"
-DIFFICULTY = Difficulty.BASIC
+class StartGameRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    language_code: Literal["zh", "fr", "de", "ja", "ko", "es"] = "fr"
+    difficulty: Difficulty = Difficulty.BASIC
 
 
 @router.post("/start", status_code=201, summary="Start a game with five random locations")
-def start_game(user=Depends(require_student)):
+def start_game(info: StartGameRequest = StartGameRequest(), user=Depends(require_student)):
     try:
         with get_connection() as connection:
             # Only locations with a clue in this language, so no clue is ever blank.
             rows = connection.execute(
-                "SELECT location_id FROM location_clues WHERE language_code = %s", (LANGUAGE,),
+                "SELECT location_id FROM location_clues WHERE language_code = %s", (info.language_code,),
             ).fetchall()
             location_ids = pick_locations([row["location_id"] for row in rows])
             game = connection.execute(
                 """INSERT INTO game_sessions (student_id, language_code, difficulty)
                 VALUES (%s, %s, %s) RETURNING id, language_code, difficulty, current_position""",
-                (user["id"], LANGUAGE, DIFFICULTY.value),
+                (user["id"], info.language_code, info.difficulty.value),
             ).fetchone()
             for position, location_id in enumerate(location_ids, start=1):
                 connection.execute(
@@ -82,7 +85,7 @@ def current_location(game_id, student_id):
         with get_connection() as connection:
             location = connection.execute(
                 """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
-                game_sessions.difficulty, locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
+                game_session_locations.audio_plays, game_sessions.difficulty, locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
                 FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.started_at))::int AS elapsed_seconds
                 FROM game_sessions
                 JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
@@ -111,16 +114,26 @@ def current_clue(game_id: UUID, user=Depends(require_student)):
         "building": location["building"],
         "audio_url": f"/api/game/{game_id}/clue/audio?position={location['current_position']}",
         "elapsed_seconds": location["elapsed_seconds"],
+        "audio_plays_remaining": remaining_plays(location["difficulty"], location["audio_plays"]),
     }
 
 
 @router.get("/{game_id}/clue/audio", summary="Play the audio for the current clue")
-def current_clue_audio(game_id: UUID, user=Depends(require_student)):
+def current_clue_audio(game_id: UUID, position: Annotated[int | None, Query(ge=1, le=5)] = None,
+                       user=Depends(require_student)):
     location = current_location(game_id, user["id"])
+    if position is not None and position != location["current_position"]:
+        raise HTTPException(status_code=409, detail="This clue is no longer current")
     path = audio_path(location["language_code"], location)
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="Audio not found for this clue")
-    return FileResponse(path, media_type="audio/mpeg")
+    try:
+        audio = path.read_bytes()
+    except OSError:
+        raise HTTPException(status_code=404, detail="Audio not found for this clue") from None
+    remaining = consume_play(game_id, user["id"], location["current_position"], location["difficulty"])
+    return Response(audio, media_type="audio/mpeg", headers={
+        "Cache-Control": "no-store",
+        "X-Audio-Plays-Remaining": "unlimited" if remaining is None else str(remaining),
+    })
 
 
 async def read_photo(request: Request):

@@ -107,6 +107,29 @@ def test_locations_without_french_clue_are_never_picked(game_db, client):
     assert {row["location_id"] for row in game_locations(response.json()["game_id"])} == set(french)
 
 
+@pytest.mark.parametrize("difficulty", ["basic", "advanced", "expert"])
+def test_selected_language_and_difficulty_persist(game_db, client, difficulty):
+    spanish = add_locations(5, "es")
+    add_locations(5, "fr")
+    login(client)
+    response = client.post(URL, json={"language_code": "es", "difficulty": difficulty})
+    assert response.status_code == 201
+    game_id = response.json()["game_id"]
+    assert {row["location_id"] for row in game_locations(game_id)} == set(spanish)
+    with get_connection() as db:
+        saved = db.execute("SELECT language_code, difficulty FROM game_sessions WHERE id = %s", (game_id,)).fetchone()
+    assert saved == {"language_code": "es", "difficulty": difficulty}
+
+
+def test_selected_language_without_enough_locations_creates_no_game(game_db, client):
+    add_locations(5, "fr")
+    add_locations(4, "es")
+    login(client)
+    response = client.post(URL, json={"language_code": "es", "difficulty": "expert"})
+    assert response.status_code == 409
+    assert game_count() == 0
+
+
 def test_too_few_locations_returns_conflict(game_db, client):
     add_locations(4, "fr")
     add_locations(5, "es")
@@ -224,7 +247,8 @@ def test_student_gets_first_clue_without_the_room_number(game_db, client):
     assert response.status_code == 200
     assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
                                "audio_url": f"/api/game/{game_id}/clue/audio?position=1",
-                               "elapsed_seconds": response.json()["elapsed_seconds"]}
+                               "elapsed_seconds": response.json()["elapsed_seconds"],
+                               "audio_plays_remaining": None}
     assert 0 <= response.json()["elapsed_seconds"] <= 2
 
 

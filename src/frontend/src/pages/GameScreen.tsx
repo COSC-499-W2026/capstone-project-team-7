@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getClue, type Clue } from '../api/clue'
 import { SessionEndedError } from '../api/sessionEnded'
+import ClueAudio from '../components/ClueAudio'
 import Stopwatch from '../components/Stopwatch'
 
 interface Props {
@@ -47,8 +48,9 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSe
       <Stopwatch startSeconds={clue.elapsed_seconds} />
       <p>Building: {clue.building}</p>
 
-      <p>Listen for the room number:</p>
-      <audio controls src={clue.audio_url} />
+      <p>Listen to the clue:</p>
+      <ClueAudio key={clue.audio_url} url={clue.audio_url} remaining={clue.audio_plays_remaining}
+        onSessionEnded={onSessionEnded} />
 
       <p>
         <button onClick={() => onSubmitPhoto(clue)}>Submit photo</button>
