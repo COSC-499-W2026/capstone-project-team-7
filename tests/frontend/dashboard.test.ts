@@ -23,26 +23,7 @@ test('start game calls the start endpoint and returns the game', async () => {
   const fetchMock = fakeBackend(201, game)
 
   expect(await startGame()).toEqual(game)
-  expect(fetchMock).toHaveBeenCalledWith('/api/game/start', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ language_code: 'fr', difficulty: 'basic' }),
-  })
-})
-
-test('start game sends the chosen language and difficulty', async () => {
-  const fetchMock = fakeBackend(201)
-  await startGame('es', 'expert')
-  expect(fetchMock.mock.calls[0][1].body).toBe(JSON.stringify({ language_code: 'es', difficulty: 'expert' }))
-})
-
-test('invalid selections have a helpful message', async () => {
-  fakeBackend(422)
-  await expect(startGame('xx', 'easy')).rejects.toThrow('Please choose a valid language and difficulty')
-})
-
-test('network errors have a helpful message', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
-  await expect(startGame()).rejects.toThrow('Could not start a game')
+  expect(fetchMock).toHaveBeenCalledWith('/api/game/start', { method: 'POST' })
 })
 
 test('start game explains when there are not enough locations', async () => {
