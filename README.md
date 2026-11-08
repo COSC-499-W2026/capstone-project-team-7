@@ -304,6 +304,10 @@ Run `python -m pytest tests/backend/test_hunt_assignment.py tests/backend/test_s
 ### Game session API
 
 After login, a student can start a game with their chosen language and difficulty.
+The dashboard's **Start game** button opens a language and difficulty form.
+Choose Chinese, French, German, Japanese, Korean, or Spanish and Basic, Advanced, or Expert,
+then select **Begin hunt**; Cancel returns to the dashboard without starting a game.
+The form retains selections after an error and disables its controls while starting.
 `POST /api/game/start` accepts `{"language_code": "es", "difficulty": "expert"}` and saves
 both choices on the game, selecting locations only from that language's clue pool.
 Omitting the body or either field defaults to French (`fr`) and Basic for existing clients.
