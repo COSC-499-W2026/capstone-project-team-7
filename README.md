@@ -315,6 +315,11 @@ Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE
 
 After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, `audio_url`, and `elapsed_seconds` (whole seconds since the game started).
 `GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the `AUDIO_DIR` folder (`src/backend/audio/<language>/` by default) and never linked by name, so neither the clue nor the audio link reveals the room number. Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422. A missing audio file returns 404 `"Audio not found for this clue"`.
+Playback uses the difficulty saved on the game, ignoring any difficulty query parameter.
+Basic clips keep `<language>/<building>-<room>.mp3`; Advanced and Expert use
+`<language>/advanced/<building>-<room>.mp3` and `<language>/expert/<building>-<room>.mp3`.
+A missing clip never falls back to another difficulty. Unsupported stored difficulties return
+500 with a friendly message. Games still start at Basic until difficulty selection is connected.
 
 `POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 5 MiB).
 Each valid photo counts an attempt per spot, including incorrect/unreadable photos. A correct match awards points based on the game's stored difficulty and that spot's submission attempt: 100% of maximum points on the first attempt, 60% on the second, and 30% on the third and later attempts:
