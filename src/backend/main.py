@@ -19,6 +19,8 @@ from student_profile import router as student_profile_router
 from student_hunts import router as student_hunts_router
 from student_badges import router as student_badges_router
 from student_icons import router as student_icons_router
+from student_leaderboard import router as student_leaderboard_router
+from icon_store import router as icon_store_router
 from admin_enrollment import router as admin_enrollment_router
 from teacher_signup import router as teacher_signup_router
 from teacher_approval import router as teacher_approval_router
@@ -35,6 +37,8 @@ app.include_router(student_signup_router)
 app.include_router(student_profile_router)
 app.include_router(student_badges_router)
 app.include_router(student_icons_router)
+app.include_router(student_leaderboard_router)
+app.include_router(icon_store_router)
 app.include_router(admin_enrollment_router)
 app.include_router(teacher_approval_router)
 app.include_router(admin_router)
