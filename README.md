@@ -292,6 +292,17 @@ Run `python -m pytest tests/backend/test_student_enrollment.py -v` with `TEST_DA
 The student dashboard has a "Join a class" box that sends this request and shows the class name, or a message for each error.
 Above it, "My classes" lists the student's classes (name and language) from `GET /api/student/profile`, and refreshes after each join.
 
+### Student class leaderboard API
+
+`GET /api/student/classes/{class_id}/leaderboard` requires a logged-in student enrolled in that class.
+Returns an array of `{rank, username, total_points, profile_icon}`; unequipped icons are `null`.
+Totals include all completed games in the class's language, including games before enrollment.
+Games have no class link: classes sharing a language use the same game totals for their members.
+Unfinished games are excluded; students without qualifying games have zero points.
+Equal scores share ranks (1, 1, 3), ordered by username within ties.
+Errors: 401 unauthenticated, 403 wrong role/not enrolled, 404 class missing, 422 invalid UUID, 503 database unavailable.
+Tests: `python -m pytest tests/backend/test_student_leaderboard.py -q` (set `TEST_DATABASE_URL` for SQL coverage).
+
 ### Assigned hunts API
 
 `POST /api/teacher/classes/{uuid}/hunts` with `{"difficulty": "basic", "due_date": "2026-11-30"}` assigns a hunt to a class the teacher owns and returns 201 with `id`, `class_id`, `language_code`, `difficulty`, and `due_date`.
