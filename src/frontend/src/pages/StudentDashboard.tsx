@@ -12,12 +12,13 @@ interface Props {
   onOpenGame: (game: StartGameResult) => void
   onLogout: () => void
   onOpenBadges: () => void
+  onOpenLeaderboard: () => void
 }
 
 // Buttons for features we haven't built yet. They show but can't be clicked.
-const COMING_SOON = ['Choose language', 'Choose difficulty', 'My progress', 'Leaderboard']
+const COMING_SOON = ['Choose language', 'Choose difficulty', 'My progress']
 
-export default function StudentDashboard({ onOpenGame, onLogout, onOpenBadges }: Props) {
+export default function StudentDashboard({ onOpenGame, onLogout, onOpenBadges, onOpenLeaderboard }: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [games, setGames] = useState<OngoingGame[]>([])
@@ -68,6 +69,7 @@ export default function StudentDashboard({ onOpenGame, onLogout, onOpenBadges }:
         <button onClick={onOpenBadges}>My badges</button>
       </p>
 
+      <p><button onClick={onOpenLeaderboard}>Leaderboard</button></p>
       <h2>Coming soon</h2>
       {COMING_SOON.map((label) => (
         <p key={label}>

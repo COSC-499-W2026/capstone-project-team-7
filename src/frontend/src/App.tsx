@@ -5,6 +5,7 @@ import { getCurrentUser } from './api/currentUser'
 import type { StartGameResult } from './api/game'
 import { SessionEndedError } from './api/sessionEnded'
 import BadgesPage from './pages/BadgesPage'
+import LeaderboardPage from './pages/LeaderboardPage'
 import FinishedScreen from './pages/FinishedScreen'
 import GameScreen from './pages/GameScreen'
 import CreateAccountPage from './pages/CreateAccountPage'
@@ -27,6 +28,7 @@ export default function App() {
   const [creatingAccount, setCreatingAccount] = useState(false)
   const [loginNotice, setLoginNotice] = useState('')
   const [showBadges, setShowBadges] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
     getCurrentUser()
@@ -37,6 +39,7 @@ export default function App() {
   // The login session ended mid-game, so drop the game and show the login page.
   // useCallback keeps it the same function, so GameScreen doesn't reload the clue on every render.
   const sessionEnded = useCallback(() => {
+    setShowLeaderboard(false)
     setGame(null)
     setPhotoFor(null)
     setNotice('')
@@ -135,6 +138,10 @@ export default function App() {
     )
   }
 
+  if (role === 'student' && showLeaderboard) {
+    return <LeaderboardPage onBack={() => setShowLeaderboard(false)} onSessionEnded={sessionEnded} />
+  }
+
   if (role === 'student' && showBadges) {
     return <BadgesPage onBack={() => setShowBadges(false)}
       onSessionEnded={() => { setShowBadges(false); setRole(null) }} />
@@ -142,7 +149,7 @@ export default function App() {
 
   if (role === 'student') {
     return <StudentDashboard onOpenGame={setGame} onLogout={() => setRole(null)}
-      onOpenBadges={() => setShowBadges(true)} />
+      onOpenBadges={() => setShowBadges(true)} onOpenLeaderboard={() => setShowLeaderboard(true)} />
   }
 
   if (role === 'teacher') return <TeacherDashboard onLogout={sessionEnded} />
