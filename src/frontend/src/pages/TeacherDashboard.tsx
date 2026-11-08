@@ -4,6 +4,7 @@ import { logout } from '../api/logout'
 import { SessionEndedError } from '../api/sessionEnded'
 import CreateClassForm from '../components/CreateClassForm'
 import ClassRoster from '../components/ClassRoster'
+import AssignHuntForm from '../components/AssignHuntForm'
 import { languageName } from '../utils/languageName'
 
 export default function TeacherDashboard({ onLogout }: { onLogout: () => void }) {
@@ -52,7 +53,8 @@ export default function TeacherDashboard({ onLogout }: { onLogout: () => void })
           {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
         {selected && <p>Language: {languageName(selected.language_code)} · Class code: <strong>{selected.class_code}</strong></p>}
-        {selected && <ClassRoster key={selected.id} classId={selected.id} disabled={busy} onSessionEnded={onLogout} />}
+        {selected && <ClassRoster key={`roster-${selected.id}`} classId={selected.id} disabled={busy} onSessionEnded={onLogout} />}
+        {selected && <AssignHuntForm key={`hunt-${selected.id}`} classId={selected.id} disabled={busy} onSessionEnded={onLogout} />}
       </>}
       <CreateClassForm disabled={busy || classes === null} onSessionEnded={onLogout} onCreated={(classroom) => {
         setClasses((items) => [...(items ?? []), classroom])
