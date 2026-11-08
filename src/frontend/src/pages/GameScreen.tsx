@@ -47,7 +47,7 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSe
       <Stopwatch startSeconds={clue.elapsed_seconds} />
       <p>Building: {clue.building}</p>
 
-      <p>Listen for the room number:</p>
+      <p>Listen to the clue:</p>
       <audio controls src={clue.audio_url} />
 
       <p>
