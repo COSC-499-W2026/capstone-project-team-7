@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from uuid import uuid4
 
+from difficulties import Difficulty
+
 DEFAULT_AUDIO_ROOT = Path(__file__).resolve().parents[1] / "audio"
 MPEG_VERSION_RESERVED = 1
 LAYER_3 = 1
@@ -20,8 +22,13 @@ def audio_filename(location):
     return f"{location['building']}-{location['room_number']}.mp3"
 
 
-def audio_path(language_code, location):
-    return audio_root() / language_code / audio_filename(location)
+def audio_path(language_code, location, difficulty=Difficulty.BASIC):
+    level = Difficulty(difficulty)
+    folder = audio_root() / language_code
+    # Keep existing Basic clips usable by the game and teacher uploads.
+    if level != Difficulty.BASIC:
+        folder = folder / level.value
+    return folder / audio_filename(location)
 
 
 def id3_tag_length(data):
