@@ -195,6 +195,14 @@ get 409; invalid input gets 422; database failures get 503. Approval enables tea
 No schema migration is required. Integration tests use `TEST_DATABASE_URL` and temporary schemas:
 `python -m pytest tests/backend/test_teacher_approval.py -v`.
 
+### Admin dashboard
+
+Signed-in admins see forms to approve teacher signup emails and reassign a class using its UUID and an approved teacher's email.
+Approval permits signup; the teacher must register before receiving a class. Reassignment preserves enrollments and progress.
+Requests show success/errors, preserve input on failure for retry, and disable actions while saving. Expired sessions return to login.
+Uses the existing admin APIs; account lists, account creation/editing/deletion are outside this dashboard's scope.
+Tests: `cd src/frontend && npm test && npm run build`.
+
 ### Admin accounts API
 
 A logged-in administrator can add another admin with `POST /api/admin/admins`, sending `email`, `username`, `password`, `first_name`, and `last_name`.
