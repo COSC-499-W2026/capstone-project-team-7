@@ -6,7 +6,6 @@ Last week I added the badge rules and the badges endpoint, but students still ha
 
 CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job was not started because your account is locked due to a billing issue"), so every CI run this week shows as failed after 3 seconds without running a single test, on every branch. For those PRs I list the test results from my own machine instead.
 
-After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204, #205 and #206), so they're all up to date and can merge without conflicts. Since CI can't run, I then ran the full backend and frontend suites on each branch locally (same Python, Node and PostgreSQL versions as CI), and every test passed. The numbers are under each PR. #205 and #206 then merged on Nov 7, and #196 and #204 on Nov 8.
 
 ---
 
