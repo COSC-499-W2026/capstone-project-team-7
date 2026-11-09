@@ -7,19 +7,25 @@ import { SessionEndedError } from '../api/sessionEnded'
 import JoinClass from '../components/JoinClass'
 import MyClasses from '../components/MyClasses'
 import OngoingGames from '../components/OngoingGames'
+import StartGameForm from '../components/StartGameForm'
 
 interface Props {
   onOpenGame: (game: StartGameResult) => void
+  onOpenStore: () => void
   onLogout: () => void
   onOpenBadges: () => void
+  onOpenLeaderboard: () => void
 }
 
 // Buttons for features we haven't built yet. They show but can't be clicked.
-const COMING_SOON = ['Choose language', 'Choose difficulty', 'My progress', 'Leaderboard']
+const COMING_SOON = ['My progress']
 
-export default function StudentDashboard({ onOpenGame, onLogout, onOpenBadges }: Props) {
+export default function StudentDashboard({
+  onOpenGame, onOpenStore, onLogout, onOpenBadges, onOpenLeaderboard,
+}: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [choosingGame, setChoosingGame] = useState(false)
   const [games, setGames] = useState<OngoingGame[]>([])
   const [classes, setClasses] = useState<StudentClass[] | null>(null)
 
@@ -54,9 +60,11 @@ export default function StudentDashboard({ onOpenGame, onLogout, onOpenBadges }:
     <main>
       <h1>Student dashboard</h1>
 
-      <button onClick={() => run(async () => onOpenGame(await startGame()))} disabled={busy}>
+      {choosingGame ? <StartGameForm disabled={busy}
+        onStart={(language, difficulty) => run(async () => onOpenGame(await startGame(language, difficulty)))}
+        onCancel={() => { setChoosingGame(false); setError('') }} /> : <button onClick={() => { setError(''); setChoosingGame(true) }} disabled={busy}>
         Start game
-      </button>
+      </button>}
       {error && <p role="alert">{error}</p>}
 
       <OngoingGames games={games} disabled={busy} onResume={onOpenGame} />
@@ -66,8 +74,10 @@ export default function StudentDashboard({ onOpenGame, onLogout, onOpenBadges }:
 
       <p>
         <button onClick={onOpenBadges}>My badges</button>
+        {' '}<button onClick={onOpenStore} disabled={busy}>Store</button>
       </p>
 
+      <p><button onClick={onOpenLeaderboard}>Leaderboard</button></p>
       <h2>Coming soon</h2>
       {COMING_SOON.map((label) => (
         <p key={label}>

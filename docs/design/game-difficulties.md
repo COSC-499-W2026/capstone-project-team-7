@@ -1,7 +1,7 @@
 # Game difficulty foundation
 
 `src/backend/difficulties.py` defines the shared `Difficulty` string enum and
-`get_clue_rules(difficulty)` for future game services.
+`get_clue_rules(difficulty)` for clue composition and game services.
 
 | Difficulty | Include spoken room number | Include description |
 |---|---|---|
@@ -14,8 +14,10 @@ Values must match the lowercase identifiers exactly. Unsupported values raise
 to reject invalid inputs through FastAPI's standard 422 validation response.
 Returned rules are immutable so callers cannot change shared difficulty behavior.
 
-This foundation does not yet select or generate clues, store locations, expose
-game endpoints, or enforce session rules. Replay limits, photo attempts, timers,
-and scoring remain future work pending confirmation of their values.
+`utils/clue_text.py` composes the required fields using these rules and rejects
+blank required content. `python -m utils.generate_audio` generates French demo
+clips for every difficulty. Basic keeps the existing language/location path;
+Advanced and Expert use a difficulty subfolder. Playback still uses Basic audio;
+connecting playback to the saved game difficulty is follow-up work.
 
-Run the focused tests with `python -m pytest tests/backend/test_difficulties.py`.
+Run the focused tests with `python -m pytest tests/backend/test_difficulties.py tests/backend/test_clue_text.py tests/backend/test_generate_audio.py tests/backend/test_audio_storage.py`.

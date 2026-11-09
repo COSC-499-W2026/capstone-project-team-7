@@ -195,6 +195,14 @@ get 409; invalid input gets 422; database failures get 503. Approval enables tea
 No schema migration is required. Integration tests use `TEST_DATABASE_URL` and temporary schemas:
 `python -m pytest tests/backend/test_teacher_approval.py -v`.
 
+### Admin dashboard
+
+Signed-in admins see forms to approve teacher signup emails and reassign a class using its UUID and an approved teacher's email.
+Approval permits signup; the teacher must register before receiving a class. Reassignment preserves enrollments and progress.
+Requests show success/errors, preserve input on failure for retry, and disable actions while saving. Expired sessions return to login.
+Uses the existing admin APIs; account lists, account creation/editing/deletion are outside this dashboard's scope.
+Tests: `cd src/frontend && npm test && npm run build`.
+
 ### Admin accounts API
 
 A logged-in administrator can add another admin with `POST /api/admin/admins`, sending `email`, `username`, `password`, `first_name`, and `last_name`.
@@ -292,6 +300,24 @@ Run `python -m pytest tests/backend/test_student_enrollment.py -v` with `TEST_DA
 The student dashboard has a "Join a class" box that sends this request and shows the class name, or a message for each error.
 Above it, "My classes" lists the student's classes (name and language) from `GET /api/student/profile`, and refreshes after each join.
 
+### Student class leaderboard screen
+
+Open **Leaderboard** from the student dashboard and choose an enrolled class to view ranks, profile icons, usernames, and points.
+Failed requests offer Retry and preserve the last successful table with its class caption. Expired sessions return to login.
+Students without classes see a prompt to join one; students without equipped icons show a neutral circle.
+Requires `GET /api/student/classes/{class_id}/leaderboard` from PR1 (#216); totals count completed games in the class language.
+Tests: `cd src/frontend && npm test && npm run build`.
+### Student class leaderboard API
+
+`GET /api/student/classes/{class_id}/leaderboard` requires a logged-in student enrolled in that class.
+Returns an array of `{rank, username, total_points, profile_icon}`; unequipped icons are `null`.
+Totals include all completed games in the class's language, including games before enrollment.
+Games have no class link: classes sharing a language use the same game totals for their members.
+Unfinished games are excluded; students without qualifying games have zero points.
+Equal scores share ranks (1, 1, 3), ordered by username within ties.
+Errors: 401 unauthenticated, 403 wrong role/not enrolled, 404 class missing, 422 invalid UUID, 503 database unavailable.
+Tests: `python -m pytest tests/backend/test_student_leaderboard.py -q` (set `TEST_DATABASE_URL` for SQL coverage).
+
 ### Assigned hunts API
 
 `POST /api/teacher/classes/{uuid}/hunts` with `{"difficulty": "basic", "due_date": "2026-11-30"}` assigns a hunt to a class the teacher owns and returns 201 with `id`, `class_id`, `language_code`, `difficulty`, and `due_date`.
@@ -307,18 +333,34 @@ Run `python -m pytest tests/backend/test_hunt_assignment.py tests/backend/test_s
 
 ### Game session API
 
-After login, a student can `POST /api/game/start` to start a game. For now every game is French (`fr`) at Basic difficulty.
-The backend picks 5 random locations that have a French clue and saves them in order in `game_sessions` and `game_session_locations`.
+After login, a student can start a game with their chosen language and difficulty.
+The dashboard's **Start game** button opens a language and difficulty form.
+Choose Chinese, French, German, Japanese, Korean, or Spanish and Basic, Advanced, or Expert,
+then select **Begin hunt**; Cancel returns to the dashboard without starting a game.
+The form retains selections after an error and disables its controls while starting.
+`POST /api/game/start` accepts `{"language_code": "es", "difficulty": "expert"}` and saves
+both choices on the game, selecting locations only from that language's clue pool.
+Omitting the body or either field defaults to French (`fr`) and Basic for existing clients.
+Unsupported values, null fields, and extra fields return 422. A language with fewer than five
+clue locations returns 409 without creating a game. Audio availability is checked at playback;
+Only French locations are seeded for the demo. Advanced/Expert audio needs the generator
+from #209 run first; serving difficulty-specific audio is covered by #208.
+The backend picks 5 random locations that have a clue in the selected language and saves them in order in `game_sessions` and `game_session_locations`.
 Success returns 201 with `game_id`, `language_code`, `difficulty`, `current_position` (1), and `total_locations` (5); locations and clues are not returned.
-Fewer than 5 French locations returns 409 `"Not enough locations for this language yet"` and saves nothing.
+Fewer than 5 locations for the selected language returns 409 `"Not enough locations for this language yet"` and saves nothing.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503. Deleting a student keeps their games with no student linked.
 
-Run `python -m pytest tests/backend/test_game_session.py -v` with `TEST_DATABASE_URL` set.
+Run `python -m pytest tests/backend/test_game_session.py tests/backend/test_start_game_choices.py -v` with `TEST_DATABASE_URL` set.
 
 `GET /api/game/ongoing` lists the student's unfinished games, newest first, each with `game_id`, `language_code`, `difficulty`, `current_position`, `total_locations`, and `started_at`. Finished games and other students' games are never listed; no unfinished games returns `[]`. Missing sessions return 401, non-students get 403, and database failures return 503. The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
 
 After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, `audio_url`, and `elapsed_seconds` (whole seconds since the game started).
 `GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the `AUDIO_DIR` folder (`src/backend/audio/<language>/` by default) and never linked by name, so neither the clue nor the audio link reveals the room number. Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422. A missing audio file returns 404 `"Audio not found for this clue"`.
+Playback uses the difficulty saved on the game, ignoring any difficulty query parameter.
+Basic clips keep `<language>/<building>-<room>.mp3`; Advanced and Expert use
+`<language>/advanced/<building>-<room>.mp3` and `<language>/expert/<building>-<room>.mp3`.
+A missing clip never falls back to another difficulty. Unsupported stored difficulties return
+500 with a friendly message. Games still start at Basic until difficulty selection is connected.
 
 `POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 5 MiB).
 Each valid photo counts an attempt per spot, including incorrect/unreadable photos. A correct match awards points based on the game's stored difficulty and that spot's submission attempt: 100% of maximum points on the first attempt, 60% on the second, and 30% on the third and later attempts:
@@ -329,7 +371,7 @@ Each valid photo counts an attempt per spot, including incorrect/unreadable phot
 | Advanced | 20 | 12 | 6 |
 | Expert | 30 | 18 | 9 |
 
-Incorrect/unreadable photos award zero. Invalid uploads and OCR service failures do not count as attempts. Each new spot starts at the full-point tier. Games still start at Basic until difficulty selection is added.
+Incorrect/unreadable photos award zero. Invalid uploads and OCR service failures do not count as attempts. Each new spot starts at the full-point tier. Scoring uses the difficulty saved when the game starts.
 Unsupported stored difficulties log an error and return 500 with a friendly message before points, attempts, or progress change. The answer request does not accept a difficulty or point value.
 A correct answer moves to the next spot; the 5th correct answer finishes the game. Returns `correct`, `attempts`, `finished`, `next_position`, `points_awarded`, `total_points` (game total), and `message`.
 Apply `007_photo_verification_points.sql` and install the optional OCR requirements. Full building/room identifiers must match; points and progress commit together, preventing duplicate awards. GPS is outside this change.
@@ -344,8 +386,20 @@ Badges are listed in `src/backend/badges.py`; add one with one line there. Apply
 A correct answer checks the student's progress and saves any new badges in `student_badges`, in the same transaction as the answer. A badge is never given twice.
 After login, `GET /api/student/badges` returns every badge with `id`, `name`, `language`, `earned`, and `earned_at` (`null` if locked). Students only see their own.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
-The student dashboard's "My badges" button shows every badge in a grid with an "earned X of Y" count; locked badges are grey with a 🔒, and hovering or tapping a badge says what it's for. Pictures come from one sprite sheet, `src/frontend/src/assets/badges.png` (rows fr, es, de, zh, ja, ko, then polyglot; columns first hunt, basic, advanced, expert, master; 160×202 tiles). Badges not in the sheet show a plain box with their name.
+The student dashboard's "My badges" button shows the Polyglot badge large at the top, then every other badge in a grid, with an "earned X of Y" count; locked badges are grey with a 🔒 (Polyglot uses its own locked design), and hovering or tapping a badge says what it's for. Language badges come from the big badges in `src/frontend/src/assets/badges.png` (rows fr, es, de, zh, ja, ko; columns first hunt, basic, advanced, expert, master); Polyglot comes from `polyglot.png` (earned, then locked). Pixel positions are in `SHEET` and `POLYGLOT` in `BadgesPage.tsx`, so re-measure them if a picture is re-exported. Badges not in a picture show a plain box with their name.
 Run `python -m pytest tests/backend/test_badges.py tests/backend/test_student_badges.py -v`; the progress tests need `TEST_DATABASE_URL`.
+
+### Profile icons API
+
+Icons are listed in `src/backend/profile_icons.py`; add one with one line there. Apply `010_profile_icons.sql`.
+After login, `GET /api/student/icons` returns every icon with `id`, `name`, `owned`, and `equipped`. `PUT /api/student/profile/icon` with `{"icon_id": "croissant_cutie"}` equips an icon the student owns, and `GET /api/student/profile` then returns its id as `profile_icon`.
+An icon the student doesn't own returns 403 and an unknown icon returns 404; the previous icon stays equipped in both cases. Bad input returns 422, missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503.
+Run `python -m pytest tests/backend/test_student_icons.py -v`; the database tests need `TEST_DATABASE_URL`.
+
+Students spend the points they earn in games on icons. Prices are in `ICON_PRICES` in `src/backend/icon_store.py`; an icon with no price isn't for sale. Apply `011_icon_points_spent.sql`.
+A student's balance is the points from all their games minus the points spent on icons. `GET /api/student/store` returns `balance` and every icon with `id`, `name`, `price`, `owned`, and `equipped`.
+`POST /api/student/store/{icon_id}/redeem` buys an icon and returns 201 with `icon_id` and the new `balance`; it isn't equipped automatically. Errors: 404 `"Profile icon not found"` (unknown or not for sale), 409 `"You already own this icon"`, 400 `"Not enough points"` (nothing is spent), 401/403/503 as above.
+Run `python -m pytest tests/backend/test_icon_store.py -v`; the database tests need `TEST_DATABASE_URL`.
 
 ### Demo locations and audio
 
@@ -359,6 +413,14 @@ The French audio clues live in `src/backend/audio/fr/`, named by building and ro
 Docker bind-mounts that folder into the backend at `/app/audio` (`AUDIO_DIR` in `compose.yaml`), so the clips are not built into the image.
 Adding or replacing a file there plays straight away, with no rebuild. Outside Docker, set `AUDIO_DIR` to use another folder.
 To remake them: `pip install edge-tts`, then `cd src/backend && python -m utils.generate_audio`.
+The generator now produces all three difficulties using the shared clue rules:
+Basic contains only `number_text`, Advanced combines `number_text` and `description_text`,
+and Expert contains only `description_text`. Required text must not be blank.
+Basic keeps its existing path (`fr/COM-316.mp3`); Advanced and Expert use
+`fr/advanced/COM-316.mp3` and `fr/expert/COM-316.mp3` under `AUDIO_DIR` (or the default audio folder).
+Gameplay still plays Basic audio; selecting clips using a game's difficulty is follow-up work.
+The demo descriptions need review before Expert gameplay: LIB 312 and LIB 317 currently share
+the same description, so audio generation alone does not make them distinguishable.
 Tests: `python -m pytest tests/backend/test_audio_storage.py tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
 
 ### Current user API
