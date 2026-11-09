@@ -14,6 +14,7 @@ import PhotoSubmitPage from './pages/PhotoSubmitPage'
 import StorePage from './pages/StorePage'
 import StudentDashboard from './pages/StudentDashboard'
 import TeacherDashboard from './pages/TeacherDashboard'
+import AdminDashboard from './pages/AdminDashboard'
 
 export default function App() {
   const [role, setRole] = useState<string | null>(null)
@@ -166,7 +167,8 @@ export default function App() {
 
   if (role === 'teacher') return <TeacherDashboard onLogout={sessionEnded} />
 
-  // Admin dashboard comes later.
+  if (role === 'admin') return <AdminDashboard onLogout={sessionEnded} />
+
   return (
     <main>
       <h1>Logged in</h1>
