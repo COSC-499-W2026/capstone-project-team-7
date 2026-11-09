@@ -22,7 +22,7 @@ const COMING_SOON = ['My progress']
 
 export default function StudentDashboard({
   onOpenGame, onOpenStore, onLogout, onOpenBadges, onOpenLeaderboard,
-}: Props) {main
+}: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [choosingGame, setChoosingGame] = useState(false)
