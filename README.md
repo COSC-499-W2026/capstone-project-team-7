@@ -245,6 +245,8 @@ supported languages. A successful creation selects the new class and shows its j
 code; failures keep the entered details for retry. Selecting a class shows its roster.
 Teachers can add registered students by student number or confirm removal of their
 enrollment; student accounts are kept. A reload button appears only when loading the roster fails.
+The Clue audio section lists the class's locations with whether each has audio, and uploads an MP3 for the chosen
+location. A location that already has audio shows "Replace audio", because clips are shared by every class using it.
 Language labels use the shared `languageName` helper to format language codes from the class API.
 
 Dashboard screenshots (sample data): [assigned classes](docs/screenshots/teacher-dashboard.png)
