@@ -9,6 +9,10 @@ main { max-width: 720px; margin: 15vh auto; padding: 2rem; }
 h1 { font-size: clamp(2.5rem, 7vw, 4rem); line-height: 1.1; }
 .eyebrow { color: #28735b; font-weight: 600; }
 
+.leaderboard select { max-width: 100%; }
+.leaderboard table { width: 100%; border-spacing: 0; text-align: left; }
+.leaderboard th, .leaderboard td { padding: 0.4rem 0.2rem; border-bottom: 1px solid #c9dfd2; }
+
 .location-status {
   display: flex;
   align-items: flex-start;

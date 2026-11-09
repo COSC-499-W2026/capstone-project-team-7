@@ -292,6 +292,13 @@ Run `python -m pytest tests/backend/test_student_enrollment.py -v` with `TEST_DA
 The student dashboard has a "Join a class" box that sends this request and shows the class name, or a message for each error.
 Above it, "My classes" lists the student's classes (name and language) from `GET /api/student/profile`, and refreshes after each join.
 
+### Student class leaderboard screen
+
+Open **Leaderboard** from the student dashboard and choose an enrolled class to view ranks, profile icons, usernames, and points.
+Failed requests offer Retry and preserve the last successful table with its class caption. Expired sessions return to login.
+Students without classes see a prompt to join one; students without equipped icons show a neutral circle.
+Requires `GET /api/student/classes/{class_id}/leaderboard` from PR1 (#216); totals count completed games in the class language.
+Tests: `cd src/frontend && npm test && npm run build`.
 ### Student class leaderboard API
 
 `GET /api/student/classes/{class_id}/leaderboard` requires a logged-in student enrolled in that class.
