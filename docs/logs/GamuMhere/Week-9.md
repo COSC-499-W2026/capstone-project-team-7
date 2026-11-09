@@ -1,12 +1,12 @@
 # Week 9 Individual Log: Gamu
 
-Team 7 | Repo: capstone-project-team-7 | PRs this week: #194 (badges page) merged into main; #196 (assign hunts form), #204 (list and remove assigned hunts), #205 (redeem points endpoints) and #206 (icon store page), open and not merged yet.
+Team 7 | Repo: capstone-project-team-7 | PRs this week: #194 (badges page), #196 (assign hunts form), #204 (list and remove assigned hunts), #205 (redeem points endpoints) and #206 (icon store page), all merged into main.
 
 Last week I added the badge rules and the badges endpoint, but students still had no way to see their badges in the app. This week I added a simple badges page so students can see which badges they've earned, which ones are still locked, and what each one is for. I also built the frontend for last week's teacher-assigned hunts: a small form on the teacher dashboard to assign a hunt to a class, and a list under it where teachers can see and remove the hunts they've assigned. Finally, I started on points: students can now spend the points they earn in games on profile icons, with a backend for redeeming and a store page. Like the other demo pages, I kept it plain on purpose, since the team agreed to finish the working features first and style everything later in Milestone 2.
 
 CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job was not started because your account is locked due to a billing issue"), so every CI run this week shows as failed after 3 seconds without running a single test, on every branch. For those PRs I list the test results from my own machine instead.
 
-After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204, #205 and #206), so they're all up to date and can merge without conflicts. Since CI can't run, I then ran the full backend and frontend suites on each branch locally (same Python, Node and PostgreSQL versions as CI), and every test passed. The numbers are under each PR.
+After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204, #205 and #206), so they're all up to date and can merge without conflicts. Since CI can't run, I then ran the full backend and frontend suites on each branch locally (same Python, Node and PostgreSQL versions as CI), and every test passed. The numbers are under each PR. #205 and #206 then merged on Nov 7, and #196 and #204 on Nov 8.
 
 ---
 
@@ -66,7 +66,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 *Hovering over a badge also shows how it is earned.*
 
 
-## PR #196: Teacher assigns hunts to a class (branch `191-demo-frontend-teacher-assigned-hunts`, into `main`), open, not merged yet
+## PR #196: Teacher assigns hunts to a class (branch `191-demo-frontend-teacher-assigned-hunts`, into `main`), merged
 
 **Size:** 4 files changed, +146 / -1 lines (`src/frontend/src/api/assignHunt.ts`, `src/frontend/src/components/AssignHuntForm.tsx` and `tests/frontend/assignHunt.test.ts` added; `src/frontend/src/pages/TeacherDashboard.tsx` updated).
 
@@ -125,7 +125,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 *The success message after assigning a hunt.*
 
 
-## PR #204: Show and remove assigned hunts per class (branch `203-currently-assigned-hunts-show-up-on-teacher-dashboard-per-class`, into `main`), open, not merged yet
+## PR #204: Show and remove assigned hunts per class (branch `203-currently-assigned-hunts-show-up-on-teacher-dashboard-per-class`, into `main`), merged
 
 **Size:** 6 files changed, +294 / -8 lines once #196 merges (`src/backend/hunt_assignment.py`, `src/frontend/src/api/assignHunt.ts`, `src/frontend/src/components/AssignHuntForm.tsx`, `tests/backend/test_hunt_assignment.py`, `tests/frontend/assignHunt.test.ts` and `README.md` updated). 
 
@@ -186,7 +186,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 *After Yes, remove: "Hunt removed." shows and the hunt is gone from the list.*
 
 
-## PR #205: Redeeming points for profile icons (branch `156-redeeming-points-endpoints`, into `main`), open, not merged yet
+## PR #205: Redeeming points for profile icons (branch `156-redeeming-points-endpoints`, into `main`), merged
 
 **Size:** 5 files changed, +212 / -0 lines once #198 merges (`src/backend/icon_store.py`, `src/backend/migrations/011_icon_points_spent.sql` and `tests/backend/test_icon_store.py` added; `src/backend/main.py` and `README.md` updated). It builds on Ashish's profile icons (#198)
 
@@ -223,7 +223,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 *Local test runs for #205: 128 frontend tests and 715 backend tests passed.*
 
 
-## PR #206: Icon store page (branch `192-demo-frontend-store-to-redeem-points`, into `main`), open, not merged yet
+## PR #206: Icon store page (branch `192-demo-frontend-store-to-redeem-points`, into `main`), merged
 
 **Size:** 11 files changed, +319 / -38 lines once #198, #200 and #205 merge (`src/frontend/src/api/store.ts`, `src/frontend/src/components/StoreView.tsx`, `src/frontend/src/pages/StorePage.tsx`, `src/frontend/src/assets/polyglot.png` and `tests/frontend/store.test.ts` added; `src/frontend/src/App.tsx`, `src/frontend/src/pages/StudentDashboard.tsx`, `src/frontend/src/pages/BadgesPage.tsx`, `src/frontend/src/assets/badges.png`, `tests/frontend/badges.test.ts` and `README.md` updated). It builds on Ashish's #198 and #200 and my #205
 
