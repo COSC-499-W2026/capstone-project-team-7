@@ -6,7 +6,7 @@ import pytest
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
-from badges import award_badges
+from badges import all_badges, award_badges
 from database import get_connection
 from migrate import apply_migrations
 from test_game_session import add_locations
@@ -120,6 +120,14 @@ def test_finishing_games_in_all_six_languages_earns_polyglot(student):
 
     assert "polyglot" in check_badges(student)
     assert "polyglot" in saved_badges(student)
+
+
+def test_polyglot_is_named_polyglot_legend_and_keeps_its_saved_id():
+    # Earned badges are saved by id, so renaming must keep the id "polyglot".
+    names = {badge.id: badge.name for badge in all_badges({"fr": "French"})}
+
+    assert names["polyglot"] == "Polyglot Legend"
+    assert "Polyglot" not in names.values()
 
 
 def add_language(code, name):
