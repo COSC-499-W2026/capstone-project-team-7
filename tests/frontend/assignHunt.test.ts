@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { assignHunt } from '../../src/frontend/src/api/assignHunt'
+import { assignHunt, deleteHunt, getAssignedHunts, hideOverdue } from '../../src/frontend/src/api/assignHunt'
 import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 import AssignHuntForm from '../../src/frontend/src/components/AssignHuntForm'
 
@@ -49,4 +49,73 @@ test('form offers three difficulties, an optional due date and an assign button'
   expect(html).toContain('type="date"')
   expect(html).not.toContain('required')
   expect(html).toContain('<button type="submit">Assign hunt</button>')
+})
+
+test('lists the hunts already assigned to the class', async () => {
+  const hunts = [{ id: 'h1', difficulty: 'expert', due_date: '2026-12-01', assigned_at: '2026-11-05T18:00:00Z' }]
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => hunts })
+  vi.stubGlobal('fetch', fetchMock)
+  expect(await getAssignedHunts('c1')).toEqual(hunts)
+  expect(fetchMock).toHaveBeenCalledWith('/api/teacher/classes/c1/hunts')
+})
+
+test('an expired session while listing hunts requests a return to login', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }))
+  await expect(getAssignedHunts('c1')).rejects.toThrow(SessionEndedError)
+})
+
+test.each([
+  [403, "You can't see hunts for this class"], [404, "You can't see hunts for this class"],
+  [503, 'Could not load assigned hunts, please try again'],
+] as const)('listing hunts explains failures (%s)', async (status, message) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status }))
+  await expect(getAssignedHunts('c1')).rejects.toThrow(message)
+})
+
+test('network failures while listing hunts explain that the teacher can retry', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  await expect(getAssignedHunts('c1')).rejects.toThrow('Could not load assigned hunts, please try again')
+})
+
+test('form has a currently assigned section that starts by loading', () => {
+  const html = renderToStaticMarkup(createElement(AssignHuntForm, { classId: 'c1', disabled: false, onSessionEnded: vi.fn() }))
+  expect(html).toContain('<h3>Currently assigned</h3>')
+  expect(html).toContain('Loading hunts...')
+})
+
+test('removes a hunt from the class', async () => {
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 })
+  vi.stubGlobal('fetch', fetchMock)
+  await deleteHunt('c1', 'h1')
+  expect(fetchMock).toHaveBeenCalledWith('/api/teacher/classes/c1/hunts/h1', { method: 'DELETE' })
+})
+
+test('an expired session while removing a hunt requests a return to login', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }))
+  await expect(deleteHunt('c1', 'h1')).rejects.toThrow(SessionEndedError)
+})
+
+test.each([
+  [404, 'That hunt was already removed'], [503, 'Could not remove the hunt, please try again'],
+] as const)('removing a hunt explains failures (%s)', async (status, message) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status }))
+  await expect(deleteHunt('c1', 'h1')).rejects.toThrow(message)
+})
+
+test('network failures while removing a hunt explain that the teacher can retry', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  await expect(deleteHunt('c1', 'h1')).rejects.toThrow('Could not remove the hunt, please try again')
+})
+
+test('past-due hunts are hidden; hunts due today, later or with no due date are kept', () => {
+  const hunt = (id: string, due_date: string | null) => ({ id, difficulty: 'basic', due_date, assigned_at: '2026-11-01T00:00:00Z' })
+  const hunts = [hunt('past', '2026-11-04'), hunt('today', '2026-11-05'), hunt('later', '2026-12-01'), hunt('none', null)]
+  expect(hideOverdue(hunts, '2026-11-05').map((h) => h.id)).toEqual(['today', 'later', 'none'])
+})
+
+test('past-due hunts are hidden until the teacher ticks the box', () => {
+  const html = renderToStaticMarkup(createElement(AssignHuntForm, { classId: 'c1', disabled: false, onSessionEnded: vi.fn() }))
+  expect(html).toContain('type="checkbox"')
+  expect(html).not.toContain('checked')
+  expect(html).toContain('Show past-due hunts')
 })
