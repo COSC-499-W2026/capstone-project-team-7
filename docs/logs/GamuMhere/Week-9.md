@@ -1,12 +1,11 @@
 # Week 9 Individual Log: Gamu
 
-Team 7 | Repo: capstone-project-team-7 | PRs this week: #194 (badges page) merged into main; #196 (assign hunts form), #204 (list and remove assigned hunts), #205 (redeem points endpoints) and #206 (icon store page), open and not merged yet.
+Team 7 | Repo: capstone-project-team-7 | PRs this week: #194 (badges page), #196 (assign hunts form), #204 (list and remove assigned hunts), #205 (redeem points endpoints) and #206 (icon store page), all merged into main.
 
 Last week I added the badge rules and the badges endpoint, but students still had no way to see their badges in the app. This week I added a simple badges page so students can see which badges they've earned, which ones are still locked, and what each one is for. I also built the frontend for last week's teacher-assigned hunts: a small form on the teacher dashboard to assign a hunt to a class, and a list under it where teachers can see and remove the hunts they've assigned. Finally, I started on points: students can now spend the points they earn in games on profile icons, with a backend for redeeming and a store page. Like the other demo pages, I kept it plain on purpose, since the team agreed to finish the working features first and style everything later in Milestone 2.
 
 CI note: since Nov 5, GitHub Actions hasn't run any jobs for our repo ("The job was not started because your account is locked due to a billing issue"), so every CI run this week shows as failed after 3 seconds without running a single test, on every branch. For those PRs I list the test results from my own machine instead.
 
-After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204, #205 and #206), so they're all up to date and can merge without conflicts.
 
 ---
 
@@ -66,7 +65,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 *Hovering over a badge also shows how it is earned.*
 
 
-## PR #196: Teacher assigns hunts to a class (branch `191-demo-frontend-teacher-assigned-hunts`, into `main`), open, not merged yet
+## PR #196: Teacher assigns hunts to a class (branch `191-demo-frontend-teacher-assigned-hunts`, into `main`), merged
 
 **Size:** 4 files changed, +146 / -1 lines (`src/frontend/src/api/assignHunt.ts`, `src/frontend/src/components/AssignHuntForm.tsx` and `tests/frontend/assignHunt.test.ts` added; `src/frontend/src/pages/TeacherDashboard.tsx` updated).
 
@@ -100,7 +99,11 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 - `assignHunt.test.ts` (9 tests): sends the right URL and body and returns the hunt; an empty due date is sent as `null`; a 401 throws `SessionEndedError`; 422, 403, 404 and 503 each show the right message; a network failure shows the friendly message; and the form has three difficulties, an optional due date and an Assign hunt button.
 - The tests fake the backend's replies, so they run anywhere, including CI.
-- Regression: the full frontend suite passed (131 tests), and type checking and the build pass. locally, all 131 frontend tests and type checking pass with the fix.
+- Regression (locally, after the key fix and merging `main`): 674 backend tests and 137 frontend tests passed, and type checking and the build pass. CI couldn't run because of the billing lock
+
+![Frontend test run for #196](screenshots/week-9/tests-196-frontend.png)
+
+*Local frontend test run for #196: 137 tests passed.*
 
 **Screenshots**
 
@@ -121,7 +124,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 *The success message after assigning a hunt.*
 
 
-## PR #204: Show and remove assigned hunts per class (branch `203-currently-assigned-hunts-show-up-on-teacher-dashboard-per-class`, into `main`), open, not merged yet
+## PR #204: Show and remove assigned hunts per class (branch `203-currently-assigned-hunts-show-up-on-teacher-dashboard-per-class`, into `main`), merged
 
 **Size:** 6 files changed, +294 / -8 lines once #196 merges (`src/backend/hunt_assignment.py`, `src/frontend/src/api/assignHunt.ts`, `src/frontend/src/components/AssignHuntForm.tsx`, `tests/backend/test_hunt_assignment.py`, `tests/frontend/assignHunt.test.ts` and `README.md` updated). 
 
@@ -133,7 +136,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 **Review receipts**
 
 - I did the backend and frontend on one branch so they could be tested together. That puts this PR over our 200-line target (mostly tests), but well under the 500-line limit. I kept removing hunts in this PR because it changes the same files.
-- Removing a hunt deletes it for real, since nothing else in the database refers to a hunt yet. 
+- Removing a hunt deletes it for real, since nothing else in the database refers to a hunt yet. Ashish pointed out that we should decide as a team what gets deleted for good and what gets archived. For now a teacher would only remove a hunt they don't need (e.g. one assigned by mistake), so deleting is fine, and we agreed archiving should go on our refactor list.
 - The remove confirmation shows on the page ("Remove this hunt? Students in this class will no longer see it." with **Yes, remove** and **Cancel**) instead of the browser's pop-up, so it looks like part of the app. 
 - Hunts with no due date never count as past due, and a hunt due today still shows.
 - For another teacher's class or a missing class, the new endpoints return 404 "Class not found", the same as the other class endpoints, so they don't reveal whether a class exists. A hunt that isn't in the class gives 404 "Hunt not found".
@@ -155,7 +158,13 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 - `assignHunt.test.ts` (14 new tests, 23 in total): loading and removing send the right requests; a 401 goes back to login; 403, 404 and 503 show the right messages; a network failure shows a friendly message; past-due hunts are hidden but hunts due today, later or with no due date are kept; and the page shows the "Currently assigned" section with the checkbox unticked.
 - The backend tests use a real PostgreSQL database in a temporary schema. The frontend tests fake the backend's replies.
 - The on-page remove confirmation was checked by hand
-- Regression (locally): 629 backend tests and 145 frontend tests passed, and type checking passes. CI couldn't run because of the billing lock
+- Regression (locally, after merging `main`): 689 backend tests and 151 frontend tests passed, and type checking and the build pass. CI couldn't run because of the billing lock
+
+![Frontend test run for #204](screenshots/week-9/tests-204-frontend.png)
+
+![Backend test run for #204](screenshots/week-9/tests-204-backend.png)
+
+*Local test runs for #204: 151 frontend tests and 689 backend tests passed.*
 
 **Screenshots**
 
@@ -176,7 +185,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 *After Yes, remove: "Hunt removed." shows and the hunt is gone from the list.*
 
 
-## PR #205: Redeeming points for profile icons (branch `156-redeeming-points-endpoints`, into `main`), open, not merged yet
+## PR #205: Redeeming points for profile icons (branch `156-redeeming-points-endpoints`, into `main`), merged
 
 **Size:** 5 files changed, +212 / -0 lines once #198 merges (`src/backend/icon_store.py`, `src/backend/migrations/011_icon_points_spent.sql` and `tests/backend/test_icon_store.py` added; `src/backend/main.py` and `README.md` updated). It builds on Ashish's profile icons (#198)
 
@@ -204,10 +213,16 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 - `test_icon_store.py` (15 test cases): buying with enough points gives 201, the icon is owned but not equipped, and the balance goes down by the price; the store shows the right balance, prices and owned/equipped flags; games worth 30, 40 and 50 give a balance of 120, a free icon doesn't lower it, and buying a 100-point icon leaves 20; not enough points gives 400, nothing is saved and the balance doesn't change; buying an owned icon gives 409 and the student is only charged once; an unknown icon or one with no price gives 404 without touching the database; and no login gives 401, teachers and admins get 403, and a database failure gives 503, for both endpoints.
 - The database tests use a real PostgreSQL database in a temporary schema.
-- Regression (locally): 655 backend tests passed. There's no CI run for this PR yet, and CI is locked anyway (see the note at the top).
+- Regression (locally, after merging `main`): 715 backend tests and 128 frontend tests passed, and the frontend build passes. CI couldn't run because of the billing lock
+
+![Frontend test run for #205](screenshots/week-9/tests-205-frontend.png)
+
+![Backend test run for #205](screenshots/week-9/tests-205-backend.png)
+
+*Local test runs for #205: 128 frontend tests and 715 backend tests passed.*
 
 
-## PR #206: Icon store page (branch `192-demo-frontend-store-to-redeem-points`, into `main`), open, not merged yet
+## PR #206: Icon store page (branch `192-demo-frontend-store-to-redeem-points`, into `main`), merged
 
 **Size:** 11 files changed, +319 / -38 lines once #198, #200 and #205 merge (`src/frontend/src/api/store.ts`, `src/frontend/src/components/StoreView.tsx`, `src/frontend/src/pages/StorePage.tsx`, `src/frontend/src/assets/polyglot.png` and `tests/frontend/store.test.ts` added; `src/frontend/src/App.tsx`, `src/frontend/src/pages/StudentDashboard.tsx`, `src/frontend/src/pages/BadgesPage.tsx`, `src/frontend/src/assets/badges.png`, `tests/frontend/badges.test.ts` and `README.md` updated). It builds on Ashish's #198 and #200 and my #205
 
@@ -247,7 +262,13 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 - `store.test.ts` (14 tests): getting the store returns the coins and icons; buying and equipping send the right URL, method and body; a 401 goes back to login for all three calls; 400 and 409 show the friendly messages, and 404, 503 and a network failure show the general one; the page shows the coin balance; an affordable icon shows "Buy for 100 coins"; an unaffordable one is grey with "Need 30 more coins"; an owned icon shows "Equip" and the equipped one shows "Equipped ✓"; and owned icons hide their price.
 - `badges.test.ts` (updated, 7 tests): a new test checks each badge is cut from the right box of its picture (Spanish Advanced, Korean Master, and earned and locked Polyglot), and the locked style test checks that locked Polyglot uses its own design instead of the grey filter.
 - The tests fake the backend's replies. Clicking buy and equip, and the reload afterwards, were checked by hand in the running app, and so were the new badge pictures and the 5-per-row layout.
-- Regression (locally): 150 frontend tests passed, and type checking and the build pass. CI couldn't run because of the billing lock
+- Regression (locally, after merging `main`): 718 backend tests and 150 frontend tests passed, and type checking and the build pass. CI couldn't run because of the billing lock
+
+![Frontend test run for #206](screenshots/week-9/tests-206-frontend.png)
+
+![Backend test run for #206](screenshots/week-9/tests-206-backend.png)
+
+*Local test runs for #206: 150 frontend tests and 718 backend tests passed.*
 
 **Screenshots**
 
@@ -257,7 +278,7 @@ After #194 merged on Nov 6, I merged `main` into each of my open PRs (#196, #204
 
 ![Updated badges page](screenshots/week-9/badges-page-updated.png)
 
-*The updated badges page: the locked Polyglot badge large at the top in its own locked design, then the rest of the badges on one row for each language with transparent backgrounds.
+*The updated badges page: the locked Polyglot badge large at the top in its own locked design, then the rest of the badges on one row for each language with transparent backgrounds.*
 
 
 ## Code reviews for teammates
