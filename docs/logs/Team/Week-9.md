@@ -71,6 +71,8 @@ Also checked in tests and review:
 
 ## Architecture and DFD alignment
 
+The diagrams updated in #193 are the [system architecture](../../design/system_architecture.png), [Level 0 DFD](../../design/DFDs/dfd-level0.png), [Level 1 DFD](../../design/DFDs/main-dfd-level1.png), and the detailed [authentication](../../design/DFDs/auth-dfd.png), [game](../../design/DFDs/game-dfd.png), [class](../../design/DFDs/class-dfd.png) and [user management](../../design/DFDs/user-dfd.png) DFDs.
+
 This sprint adds these data flows:
 
 1. **Language and difficulty.** The start-game form submits both choices to `POST /api/game/start`. The backend validates and saves them, then selects locations from that language's clue pool. Existing clients retain French Basic defaults.
