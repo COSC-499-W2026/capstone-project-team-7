@@ -55,6 +55,27 @@ export async function deleteHunt(classId: string, huntId: string): Promise<void>
 }
 
 // today is "YYYY-MM-DD", so dates compare correctly as text. Hunts with no due date never go past due.
-export function hideOverdue(hunts: ClassHunt[], today: string): ClassHunt[] {
+// <Hunt extends ...> lets this work for teacher and student hunts alike: anything with a due_date.
+export function hideOverdue<Hunt extends { due_date: string | null }>(hunts: Hunt[], today: string): Hunt[] {
   return hunts.filter((hunt) => !hunt.due_date || hunt.due_date >= today)
+}
+
+export interface StudentHunt {
+  id: string
+  class_id: string
+  class_name: string
+  language_code: string
+  difficulty: string
+  due_date: string | null
+}
+
+// The hunts teachers assigned to the logged-in student's classes, soonest due first.
+export async function getStudentHunts(): Promise<StudentHunt[]> {
+  const res = await fetch('/api/student/hunts')
+    .catch(() => { throw new Error('Could not load your assigned hunts, please try again') })
+
+  if (res.status === 401) throw new SessionEndedError()
+  if (!res.ok) throw new Error('Could not load your assigned hunts, please try again')
+
+  return res.json() as Promise<StudentHunt[]>
 }
