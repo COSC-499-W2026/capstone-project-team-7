@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import psycopg
@@ -38,21 +39,24 @@ def test_teacher_lists_enrolled_students(roster_db, client):
     assert response.status_code == 200
     assert response.json() == [
         {"student_id": students["Zoe"], "username": "Zoe", "first_name": "Zoe",
-         "last_name": "Adams", "student_number": "20000001"},
+         "last_name": "Adams", "student_number": "20000001", "status": "enrolled", "unenrolled_at": None},
         {"student_id": students["amir"], "username": "amir", "first_name": "Amir",
-         "last_name": "young", "student_number": "20000002"},
+         "last_name": "young", "student_number": "20000002", "status": "enrolled", "unenrolled_at": None},
     ]
 
 
-def test_removed_students_are_left_off_the_roster(roster_db, client):
+def test_removed_students_stay_on_the_roster_with_their_removal_date(roster_db, client):
     class_id, students = roster_db
     with get_connection() as db:
-        db.execute("""UPDATE class_enrollments SET status = 'unenrolled', unenrolled_at = now()
-            WHERE student_id = %s""", (students["Zoe"],))
+        db.execute("""UPDATE class_enrollments SET status = 'unenrolled',
+            unenrolled_at = '2026-11-02T18:30:00Z' WHERE student_id = %s""", (students["Zoe"],))
     login(client)
     response = client.get(URL.format(class_id))
     assert response.status_code == 200
-    assert [student["username"] for student in response.json()] == ["amir"]
+    zoe, amir = response.json()
+    assert (zoe["username"], zoe["status"]) == ("Zoe", "unenrolled")
+    assert datetime.fromisoformat(zoe["unenrolled_at"]) == datetime(2026, 11, 2, 18, 30, tzinfo=timezone.utc)
+    assert (amir["username"], amir["status"], amir["unenrolled_at"]) == ("amir", "enrolled", None)
 
 
 def test_class_without_students_returns_empty_list(access_db, client):
