@@ -10,6 +10,7 @@ from auth import current_user
 from database import get_connection
 from schemas import RequiredText
 from teacher_access import database_unavailable
+from utils.enrollment import enroll
 
 router = APIRouter(prefix="/api/student/classes", tags=["student"])
 
@@ -39,12 +40,8 @@ def join_class(info: JoinClassRequest, user=Depends(require_student)):
             ).fetchone()
             if not classroom:
                 raise HTTPException(status_code=404, detail="Class not found")
-            connection.execute(
-                "INSERT INTO class_enrollments (class_id, student_id) VALUES (%s, %s)",
-                (classroom["id"], user["id"]),
-            )
+            if not enroll(connection, classroom["id"], user["id"]):
+                raise HTTPException(status_code=409, detail="Already enrolled")
             return classroom
-    except psycopg.errors.UniqueViolation:
-        raise HTTPException(status_code=409, detail="Already enrolled") from None
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None

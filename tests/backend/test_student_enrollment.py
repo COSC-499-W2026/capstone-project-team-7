@@ -95,6 +95,19 @@ def test_joining_twice_returns_conflict(enrollment_db, client):
     assert enrollment_count() == 1
 
 
+def test_removed_student_rejoins_with_code(enrollment_db, client):
+    login(client)
+    assert client.post(URL, json={"class_code": CODE}).status_code == 201
+    with get_connection() as db:
+        db.execute("UPDATE class_enrollments SET status = 'unenrolled', unenrolled_at = now()")
+    response = client.post(URL, json={"class_code": CODE})
+    assert response.status_code == 201
+    assert response.json()["id"] == enrollment_db
+    with get_connection() as db:
+        rows = db.execute("SELECT status, unenrolled_at FROM class_enrollments").fetchall()
+    assert rows == [{"status": "enrolled", "unenrolled_at": None}]
+
+
 @pytest.mark.parametrize("body", [{}, {"class_code": "   "}, {"class_code": CODE + "X"},
                                   {"class_code": 123}, {"class_code": CODE, "extra": 1}])
 def test_join_rejects_bad_input(enrollment_db, client, body):
