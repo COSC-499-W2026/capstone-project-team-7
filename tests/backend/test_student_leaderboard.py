@@ -110,3 +110,29 @@ def test_rankings_use_completed_language_scores_and_equipped_icons(enrollment_db
     with get_connection() as db:
         db.execute("UPDATE sessions SET expires_at = now() - interval '1 second'")
     assert client.get(url).status_code == 401
+
+
+def test_removed_students_leave_the_leaderboard(enrollment_db, client):
+    app.dependency_overrides.clear()
+    url = f"/api/student/classes/{enrollment_db}/leaderboard"
+    with get_connection() as db:
+        learner = db.execute("SELECT id FROM users WHERE username = 'student'").fetchone()["id"]
+        classmate = db.execute("""INSERT INTO users
+            (email, username, password, first_name, last_name, role)
+            VALUES ('mate@example.com', 'mate', 'unused', 'Test', 'User', 'student') RETURNING id""").fetchone()["id"]
+        db.execute("INSERT INTO students (user_id, student_number) VALUES (%s, 'mate')", (classmate,))
+        for student in (learner, classmate):
+            db.execute("INSERT INTO class_enrollments (class_id, student_id) VALUES (%s, %s)",
+                       (enrollment_db, student))
+        db.execute("""UPDATE class_enrollments SET status = 'unenrolled', unenrolled_at = now()
+            WHERE student_id = %s""", (classmate,))
+    login(client)
+    response = client.get(url)
+    assert response.status_code == 200
+    assert [row["username"] for row in response.json()] == ["student"]
+    with get_connection() as db:
+        db.execute("""UPDATE class_enrollments SET status = 'unenrolled', unenrolled_at = now()
+            WHERE student_id = %s""", (learner,))
+    response = client.get(url)
+    assert response.status_code == 403
+    assert response.json() == {"detail": "You must be enrolled in this class"}

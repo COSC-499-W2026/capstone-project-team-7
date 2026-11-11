@@ -20,7 +20,7 @@ def assigned_hunts(user=Depends(require_student)):
                 FROM assigned_hunts
                 JOIN classes ON classes.id = assigned_hunts.class_id
                 JOIN class_enrollments ON class_enrollments.class_id = classes.id
-                WHERE class_enrollments.student_id = %s
+                WHERE class_enrollments.student_id = %s AND class_enrollments.status = 'enrolled'
                 ORDER BY assigned_hunts.due_date NULLS LAST, assigned_hunts.assigned_at, assigned_hunts.id""",
                 (user["id"],),
             ).fetchall()

@@ -106,3 +106,16 @@ def test_profile_with_classes_and_distinct_languages(enrollment_db):
     assert data["classes"] == [{"id": enrollment_db, "name": "French 101", "language_code": "fr"}]
     assert data["languages"] == [{"code": "fr", "name": "French"}, {"code": "ja", "name": "Japanese"}]
     assert not {"password", "student_number", "email"} & data.keys()
+
+
+def test_profile_leaves_out_classes_the_student_was_removed_from(enrollment_db):
+    with get_connection() as db:
+        student = db.execute("SELECT id FROM users WHERE username = 'student'").fetchone()["id"]
+        db.execute("""INSERT INTO class_enrollments (class_id, student_id, status, unenrolled_at)
+            VALUES (%s, %s, 'unenrolled', now())""", (enrollment_db, student))
+    with TestClient(app, base_url="https://testserver") as client:
+        login(client)
+        response = client.get(URL)
+    assert response.status_code == 200
+    assert response.json()["classes"] == []
+    assert response.json()["languages"] == []

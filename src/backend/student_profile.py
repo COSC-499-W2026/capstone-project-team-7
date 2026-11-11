@@ -23,7 +23,8 @@ def profile(user=Depends(require_student)):
             classes = connection.execute(
                 """SELECT classes.id, classes.name, classes.language_code
                 FROM classes JOIN class_enrollments ON class_enrollments.class_id = classes.id
-                WHERE class_enrollments.student_id = %s ORDER BY classes.name, classes.id""",
+                WHERE class_enrollments.student_id = %s AND class_enrollments.status = 'enrolled'
+                ORDER BY classes.name, classes.id""",
                 (user["id"],),
             ).fetchall()
             languages = connection.execute(
@@ -32,7 +33,7 @@ def profile(user=Depends(require_student)):
                     UNION
                     SELECT classes.language_code FROM classes
                     JOIN class_enrollments ON class_enrollments.class_id = classes.id
-                    WHERE class_enrollments.student_id = %s
+                    WHERE class_enrollments.student_id = %s AND class_enrollments.status = 'enrolled'
                 ) ORDER BY name""",
                 (user["id"], user["id"]),
             ).fetchall()

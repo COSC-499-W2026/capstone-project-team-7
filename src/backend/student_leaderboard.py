@@ -22,7 +22,7 @@ def class_rankings(connection, class_id, language_code):
             JOIN students s ON s.user_id = e.student_id
             LEFT JOIN game_sessions g ON g.student_id = e.student_id
                 AND g.language_code = %s AND g.finished_at IS NOT NULL
-            WHERE e.class_id = %s
+            WHERE e.class_id = %s AND e.status = 'enrolled'
             GROUP BY u.id, s.equipped_icon_id
         ) SELECT RANK() OVER (ORDER BY total_points DESC) AS rank,
                  username, total_points, profile_icon
@@ -41,7 +41,8 @@ def leaderboard(class_id: UUID, user=Depends(require_student)):
             if classroom is None:
                 raise HTTPException(status_code=404, detail="Class not found")
             enrolled = connection.execute(
-                "SELECT 1 FROM class_enrollments WHERE class_id = %s AND student_id = %s",
+                """SELECT 1 FROM class_enrollments
+                WHERE class_id = %s AND student_id = %s AND status = 'enrolled'""",
                 (class_id, user["id"]),
             ).fetchone()
             if enrolled is None:
