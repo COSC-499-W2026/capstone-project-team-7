@@ -9,7 +9,7 @@ and its attached PDF. Backend-managed authentication replaces the proposal's Fir
 | `students`, `teachers` | Role-specific details, including unique student numbers |
 | `authorized_teacher_emails` | Normalized email allowlist for teacher signup |
 | `languages` | Six languages specified in the proposal |
-| `classes`, `class_enrollments` | Teacher-owned classes and unique student enrollment |
+| `classes`, `class_enrollments` | Teacher-owned classes and unique student enrollment; removal sets `status` to `unenrolled` and keeps the row |
 | `student_languages` | Languages studied independently of class enrollment |
 | `schema_migrations` | Applied SQL filenames, checksums and timestamps |
 
