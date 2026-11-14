@@ -246,9 +246,10 @@ Expired sessions return to login. The New class form accepts a name and one of t
 supported languages. A successful creation selects the new class and shows its join
 code; failures keep the entered details for retry. Selecting a class shows its roster.
 Teachers can add registered students by student number or confirm removal of their
-enrollment; student accounts are kept. A reload button appears only when loading the roster fails.
+enrollment; student accounts are kept. Removed students are listed under "Removed students" with
+the date they were removed, and can be added back. A reload button appears only when loading the roster fails.
 The Clue audio section lists the class's locations with whether each has audio, and uploads an MP3 for the chosen
-location. A location that already has audio shows "Replace audio", because clips are shared by every class using it.
+location. A location that already has audio shows "Replace audio", because clips are shared by every class using it for now.
 Language labels use the shared `languageName` helper to format language codes from the class API.
 
 Dashboard screenshots (sample data): [assigned classes](docs/screenshots/teacher-dashboard.png)
@@ -280,14 +281,15 @@ with `PATCH /api/admin/classes/{uuid}/teacher`. Success returns 204; 401/403 for
 Only teachers can enroll, and only into classes they own. Errors: 401 no session, 403 students and admins, 404 `"Class not found"` (missing or another teacher's class),
 404 `"Student not found"` (no student has that number), 409 `"Student already enrolled"`, 422 blank or over-long student number, 503 database failure.
 `DELETE /api/teacher/classes/{uuid}/students/{student_id}` removes the student from the class and returns 204. The account and the enrollment row are kept:
-the row is marked `unenrolled` with `unenrolled_at`, so teachers keep the student's class history. Removed students drop off the roster, the class leaderboard,
-and the student's own classes and hunts. Adding them back (teacher, admin, or join code) re-activates the same row and keeps the original `enrolled_at`.
+the row is marked `unenrolled` with `unenrolled_at`, so teachers keep the student's class history. Removed students stay on the roster as removed, and drop off
+the class leaderboard and the student's own classes and hunts. Adding them back (teacher, admin, or join code) re-activates the same row and keeps the original `enrolled_at`.
 Same auth rules. Errors: 404 `"Class not found"`, 404 `"Student not enrolled"` (never enrolled or already removed), 422 invalid UUID, 503 database failure.
 Run `python -m pytest tests/backend/test_class_enrollment.py -v` with `TEST_DATABASE_URL` set.
 
 ### Class roster API
 
-`GET /api/teacher/classes/{uuid}/students` lists the enrolled students, ordered by lastname. Each has `student_id`, `username`, `first_name`, `last_name`, and `student_number`.
+`GET /api/teacher/classes/{uuid}/students` lists the class's students, including removed ones, ordered by lastname. Each has `student_id`, `username`, `first_name`, `last_name`,
+`student_number`, `status` (`enrolled` or `unenrolled`), and `unenrolled_at` (null while enrolled).
 A class with no students returns `[]`. Same auth rules. Errors: 404 `"Class not found"` (missing or another teacher's class), 422 invalid UUID, 503 database failure.
 Run `python -m pytest tests/backend/test_class_roster.py -v` with `TEST_DATABASE_URL` set.
 

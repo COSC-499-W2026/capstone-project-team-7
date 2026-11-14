@@ -36,6 +36,8 @@ export interface RosterStudent {
   first_name: string
   last_name: string
   student_number: string
+  status: 'enrolled' | 'unenrolled'
+  unenrolled_at: string | null
 }
 
 async function rosterResponse(classId: string, options?: RequestInit, studentId?: string) {
