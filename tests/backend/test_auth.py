@@ -187,6 +187,28 @@ def test_me_with_valid_session_returns_user(monkeypatch, role):
     assert HASHED not in response.text #also checks that password not in response
 
 
+def test_login_with_unknown_role_is_refused_without_session(monkeypatch):
+    connection = FakeConnection({"id": uuid4(), "password": HASHED, "role": "guest"})
+    monkeypatch.setattr(auth, "get_connection", connection)
+
+    response = login()
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "This account cannot sign in"}
+    assert connection.sessions == []
+    assert "set-cookie" not in response.headers
+
+
+def test_me_with_unknown_role_is_refused(monkeypatch):
+    user = {"id": uuid4(), "email": "user@example.com", "first_name": "Ada", "role": "guest"}
+    monkeypatch.setattr(auth, "get_connection", FakeConnection(user))
+
+    response = me()
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "This account cannot sign in"}
+
+
 def test_me_without_cookie_is_unauthorized(monkeypatch):
     def not_called():
         raise AssertionError("no cookie should not reach the database")

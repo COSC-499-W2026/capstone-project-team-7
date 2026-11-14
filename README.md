@@ -222,6 +222,8 @@ Invalid, expired, replaced, or already-used links return the same 422 error. Dat
 `GET /api/auth/me` reads the `session` cookie and returns 200 with `email`, `first_name`, `role`, and `redirect_to`; it does not return the password hash.
 A missing, expired, or logged-out session returns 401 `"Unauthorized"`; 503 if the database is down.
 Protected routes reuse the same check with `Depends(current_user)` from `auth.py`.
+Routes for one role use `require_student`, `require_teacher` or `require_admin` from `auth.py`, which return 403 `"Student access required"`, `"Teacher access required"` or `"Admin access required"` for other roles.
+An account whose role has no dashboard gets 403 `"This account cannot sign in"` from login and `/me`, and login creates no session.
 
 ### Change password API
 
@@ -231,9 +233,9 @@ not all whitespace, and at most 72 UTF-8 bytes. Success returns 200 with `"Passw
 clears the cookie, and revokes every session for the user in the same transaction as the password update.
 Errors: 401 missing/invalid/expired session, 403 incorrect current password, 422 invalid input, 503 database failure.
 Teacher class access and teacher signup approvals reuse `auth.current_user` for
-session validation. Class routes enforce `require_teacher`; approval uses the
-shared `require_admin`. Invalid sessions return 401 `"Unauthorized"`; non-admin
-approval requests return 403 `"Forbidden"`. Authentication runs before body
+session validation. Class routes enforce `require_teacher`; approval uses
+`require_admin`. Invalid sessions return 401 `"Unauthorized"`; non-admin
+approval requests return 403 `"Admin access required"`. Authentication runs before body
 validation, so unauthenticated approval requests return 401 even with invalid input.
 
 ### Teacher class access API
