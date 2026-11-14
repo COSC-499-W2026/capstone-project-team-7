@@ -10,13 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from database import get_connection
-from utils.passwords import verify_password
+from utils.passwords import MAX_PASSWORD_BYTES, verify_password
 
 router = APIRouter(prefix="/api/auth")
 
 SESSION_COOKIE = "session"
 SESSION_LIFETIME = timedelta(days=7)
-MAX_PASSWORD_BYTES = 72 # bcrypt only uses the first 72 bytes of a password.
 
 # The frontend sends each role to its own dashboard after login.
 DASHBOARDS = {
@@ -28,6 +27,14 @@ DASHBOARDS = {
 
 def hash_token(token):
     return sha256(token.encode()).hexdigest()
+
+
+def dashboard_for(role):
+    """The role's dashboard path, or 403 instead of a crash if the role has no dashboard."""
+    if role not in DASHBOARDS:
+        logging.getLogger(__name__).warning("Account has unknown role %r", role)
+        raise HTTPException(status_code=403, detail="This account cannot sign in")
+    return DASHBOARDS[role]
 
 
 class LoginRequest(BaseModel):
@@ -50,6 +57,8 @@ def login(credentials: LoginRequest, response: Response):
                 or not verify_password(credentials.password, user["password"])
             ):
                 raise HTTPException(status_code=401, detail="Invalid credentials")
+            # Checked before the session is created so an unusable account gets no cookie.
+            redirect_to = dashboard_for(user["role"])
             token = secrets.token_urlsafe(32)
             connection.execute(
                 "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (%s, %s, now() + %s)",
@@ -67,7 +76,7 @@ def login(credentials: LoginRequest, response: Response):
         secure=True,
         samesite="lax",
     )
-    return {"role": user["role"], "redirect_to": DASHBOARDS[user["role"]]}
+    return {"role": user["role"], "redirect_to": redirect_to}
 
 
 @router.post("/logout")
@@ -113,11 +122,26 @@ def current_user(request: Request):
     return user
 
 
+def require_role(role):
+    """Dependency for routes limited to one role: the logged-in user, or 403 "<Role> access required"."""
+    def check(user=Depends(current_user)):
+        if user["role"] != role:
+            raise HTTPException(status_code=403, detail=f"{role.capitalize()} access required")
+        return user
+    return check
+
+
+# Made once so every route shares the same dependency, which tests can override.
+require_student = require_role("student")
+require_teacher = require_role("teacher")
+require_admin = require_role("admin")
+
+
 @router.get("/me", summary="The logged-in user and their dashboard")
 def me(user=Depends(current_user)):
     return {
         "email": user["email"],
         "first_name": user["first_name"],
         "role": user["role"],
-        "redirect_to": DASHBOARDS[user["role"]],
+        "redirect_to": dashboard_for(user["role"]),
     }

@@ -222,6 +222,8 @@ Invalid, expired, replaced, or already-used links return the same 422 error. Dat
 `GET /api/auth/me` reads the `session` cookie and returns 200 with `email`, `first_name`, `role`, and `redirect_to`; it does not return the password hash.
 A missing, expired, or logged-out session returns 401 `"Unauthorized"`; 503 if the database is down.
 Protected routes reuse the same check with `Depends(current_user)` from `auth.py`.
+Routes for one role use `require_student`, `require_teacher` or `require_admin` from `auth.py`, which return 403 `"Student access required"`, `"Teacher access required"` or `"Admin access required"` for other roles.
+An account whose role has no dashboard gets 403 `"This account cannot sign in"` from login and `/me`, and login creates no session.
 
 ### Change password API
 
@@ -231,9 +233,9 @@ not all whitespace, and at most 72 UTF-8 bytes. Success returns 200 with `"Passw
 clears the cookie, and revokes every session for the user in the same transaction as the password update.
 Errors: 401 missing/invalid/expired session, 403 incorrect current password, 422 invalid input, 503 database failure.
 Teacher class access and teacher signup approvals reuse `auth.current_user` for
-session validation. Class routes enforce `require_teacher`; approval uses the
-shared `require_admin`. Invalid sessions return 401 `"Unauthorized"`; non-admin
-approval requests return 403 `"Forbidden"`. Authentication runs before body
+session validation. Class routes enforce `require_teacher`; approval uses
+`require_admin`. Invalid sessions return 401 `"Unauthorized"`; non-admin
+approval requests return 403 `"Admin access required"`. Authentication runs before body
 validation, so unauthenticated approval requests return 401 even with invalid input.
 
 ### Teacher class access API
@@ -246,6 +248,8 @@ code; failures keep the entered details for retry. Selecting a class shows its r
 Teachers can add registered students by student number or confirm removal of their
 enrollment; student accounts are kept. Removed students are listed under "Removed students" with
 the date they were removed, and can be added back. A reload button appears only when loading the roster fails.
+The Clue audio section lists the class's locations with whether each has audio, and uploads an MP3 for the chosen
+location. A location that already has audio shows "Replace audio", because clips are shared by every class using it for now.
 Language labels use the shared `languageName` helper to format language codes from the class API.
 
 Dashboard screenshots (sample data): [assigned classes](docs/screenshots/teacher-dashboard.png)
@@ -386,7 +390,7 @@ Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished 
 
 Each language has a First hunt badge (finish 1 game), one badge per difficulty (e.g. `fr_basic` "Baguette Buddy": find every location with a French clue in Basic games), and a Master badge (e.g. `fr_master` "Eiffel Elite": earn First hunt and every difficulty badge in that language). Names come from the badge designs (`BADGE_NAMES` in `badges.py`).
 Languages are read from the `languages` table, so a new language gets badges automatically, with plain names like "Italian First Hunt" until design names are added.
-The "Polyglot" badge (`language` is `null`) is earned by finishing a game in every language in the database.
+The "Polyglot Legend" badge (id `polyglot`, `language` is `null`) is earned by finishing a game in every language in the database.
 Badges are listed in `src/backend/badges.py`; add one with one line there. Apply `008_student_badges.sql`.
 A correct answer checks the student's progress and saves any new badges in `student_badges`, in the same transaction as the answer. A badge is never given twice.
 After login, `GET /api/student/badges` returns every badge with `id`, `name`, `language`, `earned`, and `earned_at` (`null` if locked). Students only see their own.

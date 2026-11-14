@@ -6,7 +6,7 @@ import psycopg
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from auth import current_user
+from auth import require_student
 from database import get_connection
 from schemas import RequiredText
 from teacher_access import database_unavailable
@@ -22,12 +22,6 @@ class JoinClassRequest(BaseModel):
         Field(max_length=12, description="Code the teacher shared, e.g. 'ABC123DEF456'"),
         AfterValidator(str.upper),
     ]
-
-
-def require_student(user=Depends(current_user)):
-    if user["role"] != "student":
-        raise HTTPException(status_code=403, detail="Student access required")
-    return user
 
 
 @router.post("/join", status_code=201, summary="Enrol the signed-in student in a class by its code")
