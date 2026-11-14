@@ -10,13 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from database import get_connection
-from utils.passwords import verify_password
+from utils.passwords import MAX_PASSWORD_BYTES, verify_password
 
 router = APIRouter(prefix="/api/auth")
 
 SESSION_COOKIE = "session"
 SESSION_LIFETIME = timedelta(days=7)
-MAX_PASSWORD_BYTES = 72 # bcrypt only uses the first 72 bytes of a password.
 
 # The frontend sends each role to its own dashboard after login.
 DASHBOARDS = {

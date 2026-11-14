@@ -73,7 +73,7 @@ def all_badges(languages):
         *(Badge(f"{code}_master", badge_name(code, name, "master"), code,
                 all_of(finished_games(1), *map(found_every_location, Difficulty)))
           for code, name in languages.items()),
-        Badge("polyglot", "Polyglot", None, in_every_language(finished_games(1))),
+        Badge("polyglot", "Polyglot Legend", None, in_every_language(finished_games(1))),
     ]
 
 

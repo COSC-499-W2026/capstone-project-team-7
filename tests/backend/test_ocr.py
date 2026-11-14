@@ -80,7 +80,9 @@ def test_no_detections_returns_no_candidates(photo, engine):
     assert ocr.extract_room_numbers(photo) == []
 
 
-@pytest.mark.parametrize("invalid", [b"", b"not an image", None, b"x" * (ocr.MAX_PHOTO_BYTES + 1)])
+# Short ids: pytest puts each test's id in an environment variable, and Windows caps those at 32,767 characters.
+@pytest.mark.parametrize("invalid", [b"", b"not an image", None, b"x" * (ocr.MAX_PHOTO_BYTES + 1)],
+                         ids=["empty", "not_an_image", "none", "too_large"])
 def test_invalid_photo_never_calls_engine(invalid, engine):
     with pytest.raises(ocr.InvalidPhoto):
         ocr.extract_room_numbers(invalid)
