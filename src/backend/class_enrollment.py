@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from database import get_connection
 from schemas import RequiredText
 from teacher_access import database_unavailable, owned_class, require_teacher
+from utils.enrollment import enroll
 
 router = APIRouter(prefix="/api/teacher/classes", tags=["teacher"])
 
@@ -31,26 +32,23 @@ def enroll_student(class_id: UUID, info: EnrollmentRequest, user=Depends(require
             ).fetchone()
             if not student:
                 raise HTTPException(status_code=404, detail="Student not found")
-            connection.execute(
-                "INSERT INTO class_enrollments (class_id, student_id) VALUES (%s, %s)",
-                (class_id, student["user_id"]),
-            )
-    except psycopg.errors.UniqueViolation:
-        raise HTTPException(status_code=409, detail="Student already enrolled") from None
+            if not enroll(connection, class_id, student["user_id"]):
+                raise HTTPException(status_code=409, detail="Student already enrolled")
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None
     return {"class_id": class_id, "student_id": student["user_id"], "student_number": student["student_number"]}
 
 
 @router.delete("/{class_id}/students/{student_id}", status_code=204,
-               summary="Remove a student from a class; the student account is kept")
+               summary="Remove a student from a class; their account and class history are kept")
 def remove_student(class_id: UUID, student_id: UUID, user=Depends(require_teacher)):
     try:
         with get_connection() as connection:
             if not owned_class(connection, class_id, user["id"]):
                 raise HTTPException(status_code=404, detail="Class not found")
             removed = connection.execute(
-                "DELETE FROM class_enrollments WHERE class_id = %s AND student_id = %s",
+                """UPDATE class_enrollments SET status = 'unenrolled', unenrolled_at = now()
+                WHERE class_id = %s AND student_id = %s AND status = 'enrolled'""",
                 (class_id, student_id),
             ).rowcount
     except (psycopg.Error, RuntimeError):

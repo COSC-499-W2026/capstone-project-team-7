@@ -53,6 +53,15 @@ def test_hunts_from_other_classes_are_hidden(hunts_db, client):
     assert "teacher2" not in [hunt["class_name"] for hunt in client.get(URL).json()]
 
 
+def test_hunts_from_a_class_the_student_was_removed_from_are_hidden(hunts_db, client):
+    with get_connection() as db:
+        db.execute("UPDATE class_enrollments SET status = 'unenrolled', unenrolled_at = now()")
+    login(client, "student")
+    response = client.get(URL)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 def test_student_with_no_classes_gets_empty_list(access_db, client):
     with get_connection() as db:
         db.execute("""INSERT INTO students (user_id, student_number)

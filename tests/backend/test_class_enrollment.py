@@ -116,12 +116,20 @@ def enrolled_student(enroll_db, client):
     return student_id
 
 
+def enrollment_record(student_id):
+    with get_connection() as db:
+        return db.execute("""SELECT status, enrolled_at, unenrolled_at FROM class_enrollments
+            WHERE student_id = %s""", (student_id,)).fetchall()
+
+
 def test_teacher_removes_enrolled_student(enroll_db, enrolled_student, client):
     login(client)
     response = remove(client, enroll_db, enrolled_student)
     assert response.status_code == 204
     assert response.content == b""
-    assert enrollments() == []
+    [record] = enrollment_record(enrolled_student)
+    assert record["status"] == "unenrolled"
+    assert record["unenrolled_at"] >= record["enrolled_at"]
     with get_connection() as db:
         assert db.execute("SELECT 1 FROM students WHERE user_id = %s", (enrolled_student,)).fetchone()
         assert db.execute("SELECT 1 FROM users WHERE id = %s", (enrolled_student,)).fetchone()
@@ -134,6 +142,18 @@ def test_removing_student_not_enrolled_is_not_found(enroll_db, enrolled_student,
         response = remove(client, enroll_db, student_id)
         assert response.status_code == 404
         assert response.json() == {"detail": "Student not enrolled"}
+
+
+def test_removed_student_can_be_added_again(enroll_db, enrolled_student, client):
+    [first] = enrollment_record(enrolled_student)
+    login(client)
+    assert remove(client, enroll_db, enrolled_student).status_code == 204
+    response = enroll(client, enroll_db)
+    assert response.status_code == 201
+    assert response.json()["student_id"] == enrolled_student
+    assert enrollment_record(enrolled_student) == [
+        {"status": "enrolled", "enrolled_at": first["enrolled_at"], "unenrolled_at": None}]
+    assert enroll(client, enroll_db).status_code == 409
 
 
 def test_remove_from_missing_or_unowned_class_is_hidden(enroll_db, enrolled_student, client):

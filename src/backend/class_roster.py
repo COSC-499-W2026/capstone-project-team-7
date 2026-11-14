@@ -20,7 +20,7 @@ def list_students(class_id: UUID, access=Depends(teacher_connection)):
         FROM class_enrollments
         JOIN students ON students.user_id = class_enrollments.student_id
         JOIN users ON users.id = students.user_id
-        WHERE class_enrollments.class_id = %s
+        WHERE class_enrollments.class_id = %s AND class_enrollments.status = 'enrolled'
         ORDER BY lower(users.last_name)""",
         (class_id,),
     ).fetchall()

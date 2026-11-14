@@ -44,6 +44,17 @@ def test_teacher_lists_enrolled_students(roster_db, client):
     ]
 
 
+def test_removed_students_are_left_off_the_roster(roster_db, client):
+    class_id, students = roster_db
+    with get_connection() as db:
+        db.execute("""UPDATE class_enrollments SET status = 'unenrolled', unenrolled_at = now()
+            WHERE student_id = %s""", (students["Zoe"],))
+    login(client)
+    response = client.get(URL.format(class_id))
+    assert response.status_code == 200
+    assert [student["username"] for student in response.json()] == ["amir"]
+
+
 def test_class_without_students_returns_empty_list(access_db, client):
     login(client)
     response = client.get(URL.format(access_db))
