@@ -33,11 +33,11 @@ test('network failure can be retried successfully', async () => {
   expect(await getLeaderboard('c1')).toEqual(entries)
 })
 
-test('renders ranks, scores, class caption, equipped artwork and neutral fallback', () => {
+test('renders ranks, scores, class caption, equipped artwork and the default icon', () => {
   const html = renderToStaticMarkup(createElement(LeaderboardTable, { classroom, entries }))
   expect(html).toContain('French 101 · French')
   expect(html.match(/<td>1<\/td>/g)).toHaveLength(2)
-  for (const text of ['<td>3</td>', '<td>0</td>', '150', 'Alex', '&lt;Zero&gt;', 'background-image:', 'No profile icon', 'border-radius:50%']) expect(html).toContain(text)
+  for (const text of ['<td>3</td>', '<td>0</td>', '150', 'Alex', '&lt;Zero&gt;', 'background-image:', 'Default profile icon', 'background-size:cover']) expect(html).toContain(text)
   expect(renderToStaticMarkup(createElement(LeaderboardTable, { classroom, entries: [] }))).toContain('No students to display.')
 })
 
