@@ -111,7 +111,8 @@ def current_clue(game_id: UUID, user=Depends(require_student)):
     return {
         "position": location["current_position"],
         "total_locations": LOCATIONS_PER_HUNT,
-        "building": location["building"],
+        # Basic only tests numbers, so it gets the building; Advanced and Expert must work it out from the clue.
+        "building": location["building"] if location["difficulty"] == Difficulty.BASIC else None,
         "audio_url": f"/api/game/{game_id}/clue/audio?position={location['current_position']}",
         "elapsed_seconds": location["elapsed_seconds"],
     }
