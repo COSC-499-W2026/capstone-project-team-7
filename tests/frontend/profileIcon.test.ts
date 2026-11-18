@@ -27,17 +27,17 @@ test('keeps the same tile at a different size', () => {
 
 test('a student with no equipped icon gets the default icon', () => {
   const style = profileIconStyle('', 40)
-  expect(style.backgroundImage).toBe(`url(${defaultIconUrl})`)
+  expect(style.backgroundImage).toBe(`url("${defaultIconUrl}")`)
   expect(style.backgroundSize).toBe('cover')
   expect(style.width).toBe(40)
 })
 
 test('an unknown id shows the default icon instead of the wrong picture', () => {
-  expect(profileIconStyle('not_an_icon', 96).backgroundImage).toBe(`url(${defaultIconUrl})`)
+  expect(profileIconStyle('not_an_icon', 96).backgroundImage).toBe(`url("${defaultIconUrl}")`)
 })
 
 test('an equipped icon replaces the default icon', () => {
-  expect(profileIconStyle('croissant_cutie', 96).backgroundImage).not.toBe(`url(${defaultIconUrl})`)
+  expect(profileIconStyle('croissant_cutie', 96).backgroundImage).not.toBe(`url("${defaultIconUrl}")`)
 })
 
 test('owned icons keep their colour and locked ones are grey', () => {

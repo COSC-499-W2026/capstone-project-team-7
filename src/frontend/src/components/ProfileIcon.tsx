@@ -25,7 +25,8 @@ export function profileIconStyle(id: string, size: number, locked = false): CSSP
   const style: CSSProperties = { width: size, height: size }
   // Students who haven't equipped an icon, or have an id with no art yet, get the default one.
   if (row === -1) {
-    style.backgroundImage = `url(${defaultIconUrl})`
+    // Quoted because the inlined SVG data URL contains quotes, which break an unquoted url().
+    style.backgroundImage = `url("${defaultIconUrl}")`
     style.backgroundSize = 'cover'
   } else {
     const column = SHEET[row].indexOf(id)
