@@ -39,11 +39,11 @@ def student_id():
 
 
 def add_games(*points):
-    """Save one game per amount, each worth that many points."""
+    """Save one finished game per amount, each worth that many points (only finished games count)."""
     with get_connection() as db:
         for amount in points:
-            db.execute("""INSERT INTO game_sessions (student_id, language_code, difficulty, points)
-                VALUES (%s, 'fr', 'basic', %s)""", (student_id(), amount))
+            db.execute("""INSERT INTO game_sessions (student_id, language_code, difficulty, points, finished_at)
+                VALUES (%s, 'fr', 'basic', %s, now())""", (student_id(), amount))
 
 
 def owned_icons():
@@ -85,6 +85,16 @@ def test_balance_adds_every_game_and_free_icons_cost_nothing(enrollment_db, clie
     assert client.get(STORE_URL).json()["balance"] == 120
     assert client.post(redeem_url("mac_the_macaron")).json()["balance"] == 20
     assert client.get(STORE_URL).json()["balance"] == 20
+
+
+def test_only_finished_games_count_toward_the_balance(enrollment_db, client):
+    # Finished (30) counts; unfinished (40) and quit (50) don't, so quitting can't leave a negative balance.
+    with get_connection() as db:
+        db.execute("""INSERT INTO game_sessions (student_id, language_code, difficulty, points, finished_at, quit_at)
+            VALUES (%s, 'fr', 'basic', 30, now(), NULL), (%s, 'fr', 'basic', 40, NULL, NULL),
+                   (%s, 'fr', 'basic', 50, NULL, now())""", (student_id(),) * 3)
+    login(client)
+    assert client.get(STORE_URL).json()["balance"] == 30
 
 
 def test_not_enough_points_changes_nothing(enrollment_db, client):

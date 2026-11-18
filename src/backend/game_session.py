@@ -70,7 +70,7 @@ def ongoing_games(user=Depends(require_student)):
         with get_connection() as connection:
             games = connection.execute(
                 """SELECT id AS game_id, language_code, difficulty, current_position, started_at
-                FROM game_sessions WHERE student_id = %s AND finished_at IS NULL
+                FROM game_sessions WHERE student_id = %s AND finished_at IS NULL AND quit_at IS NULL
                 ORDER BY started_at DESC, id""",
                 (user["id"],),
             ).fetchall()
@@ -85,7 +85,7 @@ def current_location(game_id, student_id):
         with get_connection() as connection:
             location = connection.execute(
                 """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
-                game_sessions.difficulty, locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
+                game_sessions.quit_at, game_sessions.difficulty, locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
                 FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.started_at))::int AS elapsed_seconds
                 FROM game_sessions
                 JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
@@ -101,7 +101,34 @@ def current_location(game_id, student_id):
         raise HTTPException(status_code=404, detail="Game not found")
     if location["finished_at"]:
         raise HTTPException(status_code=409, detail="This game is already finished")
+    if location["quit_at"]:
+        raise HTTPException(status_code=409, detail="This game was quit")
     return location
+
+
+@router.post("/{game_id}/quit", summary="Quit one of your unfinished games; its points go back to 0")
+def quit_game(game_id: UUID, user=Depends(require_student)):
+    try:
+        with get_connection() as connection:
+            # One UPDATE, so a game can't be quit after it was finished or quit already.
+            game = connection.execute(
+                """UPDATE game_sessions SET quit_at = now(), points = 0
+                WHERE id = %s AND student_id = %s AND finished_at IS NULL AND quit_at IS NULL
+                RETURNING id AS game_id, quit_at""",
+                (game_id, user["id"]),
+            ).fetchone()
+            if game is None:
+                exists = connection.execute(
+                    "SELECT 1 FROM game_sessions WHERE id = %s AND student_id = %s", (game_id, user["id"]),
+                ).fetchone()
+    except (psycopg.Error, RuntimeError):
+        raise database_unavailable() from None
+    # Another student's game looks the same as a missing one, like the other endpoints.
+    if game is None and not exists:
+        raise HTTPException(status_code=404, detail="Game not found")
+    if game is None:
+        raise HTTPException(status_code=409, detail="This game is already finished or quit")
+    return game
 
 
 @router.get("/{game_id}/clue", summary="The current clue: the building and where to get its audio")
