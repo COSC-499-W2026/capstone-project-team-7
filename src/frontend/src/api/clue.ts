@@ -5,7 +5,7 @@ import { SessionEndedError } from './sessionEnded'
 export interface Clue {
   position: number
   total_locations: number
-  building: string
+  building: string | null
   audio_url: string
   elapsed_seconds: number
 }
