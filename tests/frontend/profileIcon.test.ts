@@ -1,6 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
+import defaultIconUrl from '../../src/frontend/src/assets/default-profile-icon.svg'
 import ProfileIcon, { profileIconStyle } from '../../src/frontend/src/components/ProfileIcon'
 
 test('finds an icon in the first tile', () => {
@@ -24,10 +25,19 @@ test('keeps the same tile at a different size', () => {
   expect(small.width).toBe(40)
 })
 
-test('an unknown id shows a plain circle instead of the wrong picture', () => {
-  const style = profileIconStyle('not_an_icon', 96)
-  expect(style.backgroundImage).toBeUndefined()
-  expect(style.borderRadius).toBe('50%')
+test('a student with no equipped icon gets the default icon', () => {
+  const style = profileIconStyle('', 40)
+  expect(style.backgroundImage).toBe(`url("${defaultIconUrl}")`)
+  expect(style.backgroundSize).toBe('cover')
+  expect(style.width).toBe(40)
+})
+
+test('an unknown id shows the default icon instead of the wrong picture', () => {
+  expect(profileIconStyle('not_an_icon', 96).backgroundImage).toBe(`url("${defaultIconUrl}")`)
+})
+
+test('an equipped icon replaces the default icon', () => {
+  expect(profileIconStyle('croissant_cutie', 96).backgroundImage).not.toBe(`url("${defaultIconUrl}")`)
 })
 
 test('owned icons keep their colour and locked ones are grey', () => {

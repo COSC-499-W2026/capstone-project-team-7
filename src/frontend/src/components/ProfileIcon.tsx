@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import defaultIconUrl from '../assets/default-profile-icon.svg'
 import iconsUrl from '../assets/profile-icons.png'
 
 // The order of tiles in profile-icons.png: one row per language (fr, es, de, zh, ja, ko), three icons each.
@@ -22,9 +23,11 @@ interface Props {
 export function profileIconStyle(id: string, size: number, locked = false): CSSProperties {
   const row = SHEET.findIndex((icons) => icons.includes(id))
   const style: CSSProperties = { width: size, height: size }
+  // Students who haven't equipped an icon, or have an id with no art yet, get the default one.
   if (row === -1) {
-    style.border = '1px solid #c9dfd2'
-    style.borderRadius = '50%'
+    // Quoted because the inlined SVG data URL contains quotes, which break an unquoted url().
+    style.backgroundImage = `url("${defaultIconUrl}")`
+    style.backgroundSize = 'cover'
   } else {
     const column = SHEET[row].indexOf(id)
     const columns = SHEET[0].length

@@ -306,7 +306,7 @@ Above it, "My classes" lists the student's classes (name and language) from `GET
 
 Open **Leaderboard** from the student dashboard and choose an enrolled class to view ranks, profile icons, usernames, and points.
 Failed requests offer Retry and preserve the last successful table with its class caption. Expired sessions return to login.
-Students without classes see a prompt to join one; students without equipped icons show a neutral circle.
+Students without classes see a prompt to join one; students without an equipped icon show the default profile icon.
 Requires `GET /api/student/classes/{class_id}/leaderboard` from PR1 (#216); totals count completed games in the class language.
 Tests: `cd src/frontend && npm test && npm run build`.
 ### Student class leaderboard API
