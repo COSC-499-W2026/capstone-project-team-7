@@ -23,3 +23,13 @@ export async function startGame(languageCode = 'fr', difficulty = 'basic'): Prom
 
   return res.json() as Promise<StartGameResult>
 }
+
+// Ends one of the student's unfinished games for good. The game is kept, but its points go back to 0.
+export async function quitGame(gameId: string): Promise<void> {
+  const res = await fetch(`/api/game/${encodeURIComponent(gameId)}/quit`, { method: 'POST' })
+    .catch(() => { throw new Error('Could not quit the game, please try again') })
+
+  if (res.status === 401) throw new SessionEndedError()
+  if (res.status === 409) throw new Error('This game has already ended')
+  if (!res.ok) throw new Error('Could not quit the game, please try again')
+}

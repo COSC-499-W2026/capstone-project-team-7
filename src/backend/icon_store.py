@@ -16,8 +16,9 @@ ICON_PRICES = {"croissant_cutie": 50, "mac_the_macaron": 100, "speedy_escargot":
 
 def points_balance(connection, student_id):
     """Points earned in every game, minus points already spent on icons."""
+    # Only finished games count, so points from a game that is later quit (reset to 0) can't be spent.
     return connection.execute(
-        """SELECT (SELECT COALESCE(SUM(points), 0) FROM game_sessions WHERE student_id = %s)
+        """SELECT (SELECT COALESCE(SUM(points), 0) FROM game_sessions WHERE student_id = %s AND finished_at IS NOT NULL)
             - (SELECT COALESCE(SUM(points_spent), 0) FROM student_icons WHERE student_id = %s) AS balance""",
         (student_id, student_id),
     ).fetchone()["balance"]
