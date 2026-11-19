@@ -22,6 +22,11 @@ interface Props {
 // Buttons for features we haven't built yet. They show but can't be clicked.
 const COMING_SOON = ['My progress']
 
+// e.g. "Welcome @learner"
+export function welcomeText(username: string) {
+  return `Welcome @${username}`
+}
+
 export default function StudentDashboard({
   onOpenGame, onOpenStore, onLogout, onOpenBadges, onOpenLeaderboard,
 }: Props) {
@@ -31,6 +36,8 @@ export default function StudentDashboard({
   const [games, setGames] = useState<OngoingGame[]>([])
   const [classes, setClasses] = useState<StudentClass[] | null>(null)
   const [hunts, setHunts] = useState<StudentHunt[] | null>(null)
+  // The student's own username and student number; null until the profile has loaded.
+  const [details, setDetails] = useState<{ username: string; studentNumber: string } | null>(null)
 
   function showError(err: unknown) {
     if (err instanceof SessionEndedError) onLogout()
@@ -38,7 +45,10 @@ export default function StudentDashboard({
   }
 
   function loadClasses() {
-    getProfile().then((profile) => setClasses(profile.classes)).catch(showError)
+    getProfile().then((profile) => {
+      setClasses(profile.classes)
+      setDetails({ username: profile.username, studentNumber: profile.student_number })
+    }).catch(showError)
     getStudentHunts().then(setHunts).catch(showError)
   }
 
@@ -63,6 +73,10 @@ export default function StudentDashboard({
   return (
     <main>
       <h1>Student dashboard</h1>
+      {details && <>
+        <p>{welcomeText(details.username)}</p>
+        <p>Student number: {details.studentNumber}</p>
+      </>}
 
       {choosingGame ? <StartGameForm disabled={busy}
         onStart={(language, difficulty) => run(async () => onOpenGame(await startGame(language, difficulty)))}

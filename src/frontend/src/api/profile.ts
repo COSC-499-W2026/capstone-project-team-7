@@ -10,6 +10,7 @@ export interface StudentClass {
 
 export interface StudentProfile {
   username: string
+  student_number: string
   classes: StudentClass[]
   languages: { code: string; name: string }[]
   profile_icon: string | null
