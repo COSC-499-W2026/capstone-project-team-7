@@ -335,9 +335,10 @@ Run `python -m pytest tests/backend/test_hunt_assignment.py tests/backend/test_s
 
 ### Teacher locations and audio API
 
-`GET /api/teacher/classes/{uuid}/locations` lists the locations with a clue in the class's language, each with `id`, `building`, `room_number`, and `has_audio`.
-`PUT /api/teacher/classes/{uuid}/locations/{location_id}/audio` with an MP3 as the raw request body (`Content-Type: audio/mpeg`, up to 5 MB) adds or replaces that location's clip and returns the location. Clips are shared by every class using that location.
-Errors: 401 no session, 403 not a teacher, 404 `"Class not found"` (including another teacher's class) or `"Location not found"`, 413 file too large, 422 `"Please upload an MP3 file"`, 503 database or file storage failure. A rejected or failed upload leaves the existing clip in place.
+`GET /api/teacher/classes/{uuid}/locations` lists the locations with a clue in the class's language, each with `id`, `building`, `room_number`, and `audio`, which says whether each difficulty has a clip (`{"basic": true, "advanced": false, "expert": false}`).
+`PUT /api/teacher/classes/{uuid}/locations/{location_id}/audio` with an MP3 as the raw request body (`Content-Type: audio/mpeg`, up to 5 MB) adds or replaces that location's clip and returns the location. Add `?difficulty=advanced` or `?difficulty=expert` to save that level's clip; without it the Basic clip is saved. Games play the clip for their difficulty. Clips are shared by every class using that location.
+On the teacher dashboard, the Clue audio section lists what each location has and is missing, and has a Difficulty dropdown for uploads.
+Errors: 401 no session, 403 not a teacher, 404 `"Class not found"` (including another teacher's class) or `"Location not found"`, 413 file too large, 422 `"Please upload an MP3 file"` or an unknown difficulty, 503 database or file storage failure. A rejected or failed upload leaves the existing clip in place.
 Run `python -m pytest tests/backend/test_teacher_locations.py tests/backend/test_audio_storage.py -v` with `TEST_DATABASE_URL` set.
 
 ### Game session API
