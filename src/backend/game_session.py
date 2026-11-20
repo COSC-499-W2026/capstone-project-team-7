@@ -32,6 +32,11 @@ class StartGameRequest(BaseModel):
 
 @router.post("/start", status_code=201, summary="Start a game with five random locations")
 def start_game(info: StartGameRequest = StartGameRequest(), user=Depends(require_student)):
+    return create_game(user["id"], info)
+
+
+def create_game(student_id, info: StartGameRequest, hunt_id=None):
+    """Start a game for the student. hunt_id links it to an assigned hunt; normal games have none."""
     try:
         with get_connection() as connection:
             # Only locations with a clue in this language, so no clue is ever blank.
@@ -42,8 +47,11 @@ def start_game(info: StartGameRequest = StartGameRequest(), user=Depends(require
             game = connection.execute(
                 """INSERT INTO game_sessions (student_id, language_code, difficulty)
                 VALUES (%s, %s, %s) RETURNING id, language_code, difficulty, current_position""",
-                (user["id"], info.language_code, info.difficulty.value),
+                (student_id, info.language_code, info.difficulty.value),
             ).fetchone()
+            # Same transaction as the insert, so a hunt game is never saved without its hunt.
+            if hunt_id is not None:
+                connection.execute("UPDATE game_sessions SET hunt_id = %s WHERE id = %s", (hunt_id, game["id"]))
             for position, location_id in enumerate(location_ids, start=1):
                 connection.execute(
                     """INSERT INTO game_session_locations (game_session_id, position, location_id)
