@@ -19,6 +19,7 @@ from utils.answer_location import validate_answer_location
 from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
 from utils.audio_storage import audio_path
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
+from utils.ready_locations import ready_location_ids
 from utils.request_body import read_limited_body
 from utils.scoring import points_for_attempt, points_for_difficulty
 
@@ -32,18 +33,22 @@ class StartGameRequest(BaseModel):
 
 @router.post("/start", status_code=201, summary="Start a game with five random locations")
 def start_game(info: StartGameRequest = StartGameRequest(), user=Depends(require_student)):
+    return create_game(user["id"], info)
+
+
+def create_game(student_id, info: StartGameRequest, hunt_id=None):
+    """Start a game for the student. hunt_id links it to an assigned hunt; normal games have none."""
     try:
         with get_connection() as connection:
-            # Only locations with a clue in this language, so no clue is ever blank.
-            rows = connection.execute(
-                "SELECT location_id FROM location_clues WHERE language_code = %s", (info.language_code,),
-            ).fetchall()
-            location_ids = pick_locations([row["location_id"] for row in rows])
+            location_ids = pick_locations(ready_location_ids(connection, info.language_code, info.difficulty))
             game = connection.execute(
                 """INSERT INTO game_sessions (student_id, language_code, difficulty)
                 VALUES (%s, %s, %s) RETURNING id, language_code, difficulty, current_position""",
-                (user["id"], info.language_code, info.difficulty.value),
+                (student_id, info.language_code, info.difficulty.value),
             ).fetchone()
+            # Same transaction as the insert, so a hunt game is never saved without its hunt.
+            if hunt_id is not None:
+                connection.execute("UPDATE game_sessions SET hunt_id = %s WHERE id = %s", (hunt_id, game["id"]))
             for position, location_id in enumerate(location_ids, start=1):
                 connection.execute(
                     """INSERT INTO game_session_locations (game_session_id, position, location_id)
