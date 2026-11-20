@@ -34,7 +34,7 @@ def test_student_sees_hunt_assigned_to_their_class(hunts_db, access_db, client):
     assert response.status_code == 200
     body = response.json()
     assert body == [{"id": body[0]["id"], "class_id": access_db, "class_name": "teacher",
-                     "language_code": "fr", "difficulty": "basic", "due_date": "2099-01-01", "completed": False}]
+                     "language_code": "fr", "difficulty": "basic", "due_date": "2099-01-01"}]
 
 
 def test_student_in_two_classes_sees_hunts_from_both(hunts_db, client):
