@@ -340,6 +340,11 @@ Run `python -m pytest tests/backend/test_hunt_assignment.py tests/backend/test_s
 Errors: 401 no session, 403 not a teacher, 404 `"Class not found"` (including another teacher's class) or `"Location not found"`, 413 file too large, 422 `"Please upload an MP3 file"`, 503 database or file storage failure. A rejected or failed upload leaves the existing clip in place.
 Run `python -m pytest tests/backend/test_teacher_locations.py tests/backend/test_audio_storage.py -v` with `TEST_DATABASE_URL` set.
 
+`POST /api/teacher/classes/{uuid}/locations` with `{"building": "LIB", "room_number": "305", "number_text": "trois cent cinq", "description_text": "...", "latitude": 49.9401, "longitude": -119.3956}` adds a location with a clue in the class's language and returns 201 with `id`, `building`, `room_number`, `latitude`, `longitude`, and `radius_metres`.
+The building is saved in uppercase, and the building and room must be ones the photo check can read (for example `COM 316` or `EME 1101`). Latitude and longitude are required, since a location can't be edited yet; the arrival radius is 50 metres for every location. If the room already exists, the clue is added to it and its GPS target is left as it was. Locations are shared by every class in that language, and each records the teacher who added it. Teacher-added clues are saved with `base_game` false, so badges can count only the base game.
+Errors: 401 no session, 403 not a teacher, 404 `"Class not found"` (including another teacher's class), 409 `"This room already has a clue in this language"`, 422 invalid building, room, clue text or coordinates, 503 database failure.
+Run `python -m pytest tests/backend/test_location_creation.py -v` with `TEST_DATABASE_URL` set.
+
 ### Game session API
 
 After login, a student can start a game with their chosen language and difficulty.
