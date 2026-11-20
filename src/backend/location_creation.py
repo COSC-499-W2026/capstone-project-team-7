@@ -25,27 +25,24 @@ class NewLocation(BaseModel):
     room_number: Annotated[UpperText, Field(description="Room number, e.g. 316")]
     number_text: Annotated[RequiredText, Field(description="The room number as spoken in the class's language")]
     description_text: Annotated[RequiredText, Field(description="A description of the room in the class's language")]
-    latitude: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False)
-    longitude: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
+    latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
 
     @model_validator(mode="after")
-    def check_room_and_gps(self):
+    def check_room(self):
         # The photo step can only confirm rooms its OCR pattern reads.
         if not ROOM_NUMBER.fullmatch(f"{self.building} {self.room_number}"):
             raise ValueError("Use a campus building code and room number, like COM 316")
-        if (self.latitude is None) != (self.longitude is None):
-            raise ValueError("Send both latitude and longitude, or neither")
         return self
 
 
 def save_location(connection, info, teacher_id):
     """The new location, or the existing one with the same building and room."""
-    radius = None if info.latitude is None else ARRIVAL_RADIUS_METRES
     location = connection.execute(
         """INSERT INTO locations (building, room_number, latitude, longitude, radius_metres, created_by)
         VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (building, room_number) DO NOTHING
         RETURNING id, building, room_number, latitude, longitude, radius_metres""",
-        (info.building, info.room_number, info.latitude, info.longitude, radius, teacher_id),
+        (info.building, info.room_number, info.latitude, info.longitude, ARRIVAL_RADIUS_METRES, teacher_id),
     ).fetchone()
     return location or connection.execute(
         """SELECT id, building, room_number, latitude, longitude, radius_metres FROM locations
@@ -64,8 +61,8 @@ def add_location(class_id: UUID, info: NewLocation, user=Depends(require_teacher
                 raise HTTPException(status_code=404, detail="Class not found")
             location = save_location(connection, info, user["id"])
             connection.execute(
-                """INSERT INTO location_clues (location_id, language_code, number_text, description_text)
-                VALUES (%s, %s, %s, %s)""",
+                """INSERT INTO location_clues (location_id, language_code, number_text, description_text, base_game)
+                VALUES (%s, %s, %s, %s, FALSE)""",
                 (location["id"], classroom["language_code"], info.number_text, info.description_text),
             )
     except psycopg.errors.UniqueViolation:

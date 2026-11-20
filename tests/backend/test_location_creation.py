@@ -7,9 +7,9 @@ from database import get_connection
 from test_teacher_access import access_db, client, login
 from test_teacher_locations import add_location, audio_dir, locations_url
 
-LIB_305 = {"building": "LIB", "room_number": "305", "number_text": "trois cent cinq",
-           "description_text": "La salle d'étude au troisième étage"}
 GPS = {"latitude": 49.9401, "longitude": -119.3956}
+LIB_305 = {"building": "LIB", "room_number": "305", "number_text": "trois cent cinq",
+           "description_text": "La salle d'étude au troisième étage", **GPS}
 
 
 def rows(query, params=()):
@@ -25,24 +25,24 @@ def spanish_class():
 
 def test_added_location_is_saved_with_its_gps_and_listed(access_db, audio_dir, client):
     login(client)
-    response = client.post(locations_url(access_db), json={**LIB_305, **GPS})
+    response = client.post(locations_url(access_db), json=LIB_305)
     assert response.status_code == 201
     location = response.json()
     assert location == {"id": location["id"], "building": "LIB", "room_number": "305", **GPS, "radius_metres": 50}
     assert [item["id"] for item in client.get(locations_url(access_db)).json()] == [location["id"]]
-    assert rows("""SELECT language_code, number_text, description_text FROM location_clues""") == [
+    assert rows("""SELECT language_code, number_text, description_text, base_game FROM location_clues""") == [
         {"language_code": "fr", "number_text": "trois cent cinq",
-         "description_text": "La salle d'étude au troisième étage"}]
+         "description_text": "La salle d'étude au troisième étage", "base_game": False}]
     assert rows("""SELECT users.username FROM locations JOIN users ON users.id = locations.created_by""") == [
         {"username": "teacher"}]
 
 
-def test_location_without_gps_has_no_target(access_db, client):
+@pytest.mark.parametrize("missing", [["latitude"], ["longitude"], ["latitude", "longitude"]])
+def test_location_without_gps_is_rejected(access_db, client, missing):
     login(client)
-    response = client.post(locations_url(access_db), json=LIB_305)
-    assert response.status_code == 201
-    assert {key: response.json()[key] for key in ("latitude", "longitude", "radius_metres")} == {
-        "latitude": None, "longitude": None, "radius_metres": None}
+    body = {key: value for key, value in LIB_305.items() if key not in missing}
+    assert client.post(locations_url(access_db), json=body).status_code == 422
+    assert rows("SELECT id FROM locations") == []
 
 
 def test_building_is_saved_in_uppercase(access_db, client):
@@ -61,8 +61,8 @@ def test_existing_room_gets_the_clue_in_another_language(access_db, client):
     assert response.status_code == 201
     assert response.json()["id"] == existing
     assert rows("SELECT latitude, created_by FROM locations") == [{"latitude": None, "created_by": None}]
-    assert rows("SELECT language_code FROM location_clues ORDER BY language_code") == [
-        {"language_code": "es"}, {"language_code": "fr"}]
+    assert rows("SELECT language_code, base_game FROM location_clues ORDER BY language_code") == [
+        {"language_code": "es", "base_game": False}, {"language_code": "fr", "base_game": True}]
 
 
 def test_room_with_a_clue_in_the_language_is_a_conflict(access_db, client):
@@ -77,8 +77,7 @@ def test_room_with_a_clue_in_the_language_is_a_conflict(access_db, client):
 @pytest.mark.parametrize("change", [
     {"room_number": " "}, {"building": "C OM"}, {"building": "XYZ"}, {"room_number": "31A"},
     {"building": "EME", "room_number": "305"}, {"number_text": ""}, {"description_text": "  "},
-    {"latitude": 49.94}, {"longitude": -119.39}, {"latitude": 91, "longitude": 0},
-    {"latitude": 0, "longitude": 181}, {"radius_metres": 10},
+    {"latitude": None}, {"latitude": 91}, {"longitude": 181}, {"radius_metres": 10},
 ])
 def test_invalid_location_is_rejected_and_nothing_is_saved(access_db, client, change):
     login(client)
