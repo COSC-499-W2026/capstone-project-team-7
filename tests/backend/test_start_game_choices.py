@@ -20,29 +20,26 @@ def client():
 @pytest.mark.parametrize("difficulty", ["basic", "advanced", "expert"])
 def test_choices_select_pool_and_are_saved(client, monkeypatch, language, difficulty):
     calls = []
-    ready_calls = []
     ids = [uuid4() for _ in range(5)]
     class Connection(FakeConnection):
         def execute(self, query, params):
             calls.append((query, params))
             return self
 
+        def fetchall(self):
+            return [{"location_id": id} for id in ids]
+
         def fetchone(self):
             return {"id": uuid4(), "language_code": language, "difficulty": difficulty, "current_position": 1}
 
-    def ready(connection, language_code, level):
-        ready_calls.append((language_code, level))
-        return ids
-
     monkeypatch.setattr(game_session, "get_connection", Connection(None))
-    monkeypatch.setattr(game_session, "ready_location_ids", ready)
     response = client.post('/api/game/start', json={"language_code": language, "difficulty": difficulty})
     assert response.status_code == 201
     assert response.json()["difficulty"] == difficulty
     assert response.json()["language_code"] == language
-    assert ready_calls == [(language, difficulty)]
-    assert calls[0][1][1:] == (language, difficulty)
-    assert {params[2] for _, params in calls[1:]} == set(ids)
+    assert calls[0][1] == (language,)
+    assert calls[1][1][1:] == (language, difficulty)
+    assert {params[2] for _, params in calls[2:]} == set(ids)
 
 
 @pytest.mark.parametrize("body", [{"language_code": "xx"}, {"difficulty": "easy"},
