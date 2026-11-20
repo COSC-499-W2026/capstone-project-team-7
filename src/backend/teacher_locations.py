@@ -1,12 +1,14 @@
 """Teachers view the locations in their class's language and upload clue audio for them."""
 
 import logging
+from typing import Annotated
 from uuid import UUID
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from database import get_connection
+from difficulties import Difficulty
 from teacher_access import database_unavailable, owned_class, require_teacher, teacher_connection
 from utils.audio_storage import audio_path, is_mp3, save_audio
 from utils.request_body import read_limited_body
@@ -18,7 +20,8 @@ NOT_AN_MP3 = "Please upload an MP3 file"
 
 
 def location_summary(location, language_code):
-    return {**location, "has_audio": audio_path(language_code, location).is_file()}
+    audio = {level.value: audio_path(language_code, location, level).is_file() for level in Difficulty}
+    return {**location, "audio": audio}
 
 
 def class_language(connection, class_id, teacher_id):
@@ -65,13 +68,15 @@ def class_location(class_id, location_id, teacher_id):
     return location, language_code
 
 
-@router.put("/{class_id}/locations/{location_id}/audio", summary="Add or replace a location's clue audio")
-def upload_audio(class_id: UUID, location_id: UUID, user=Depends(require_teacher), audio=Depends(read_audio)):
+@router.put("/{class_id}/locations/{location_id}/audio", summary="Add or replace a location's clue audio for one difficulty")
+def upload_audio(class_id: UUID, location_id: UUID,
+                 difficulty: Annotated[Difficulty, Query(description="Which level's clip to save")] = Difficulty.BASIC,
+                 user=Depends(require_teacher), audio=Depends(read_audio)):
     location, language_code = class_location(class_id, location_id, user["id"])
     if not is_mp3(audio):
         raise HTTPException(status_code=422, detail=NOT_AN_MP3)
     try:
-        save_audio(language_code, location, audio)
+        save_audio(language_code, location, audio, difficulty)
     except OSError:
         logging.getLogger(__name__).warning("Saving clue audio failed")
         raise HTTPException(status_code=503, detail="Could not save the audio, please try again") from None
