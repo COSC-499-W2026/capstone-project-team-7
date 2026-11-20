@@ -12,6 +12,7 @@ from psycopg.conninfo import make_conninfo
 from database import get_connection
 from main import app
 from migrate import apply_migrations
+from test_game_session import add_clips
 from utils.passwords import hash_password
 
 PASSWORD = "test-password"
@@ -20,7 +21,7 @@ STUDENTS = ("student", "classmate", "third", "outsider")
 
 
 @pytest.fixture
-def db(monkeypatch):
+def db(monkeypatch, tmp_path):
     """A fresh database: a teacher's French class (student, classmate, third), an Expert hunt and 5 locations."""
     url = os.getenv("TEST_DATABASE_URL")
     if not url:
@@ -32,6 +33,7 @@ def db(monkeypatch):
             connection.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(schema)))
             apply_migrations(connection)
             monkeypatch.setenv("DATABASE_URL", make_conninfo(url, options=f"-c search_path={schema}"))
+            monkeypatch.setenv("AUDIO_DIR", str(tmp_path))
             with get_connection() as conn:
                 ids = {}
                 for number, name in enumerate(TEACHERS + STUDENTS):
@@ -56,6 +58,7 @@ def db(monkeypatch):
                         VALUES ('EME', %s, 49.94, -119.4, 50) RETURNING id""", (uuid4().hex,)).fetchone()["id"]
                     conn.execute("""INSERT INTO location_clues (location_id, language_code, number_text, description_text)
                         VALUES (%s, 'fr', 'cent', 'une salle')""", (location,))
+            add_clips()
             yield ids
         finally:
             connection.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
