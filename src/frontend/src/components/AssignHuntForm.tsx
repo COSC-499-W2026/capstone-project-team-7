@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { assignHunt, deleteHunt, getAssignedHunts, hideOverdue, type ClassHunt } from '../api/assignHunt'
 import { SessionEndedError } from '../api/sessionEnded'
-import { DIFFICULTIES, DIFFICULTY_NAMES } from '../utils/difficulties'
 
 interface Props {
   classId: string
   disabled: boolean
   onSessionEnded: () => void
 }
+
+const DIFFICULTIES = [['basic', 'Basic'], ['advanced', 'Advanced'], ['expert', 'Expert']]
+const DIFFICULTY_NAMES: Record<string, string> = Object.fromEntries(DIFFICULTIES)
 
 export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Props) {
   const [difficulty, setDifficulty] = useState('basic')
