@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
-import game_session
+import game_listens
 from database import get_connection
 from main import app
 from migrate import apply_migrations
@@ -79,6 +79,12 @@ def listens(game_id):
     return {row["position"]: row["listens"] for row in rows}
 
 
+def move_to(game_id, position):
+    """Pretend the student has already found the earlier clues."""
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET current_position = %s WHERE id = %s", (position, game_id))
+
+
 def test_new_locations_start_at_0_listens(users, client):
     game_id = start(client)
     assert listens(game_id) == {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
@@ -87,42 +93,87 @@ def test_new_locations_start_at_0_listens(users, client):
 def test_three_plays_count_as_3(users, client):
     game_id = start(client)
     for count in (1, 2, 3):
-        response = client.post(f"/api/game/{game_id}/listen")
+        response = client.post(f"/api/game/{game_id}/listen", json={"position": 1})
         assert response.status_code == 200
         assert response.json() == {"position": 1, "listens": count}
     assert listens(game_id)[1] == 3
 
 
-def test_only_the_current_location_goes_up(users, client):
+def test_only_the_given_clue_goes_up(users, client):
     game_id = start(client)
-    with get_connection() as db:
-        db.execute("UPDATE game_sessions SET current_position = 2 WHERE id = %s", (game_id,))
-    client.post(f"/api/game/{game_id}/listen")
+    move_to(game_id, 2)
+    client.post(f"/api/game/{game_id}/listen", json={"position": 2})
     assert listens(game_id) == {1: 0, 2: 1, 3: 0, 4: 0, 5: 0}
+
+
+def test_a_slow_request_still_counts_for_the_clue_that_was_played(users, client):
+    # The student played clue 1, but the game moved on to clue 2 before the request arrived.
+    game_id = start(client)
+    move_to(game_id, 2)
+    response = client.post(f"/api/game/{game_id}/listen", json={"position": 1})
+    assert response.status_code == 200
+    assert listens(game_id) == {1: 1, 2: 0, 3: 0, 4: 0, 5: 0}
+
+
+def test_a_clue_not_reached_yet_is_refused(users, client):
+    game_id = start(client)
+    response = client.post(f"/api/game/{game_id}/listen", json={"position": 3})
+    assert response.status_code == 422
+    assert response.json() == {"detail": "You haven't reached that clue yet"}
+    assert listens(game_id)[3] == 0
+
+
+@pytest.mark.parametrize("body", [{}, {"position": 0}, {"position": 6}, {"position": "one"}])
+def test_a_missing_or_impossible_position_is_refused(users, client, body):
+    game_id = start(client)
+    assert client.post(f"/api/game/{game_id}/listen", json=body).status_code == 422
+    assert listens(game_id) == {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
 
 
 def test_someone_elses_game_is_refused(users, client):
     other_game = start(client, "other")
     client.cookies.clear()
     login(client)
-    response = client.post(f"/api/game/{other_game}/listen")
+    response = client.post(f"/api/game/{other_game}/listen", json={"position": 1})
     assert response.status_code == 404
     assert response.json() == {"detail": "Game not found"}
     assert listens(other_game)[1] == 0
 
 
-def test_a_finished_game_is_refused(users, client):
+def test_a_slow_request_for_the_last_clue_counts_after_the_game_finished(users, client):
     game_id = start(client)
     with get_connection() as db:
-        db.execute("UPDATE game_sessions SET finished_at = now() WHERE id = %s", (game_id,))
-    assert client.post(f"/api/game/{game_id}/listen").status_code == 409
+        db.execute("UPDATE game_sessions SET current_position = 5, finished_at = now() WHERE id = %s", (game_id,))
+    response = client.post(f"/api/game/{game_id}/listen", json={"position": 5})
+    assert response.status_code == 200
+    assert listens(game_id)[5] == 1
+
+
+
+def test_a_game_finished_over_a_minute_ago_is_refused(users, client):
+    game_id = start(client)
+    with get_connection() as db:
+        db.execute("""UPDATE game_sessions SET current_position = 5, finished_at = now() - interval '2 minutes'
+            WHERE id = %s""", (game_id,))
+    response = client.post(f"/api/game/{game_id}/listen", json={"position": 5})
+    assert response.status_code == 409
+    assert response.json() == {"detail": "This game is already finished"}
+    assert listens(game_id)[5] == 0
+
+def test_a_quit_game_is_refused(users, client):
+    game_id = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET quit_at = now() WHERE id = %s", (game_id,))
+    response = client.post(f"/api/game/{game_id}/listen", json={"position": 1})
+    assert response.status_code == 409
+    assert response.json() == {"detail": "This game was quit"}
     assert listens(game_id)[1] == 0
 
 
 def test_not_logged_in_gets_401(users, client):
     game_id = start(client)
     client.cookies.clear()
-    assert client.post(f"/api/game/{game_id}/listen").status_code == 401
+    assert client.post(f"/api/game/{game_id}/listen", json={"position": 1}).status_code == 401
     assert listens(game_id)[1] == 0
 
 
@@ -130,7 +181,7 @@ def test_a_teacher_gets_403(users, client):
     game_id = start(client)
     client.cookies.clear()
     login(client, "teacher")
-    assert client.post(f"/api/game/{game_id}/listen").status_code == 403
+    assert client.post(f"/api/game/{game_id}/listen", json={"position": 1}).status_code == 403
     assert listens(game_id)[1] == 0
 
 
@@ -138,7 +189,7 @@ def test_database_down_gives_503(client, monkeypatch):
     def unavailable():
         raise psycopg.OperationalError("secret details")
     app.dependency_overrides[require_student] = lambda: {"id": uuid4(), "role": "student"}
-    monkeypatch.setattr(game_session, "get_connection", unavailable)
-    response = client.post(f"/api/game/{uuid4()}/listen")
+    monkeypatch.setattr(game_listens, "get_connection", unavailable)
+    response = client.post(f"/api/game/{uuid4()}/listen", json={"position": 1})
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
