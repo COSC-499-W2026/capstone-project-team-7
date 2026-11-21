@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getClue, type Clue } from '../api/clue'
+import { getClue, skipClue, type Clue } from '../api/clue'
 import { quitGame } from '../api/game'
 import { SessionEndedError } from '../api/sessionEnded'
 import Stopwatch from '../components/Stopwatch'
@@ -19,6 +19,8 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSe
   const [leaving, setLeaving] = useState(false)
   const [quitting, setQuitting] = useState(false)
   const [quitError, setQuitError] = useState('')
+  const [skipping, setSkipping] = useState(false)
+  const [skipError, setSkipError] = useState('')
 
   useEffect(() => {
     let leftPage = false // don't update the page if the student already left it
@@ -59,6 +61,19 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSe
     return <main><p>Loading clue...</p></main>
   }
 
+  async function handleSkip(currentClue: Clue) {
+    setSkipping(true)
+    setSkipError('')
+    try {
+      setClue(await skipClue(gameId, currentClue))
+    } catch (err) {
+      if (err instanceof SessionEndedError) onSessionEnded()
+      else setSkipError((err as Error).message)
+    } finally {
+      setSkipping(false)
+    }
+  }
+
   return (
     <main>
       {notice && <p role="status">{notice}</p>}
@@ -67,11 +82,16 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSe
       {clue.building && <p>Building: {clue.building}</p>}
 
       <p>Listen to the clue:</p>
-      <audio controls src={clue.audio_url} />
+      <audio key={clue.audio_url} controls src={clue.audio_url} />
 
       <p>
-        <button onClick={() => onSubmitPhoto(clue)}>Submit photo</button>
+        <button onClick={() => onSubmitPhoto(clue)} disabled={skipping || quitting}>Submit photo</button>
+        {' '}
+        <button onClick={() => handleSkip(clue)} disabled={skipping || quitting || leaving}>
+          {skipping ? 'Replacing location...' : 'Skip location'}
+        </button>
       </p>
+      {skipError && <p role="alert">{skipError}</p>}
       {leaving ? (
         <section aria-label="Leave game">
           <p>Leave this game?</p>
@@ -85,7 +105,7 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSe
         </section>
       ) : (
         <p>
-          <button onClick={() => setLeaving(true)}>Back to dashboard</button>
+          <button onClick={() => setLeaving(true)} disabled={skipping}>Back to dashboard</button>
         </p>
       )}
     </main>
