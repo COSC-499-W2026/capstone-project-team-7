@@ -81,10 +81,10 @@ The Level 1 DFD breaks the main system process into its major functional areas, 
 The larger Level 1 processes are broken down further in their own diagrams:
 
 - **1.0 Authenticate User**: Accounts, login, sessions, and password resets. [Authentication DFD](./docs/design/DFDs/auth-dfd.png)
-- **5.0 Play Game**: Starting a game, clues and audio, GPS and photo checks, and points. [Game DFD](./docs/design/DFDs/game-dfd.png)
-- **9.0 Class Management**: Classes, rosters, joining by code, and assigned hunts. [Class DFD](./docs/design/DFDs/class-dfd.png)
-- **10.0 User Management**: Approving teacher emails and managing accounts and classes. [User DFD](./docs/design/DFDs/user-dfd.png)
-- **11.0 Manage Level Content**: Adding locations and audio. [Levels DFD](./docs/design/DFDs/levels-dfd.png)
+- **2.0 Play Game**: Starting a game, clues and audio, GPS and photo checks, and points. [Game DFD](./docs/design/DFDs/game-dfd.png)
+- **5.0 Class Management**: Classes, rosters, joining by code, and assigned hunts. [Class DFD](./docs/design/DFDs/class-dfd.png)
+- **6.0 Manage Level Content**: Adding locations and audio. [Levels DFD](./docs/design/DFDs/levels-dfd.png)
+- **7.0 User Management**: Approving teacher emails and managing accounts and classes. [User DFD](./docs/design/DFDs/user-dfd.png)
 
 ## Run the Backend and PostgreSQL Locally
 
