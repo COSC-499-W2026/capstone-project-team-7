@@ -246,6 +246,7 @@ def test_student_gets_first_clue_without_the_room_number(game_db, client):
     response = client.get(clue_url(game_id))
     assert response.status_code == 200
     assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
+                               "clue_id": str(game_locations(game_id)[0]["location_id"]),
                                "audio_url": f"/api/game/{game_id}/clue/audio?position=1",
                                "elapsed_seconds": response.json()["elapsed_seconds"]}
     assert 0 <= response.json()["elapsed_seconds"] <= 2

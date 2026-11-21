@@ -85,6 +85,7 @@ def current_location(game_id, student_id):
         with get_connection() as connection:
             location = connection.execute(
                 """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
+                game_session_locations.location_id,
                 game_sessions.quit_at, game_sessions.difficulty, locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
                 FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.started_at))::int AS elapsed_seconds
                 FROM game_sessions
@@ -137,6 +138,7 @@ def current_clue(game_id: UUID, user=Depends(require_student)):
     # The room number is never sent as text, and the audio link doesn't contain it either.
     return {
         "position": location["current_position"],
+        "clue_id": location["location_id"],
         "total_locations": LOCATIONS_PER_HUNT,
         # Basic only tests numbers, so it gets the building; Advanced and Expert must work it out from the clue.
         "building": location["building"] if location["difficulty"] == Difficulty.BASIC else None,
