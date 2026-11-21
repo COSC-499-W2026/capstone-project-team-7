@@ -320,6 +320,17 @@ Equal scores share ranks (1, 1, 3), ordered by username within ties.
 Errors: 401 unauthenticated, 403 wrong role/not enrolled, 404 class missing, 422 invalid UUID, 503 database unavailable.
 Tests: `python -m pytest tests/backend/test_student_leaderboard.py -q` (set `TEST_DATABASE_URL` for SQL coverage).
 
+### My progress API
+
+`GET /api/student/progress/details` returns the logged-in student's own progress for the "My progress" page, as plain numbers and names (the frontend writes the sentences).
+Only finished games count; unfinished and quit games are left out.
+Returns `total_points`, `games_finished`, and `games`: every finished game, newest first, with `finished_at`, `language_code`, `difficulty`, `points`, and `time_seconds` (finished minus started).
+`fastest_game` and `slowest_game` use the same fields and are `null` when there are no finished games.
+`hardest_locations` is the top 3 locations by clue listens (see `POST /api/game/{game_id}/listen`), each with `building`, `room_number`, `language_code`, `difficulty`, and `listens`; ties go to more photo attempts, and locations with 0 listens are left out. Only finished games count here, so a room is never shown for a spot the student hasn't found yet.
+`per_language` gives `games_finished` and `points` for each language played. A student with no finished games gets zeros, empty lists, and `null`s.
+Errors: 401 unauthenticated, 403 not a student, 503 database unavailable.
+Tests: `python -m pytest tests/backend/test_student_progress.py -v` with `TEST_DATABASE_URL` set.
+
 ### Assigned hunts API
 
 `POST /api/teacher/classes/{uuid}/hunts` with `{"difficulty": "basic", "due_date": "2026-11-30"}` assigns a hunt to a class the teacher owns and returns 201 with `id`, `class_id`, `language_code`, `difficulty`, and `due_date`.
