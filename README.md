@@ -81,10 +81,10 @@ The Level 1 DFD breaks the main system process into its major functional areas, 
 The larger Level 1 processes are broken down further in their own diagrams:
 
 - **1.0 Authenticate User**: Accounts, login, sessions, and password resets. [Authentication DFD](./docs/design/DFDs/auth-dfd.png)
-- **5.0 Play Game**: Starting a game, clues and audio, GPS and photo checks, and points. [Game DFD](./docs/design/DFDs/game-dfd.png)
-- **9.0 Class Management**: Classes, rosters, joining by code, and assigned hunts. [Class DFD](./docs/design/DFDs/class-dfd.png)
-- **10.0 User Management**: Approving teacher emails and managing accounts and classes. [User DFD](./docs/design/DFDs/user-dfd.png)
-- **11.0 Manage Level Content**: Adding locations and audio. [Levels DFD](./docs/design/DFDs/levels-dfd.png)
+- **2.0 Play Game**: Starting a game, clues and audio, GPS and photo checks, and points. [Game DFD](./docs/design/DFDs/game-dfd.png)
+- **5.0 Class Management**: Classes, rosters, joining by code, and assigned hunts. [Class DFD](./docs/design/DFDs/class-dfd.png)
+- **6.0 Manage Level Content**: Adding locations and audio. [Levels DFD](./docs/design/DFDs/levels-dfd.png)
+- **7.0 User Management**: Approving teacher emails and managing accounts and classes. [User DFD](./docs/design/DFDs/user-dfd.png)
 
 ## Run the Backend and PostgreSQL Locally
 
@@ -320,6 +320,17 @@ Equal scores share ranks (1, 1, 3), ordered by username within ties.
 Errors: 401 unauthenticated, 403 wrong role/not enrolled, 404 class missing, 422 invalid UUID, 503 database unavailable.
 Tests: `python -m pytest tests/backend/test_student_leaderboard.py -q` (set `TEST_DATABASE_URL` for SQL coverage).
 
+### My progress API
+
+`GET /api/student/progress/details` returns the logged-in student's own progress for the "My progress" page, as plain numbers and names (the frontend writes the sentences).
+Only finished games count; unfinished and quit games are left out.
+Returns `total_points`, `games_finished`, and `games`: every finished game, newest first, with `finished_at`, `language_code`, `difficulty`, `points`, and `time_seconds` (finished minus started).
+`fastest_game` and `slowest_game` use the same fields and are `null` when there are no finished games.
+`hardest_locations` is the top 3 locations by clue listens (see `POST /api/game/{game_id}/listen`), each with `building`, `room_number`, `language_code`, `difficulty`, and `listens`; ties go to more photo attempts, and locations with 0 listens are left out. Only finished games count here, so a room is never shown for a spot the student hasn't found yet.
+`per_language` gives `games_finished` and `points` for each language played. A student with no finished games gets zeros, empty lists, and `null`s.
+Errors: 401 unauthenticated, 403 not a student, 503 database unavailable.
+Tests: `python -m pytest tests/backend/test_student_progress.py -v` with `TEST_DATABASE_URL` set.
+
 ### Assigned hunts API
 
 `POST /api/teacher/classes/{uuid}/hunts` with `{"difficulty": "basic", "due_date": "2026-11-30"}` assigns a hunt to a class the teacher owns and returns 201 with `id`, `class_id`, `language_code`, `difficulty`, and `due_date`.
@@ -369,7 +380,9 @@ Missing/invalid/expired sessions return 401, non-students get 403, and database 
 
 Run `python -m pytest tests/backend/test_game_session.py tests/backend/test_start_game_choices.py tests/backend/test_ready_locations.py -v` with `TEST_DATABASE_URL` set.
 
-`GET /api/game/ongoing` lists the student's unfinished games, newest first, each with `game_id`, `language_code`, `difficulty`, `current_position`, `total_locations`, and `started_at`. Finished games and other students' games are never listed; no unfinished games returns `[]`. Missing sessions return 401, non-students get 403, and database failures return 503. The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
+`GET /api/game/ongoing` lists the student's unfinished games, newest first, each with `game_id`, `language_code`, `difficulty`, `current_position`, `total_locations`, and `started_at`. Finished games, quit games and other students' games are never listed; no unfinished games returns `[]`. Missing sessions return 401, non-students get 403, and database failures return 503. The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
+
+`POST /api/game/{game_id}/quit` ends one of the student's unfinished games for good. The game is kept (not deleted): `quit_at` is set and its points go back to 0, in one update. A quit game isn't finished, so it doesn't count for badges, the leaderboard or the store, and it can't be played or answered (409 `"This game was quit"`). Returns `game_id` and `quit_at`. Another student's game or an unknown id returns 404 `"Game not found"`, an already finished or quit game returns 409, missing sessions return 401, non-students get 403, and database failures return 503. On the game screen, **Back to dashboard** asks **Save for later** (keep the game under Ongoing games), **Quit game** ("You'll lose the points from this game") or **Keep playing**. Apply `013_quit_games.sql`. Run `python -m pytest tests/backend/test_quit_game.py -v` with `TEST_DATABASE_URL` set.
 
 After starting, `GET /api/game/{game_id}/clue` returns the current clue: `position`, `total_locations`, `building`, `audio_url`, and `elapsed_seconds` (whole seconds since the game started). `building` is only sent on Basic, which only tests numbers; on Advanced and Expert it is `null` and the game screen hides it, so students work out where to go from the clue.
 `GET /api/game/{game_id}/clue/audio` plays that clue's audio (`audio_url` adds `?position=<n>` so each clue gets a new link). Audio files are kept in the `AUDIO_DIR` folder (`src/backend/audio/<language>/` by default) and never linked by name, so neither the clue nor the audio link reveals the room number. Another student's game or an unknown id returns 404 `"Game not found"`, a finished game returns 409, an invalid id returns 422. A missing audio file returns 404 `"Audio not found for this clue"`.
@@ -378,6 +391,8 @@ Basic clips keep `<language>/<building>-<room>.mp3`; Advanced and Expert use
 `<language>/advanced/<building>-<room>.mp3` and `<language>/expert/<building>-<room>.mp3`.
 A missing clip never falls back to another difficulty. Unsupported stored difficulties return
 500 with a friendly message. Games still start at Basic until difficulty selection is connected.
+
+`POST /api/game/{game_id}/listen` counts one play of the current clue's audio; call it each time the student presses play. It adds 1 to that spot's `listens` in a single update, so plays at the same moment are all counted, and returns `position` and the new `listens` count. Every spot starts at 0 listens. It counts presses of play rather than audio downloads, because browsers can download the same audio more than once. Missing/invalid/expired sessions return 401, non-students get 403, another student's game or an unknown id returns 404 `"Game not found"`, a finished or quit game returns 409, and database failures return 503. Apply `014_clue_listens.sql`. Run `python -m pytest tests/backend/test_game_listens.py -v` with `TEST_DATABASE_URL` set.
 
 `POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 5 MiB).
 Each valid photo counts an attempt per spot, including incorrect/unreadable photos. A correct match awards points based on the game's stored difficulty and that spot's submission attempt: 100% of maximum points on the first attempt, 60% on the second, and 30% on the third and later attempts:
@@ -414,7 +429,7 @@ An icon the student doesn't own returns 403 and an unknown icon returns 404; the
 Run `python -m pytest tests/backend/test_student_icons.py -v`; the database tests need `TEST_DATABASE_URL`.
 
 Students spend the points they earn in games on icons. Prices are in `ICON_PRICES` in `src/backend/icon_store.py`; an icon with no price isn't for sale. Apply `011_icon_points_spent.sql`.
-A student's balance is the points from all their games minus the points spent on icons. `GET /api/student/store` returns `balance` and every icon with `id`, `name`, `price`, `owned`, and `equipped`.
+A student's balance is the points from their finished games minus the points spent on icons. Unfinished and quit games don't count, so points from a game that is later quit (reset to 0) can't be spent. `GET /api/student/store` returns `balance` and every icon with `id`, `name`, `price`, `owned`, and `equipped`.
 `POST /api/student/store/{icon_id}/redeem` buys an icon and returns 201 with `icon_id` and the new `balance`; it isn't equipped automatically. Errors: 404 `"Profile icon not found"` (unknown or not for sale), 409 `"You already own this icon"`, 400 `"Not enough points"` (nothing is spent), 401/403/503 as above.
 Run `python -m pytest tests/backend/test_icon_store.py -v`; the database tests need `TEST_DATABASE_URL`.
 
