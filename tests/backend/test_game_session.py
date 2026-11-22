@@ -246,9 +246,34 @@ def test_student_gets_first_clue_without_the_room_number(game_db, client):
     response = client.get(clue_url(game_id))
     assert response.status_code == 200
     assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
-                               "audio_url": f"/api/game/{game_id}/clue/audio?position=1",
+                               "revision": 0, "audio_url": f"/api/game/{game_id}/clue/audio?position=1&revision=0",
                                "elapsed_seconds": response.json()["elapsed_seconds"]}
     assert 0 <= response.json()["elapsed_seconds"] <= 2
+
+
+@pytest.mark.parametrize("spare_has_audio", [True, False])
+def test_skip_replaces_only_the_current_spot(game_db, client, monkeypatch, tmp_path, spare_has_audio):
+    pool = add_locations(6, "fr")
+    login(client)
+    game_id = client.post(URL).json()["game_id"]
+    before = game_locations(game_id)
+    spare = (set(pool) - {row["location_id"] for row in before}).pop()
+    monkeypatch.setattr(game_session, "audio_path", lambda *_: tmp_path / "replacement.mp3")
+    if spare_has_audio:
+        (tmp_path / "replacement.mp3").touch()
+    skip_url = f"/api/game/{game_id}/skip?position=1&revision=0"
+    response = client.post(skip_url)
+    if not spare_has_audio:
+        assert response.status_code == 409
+        assert game_locations(game_id) == before
+        return
+    assert response.status_code == 200
+    assert response.json()["position"] == 1
+    assert response.json()["revision"] == 1
+    assert game_locations(game_id) == [{"position": 1, "location_id": spare}, *before[1:]]
+    assert client.post(skip_url).status_code == 409
+    second = client.post(f"/api/game/{game_id}/skip?position=1&revision=1")
+    assert second.status_code == 409  # The first skipped room cannot come back.
 
 
 def started_ago(game_id, seconds):

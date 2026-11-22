@@ -435,6 +435,11 @@ Run `python -m pytest tests/backend/test_icon_store.py -v`; the database tests n
 
 ### Demo locations and audio
 
+During a hunt, **Skip location** replaces the current stop without requiring a failed attempt.
+The replacement must have a GPS target and audio for the hunt’s language and difficulty.
+The hunt keeps its current position, elapsed time, and points. If no unused stop is available,
+the current clue stays in place. A five-stop hunt needs a sixth playable location to test skipping.
+
 After running migrations, add the 5 demo locations and their French clues (safe to run again):
 
 ```sh
