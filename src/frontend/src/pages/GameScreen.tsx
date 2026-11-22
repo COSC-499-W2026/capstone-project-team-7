@@ -3,6 +3,7 @@ import { getClue, skipClue, type Clue } from '../api/clue'
 import { quitGame } from '../api/game'
 import { SessionEndedError } from '../api/sessionEnded'
 import Stopwatch from '../components/Stopwatch'
+import ClueHint from '../components/ClueHint'
 
 interface Props {
   gameId: string
@@ -80,6 +81,8 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSe
       <h1>Spot {clue.position} of {clue.total_locations}</h1>
       <Stopwatch startSeconds={clue.elapsed_seconds} />
       {clue.building && <p>Building: {clue.building}</p>}
+
+      <ClueHint key={`${clue.position}-${clue.revision ?? 0}`} gameId={gameId} clue={clue} onSessionEnded={onSessionEnded} />
 
       <p>Listen to the clue:</p>
       <audio key={clue.audio_url} controls src={clue.audio_url} />

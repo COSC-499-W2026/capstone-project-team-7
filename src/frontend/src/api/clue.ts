@@ -8,6 +8,7 @@ export interface Clue {
   building: string | null
   audio_url: string
   elapsed_seconds: number
+  clue_elapsed_seconds: number
   revision?: number
 }
 

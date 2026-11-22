@@ -6,12 +6,13 @@ from uuid import UUID
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from badges import award_badges
 from database import get_connection
 from difficulties import Difficulty
-from proximity import LocationReading
+from proximity import LocationReading, ProximityTarget, check_proximity
+from pydantic import ValidationError
 from student_enrollment import require_student
 from teacher_access import database_unavailable
 from utils.answer_check import check_answer
@@ -92,7 +93,8 @@ def current_location(game_id, student_id):
                 """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
                 game_session_locations.location_id, cardinality(game_session_locations.skipped_location_ids) AS revision,
                 game_sessions.quit_at, game_sessions.difficulty, locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
-                FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.started_at))::int AS elapsed_seconds
+                FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.started_at))::int AS elapsed_seconds,
+                GREATEST(0, FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.clue_started_at)))::int AS clue_elapsed_seconds
                 FROM game_sessions
                 JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
                     AND game_session_locations.position = game_sessions.current_position
@@ -153,6 +155,7 @@ def clue_response(game_id, location):
         "building": location["building"] if location["difficulty"] == Difficulty.BASIC else None,
         "audio_url": f"/api/game/{game_id}/clue/audio?position={location['current_position']}&revision={location['revision']}",
         "elapsed_seconds": location["elapsed_seconds"],
+        "clue_elapsed_seconds": location["clue_elapsed_seconds"],
     }
 
 
@@ -193,9 +196,33 @@ def skip_location(game_id: UUID, position: Annotated[int, Query(ge=1, le=LOCATIO
                 location_id = %s, attempts = 0 WHERE game_session_id = %s AND position = %s""",
                 (replacement["id"], game_id, position),
             )
+            connection.execute("UPDATE game_sessions SET clue_started_at = now() WHERE id = %s", (game_id,))
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None
-    return clue_response(game_id, {**location, "building": replacement["building"], "revision": revision + 1})
+    return clue_response(game_id, {**location, "building": replacement["building"], "revision": revision + 1,
+                                   "clue_elapsed_seconds": 0})
+
+
+class HintReading(LocationReading):
+    position: int = Field(ge=1, le=LOCATIONS_PER_HUNT)
+    revision: int = Field(ge=0)
+
+
+@router.get("/{game_id}/clue/hint", summary="Get a distance hint after five minutes on the current clue")
+def clue_hint(game_id: UUID, reading: Annotated[HintReading, Query()], user=Depends(require_student)):
+    location = current_location(game_id, user["id"])
+    if (reading.position, reading.revision) != (location["current_position"], location["revision"]):
+        raise HTTPException(status_code=409, detail="The clue has changed. Reload the hunt to continue.")
+    if location["clue_elapsed_seconds"] < 300:
+        raise HTTPException(status_code=409, detail="Hints are available after five minutes on this clue.")
+    try:
+        target = ProximityTarget(latitude=location["latitude"], longitude=location["longitude"], radius_metres=10)
+    except ValidationError:
+        raise HTTPException(status_code=503, detail="Location hints are unavailable for this spot.") from None
+    result = check_proximity(reading, target)
+    if result in ("stale_location", "inaccurate_location"):
+        raise HTTPException(status_code=422, detail="Your location is not recent or accurate enough. Please try again.")
+    return {"message": "You are getting close" if result == "within_radius" else "You are too far"}
 
 
 @router.get("/{game_id}/clue/audio", summary="Play the audio for the current clue")
@@ -249,11 +276,12 @@ def submit_answer(game_id: UUID, reading: Annotated[LocationReading, Query()],
             game = connection.execute(
                 """UPDATE game_sessions
                 SET current_position = LEAST(current_position + %s, %s), points = points + %s,
+                    clue_started_at = CASE WHEN %s THEN now() ELSE clue_started_at END,
                     finished_at = CASE WHEN %s AND current_position = %s THEN now() ELSE finished_at END
                 WHERE id = %s AND student_id = %s AND current_position = %s AND finished_at IS NULL AND quit_at IS NULL
                 RETURNING current_position, finished_at, points,
                     FLOOR(EXTRACT(EPOCH FROM finished_at - started_at))::int AS final_time_seconds""",
-                (int(correct), LOCATIONS_PER_HUNT, awarded, correct, LOCATIONS_PER_HUNT,
+                (int(correct), LOCATIONS_PER_HUNT, awarded, correct, correct, LOCATIONS_PER_HUNT,
                  game_id, user["id"], position),
             ).fetchone()
             if game is None:
