@@ -322,6 +322,8 @@ Tests: `python -m pytest tests/backend/test_student_leaderboard.py -q` (set `TES
 
 ### My progress API
 
+`GET /api/student/debrief` returns `completed_hunts` and up to three `difficulties` for the signed-in student. Only finished, non-quit games count. A location is included when a completed hunt recorded more than one clue listen or more than one photo attempt; results are grouped by location, language and difficulty and ranked by extra attempts, then listens. Each result includes building, room number, language, difficulty, hunt count, total listens, total attempts and extra attempts. With no completed hunts, the count is zero and the list is empty. The endpoint returns 401 for an expired session, 403 for non-students and 503 when the database is unavailable. Vocabulary suggestions and the student-facing debrief are planned separately.
+
 `GET /api/student/progress/details` returns the logged-in student's own progress for the "My progress" page, as plain numbers and names (the frontend writes the sentences).
 Only finished games count; unfinished and quit games are left out.
 Returns `total_points`, `games_finished`, and `games`: every finished game, newest first, with `finished_at`, `language_code`, `difficulty`, `points`, and `time_seconds` (finished minus started).
