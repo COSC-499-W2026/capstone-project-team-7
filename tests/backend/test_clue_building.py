@@ -12,13 +12,14 @@ from psycopg.conninfo import make_conninfo
 from database import get_connection
 from main import app
 from migrate import apply_migrations
+from test_game_session import add_clips
 from utils.passwords import hash_password
 
 PASSWORD = "test-password"
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(monkeypatch, tmp_path):
     """A logged-in student in a fresh database, with 5 French locations in building EME."""
     url = os.getenv("TEST_DATABASE_URL")
     if not url:
@@ -30,6 +31,7 @@ def client(monkeypatch):
             connection.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(schema)))
             apply_migrations(connection)
             monkeypatch.setenv("DATABASE_URL", make_conninfo(url, options=f"-c search_path={schema}"))
+            monkeypatch.setenv("AUDIO_DIR", str(tmp_path))
             with get_connection() as db:
                 student = db.execute("""INSERT INTO users (email, username, password, first_name, last_name, role)
                     VALUES ('student@example.com', 'student', %s, 'Test', 'User', 'student') RETURNING id""",
@@ -40,6 +42,7 @@ def client(monkeypatch):
                         VALUES ('EME', %s, 49.94, -119.4, 50) RETURNING id""", (uuid4().hex,)).fetchone()["id"]
                     db.execute("""INSERT INTO location_clues (location_id, language_code, number_text, description_text)
                         VALUES (%s, 'fr', 'cent', 'une salle')""", (location,))
+            add_clips()
             # HTTPS lets the test client send the login endpoint's Secure cookie.
             with TestClient(app, base_url="https://testserver") as client:
                 login = client.post("/api/auth/login", json={"email": "student@example.com", "password": PASSWORD})

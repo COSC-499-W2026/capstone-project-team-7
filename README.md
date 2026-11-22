@@ -370,15 +370,15 @@ The form retains selections after an error and disables its controls while start
 both choices on the game, selecting locations only from that language's clue pool.
 Omitting the body or either field defaults to French (`fr`) and Basic for existing clients.
 Unsupported values, null fields, and extra fields return 422. A language with fewer than five
-clue locations returns 409 without creating a game. Audio availability is checked at playback;
+ready locations returns 409 without creating a game.
 Only French locations are seeded for the demo. Advanced/Expert audio needs the generator
 from #209 run first; serving difficulty-specific audio is covered by #208.
-The backend picks 5 random locations that have a clue in the selected language and saves them in order in `game_sessions` and `game_session_locations`.
+The backend picks 5 random ready locations and saves them in order in `game_sessions` and `game_session_locations`. A location is ready when it has a clue in the selected language, a GPS target, and a clip for the selected difficulty, so a game never reaches a room it can't play. Without the generated Advanced and Expert clips, those difficulties return 409 locally.
 Success returns 201 with `game_id`, `language_code`, `difficulty`, `current_position` (1), and `total_locations` (5); locations and clues are not returned.
-Fewer than 5 locations for the selected language returns 409 `"Not enough locations for this language yet"` and saves nothing.
+Fewer than 5 ready locations returns 409 `"Not enough locations for this language yet"` and saves nothing.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503. Deleting a student keeps their games with no student linked.
 
-Run `python -m pytest tests/backend/test_game_session.py tests/backend/test_start_game_choices.py -v` with `TEST_DATABASE_URL` set.
+Run `python -m pytest tests/backend/test_game_session.py tests/backend/test_start_game_choices.py tests/backend/test_ready_locations.py -v` with `TEST_DATABASE_URL` set.
 
 `GET /api/game/ongoing` lists the student's unfinished games, newest first, each with `game_id`, `language_code`, `difficulty`, `current_position`, `total_locations`, and `started_at`. Finished games, quit games and other students' games are never listed; no unfinished games returns `[]`. Missing sessions return 401, non-students get 403, and database failures return 503. The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
 
