@@ -25,9 +25,13 @@ async def make_audio(text, path):
 async def generate_audio(locations=LOCATIONS):
     """Generate a separate clip for every demo location and difficulty."""
     for location in locations:
-        number_text, description_text = location["fr"]
-        for difficulty in Difficulty:
-            text = clue_text(number_text, description_text, difficulty)
+        number_text, _ = location["fr"]
+        scripts = {
+            Difficulty.BASIC: clue_text(number_text, "", Difficulty.BASIC),
+            Difficulty.ADVANCED: location["advanced"].format(number=number_text),
+            Difficulty.EXPERT: clue_text("", location["expert"], Difficulty.EXPERT),
+        }
+        for difficulty, text in scripts.items():
             path = audio_path("fr", location, difficulty)
             path.parent.mkdir(parents=True, exist_ok=True)
             await make_audio(text, path)
