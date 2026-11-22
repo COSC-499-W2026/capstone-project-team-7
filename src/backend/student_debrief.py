@@ -21,16 +21,20 @@ def get_debrief(user=Depends(require_student)):
             ).fetchone()["completed_hunts"]
             difficulties = connection.execute(
                 """SELECT locations.building, locations.room_number, game_sessions.language_code,
-                    game_sessions.difficulty, count(*)::int AS hunts,
+                    game_sessions.difficulty, location_clues.number_text, location_clues.description_text,
+                    count(*)::int AS hunts,
                     sum(game_session_locations.listens)::int AS listens,
                     sum(game_session_locations.attempts)::int AS attempts,
                     sum(GREATEST(game_session_locations.attempts - 1, 0))::int AS extra_attempts
                 FROM game_session_locations
                 JOIN game_sessions ON game_sessions.id = game_session_locations.game_session_id
                 JOIN locations ON locations.id = game_session_locations.location_id
+                LEFT JOIN location_clues ON location_clues.location_id = locations.id
+                    AND location_clues.language_code = game_sessions.language_code
                 WHERE game_sessions.student_id = %s AND game_sessions.finished_at IS NOT NULL
                     AND game_sessions.quit_at IS NULL
-                GROUP BY locations.id, game_sessions.language_code, game_sessions.difficulty
+                GROUP BY locations.id, game_sessions.language_code, game_sessions.difficulty,
+                    location_clues.number_text, location_clues.description_text
                 HAVING bool_or(game_session_locations.listens > 1 OR game_session_locations.attempts > 1)
                 ORDER BY sum(GREATEST(game_session_locations.attempts - 1, 0)) DESC,
                     sum(game_session_locations.listens) DESC, locations.building, locations.room_number,

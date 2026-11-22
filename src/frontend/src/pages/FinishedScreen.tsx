@@ -5,15 +5,17 @@ interface Props {
   totalPoints: number
   timeSeconds: number
   onBack: () => void
+  onDebrief: () => void
 }
 
-export default function FinishedScreen({ totalSpots, totalPoints, timeSeconds, onBack }: Props) {
+export default function FinishedScreen({ totalSpots, totalPoints, timeSeconds, onBack, onDebrief }: Props) {
   return (
     <main>
       <h1>You finished!</h1>
       <p>You found all {totalSpots} spots.</p>
       <p role="status">Total: {totalPoints} points.</p>
       <p>Time: {formatTime(timeSeconds)}</p>
+      <button onClick={onDebrief}>View debrief</button>{' '}
       <button onClick={onBack}>Back to dashboard</button>
     </main>
   )
