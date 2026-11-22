@@ -37,3 +37,7 @@ pnpm-debug.log*
 # Logs
 *.log
 temp/
+
+# Locally generated French demo clue audio
+/src/backend/audio/fr/advanced/
+/src/backend/audio/fr/expert/

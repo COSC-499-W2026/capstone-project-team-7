@@ -24,11 +24,15 @@ def test_generates_distinct_clips_with_each_levels_content(monkeypatch, tmp_path
     asyncio.run(generate_audio.generate_audio())
     assert len(saved) == len(LOCATIONS) * 3
     for location in LOCATIONS:
-        number, description = location["fr"]
+        number, _ = location["fr"]
         filename = audio_filename(location)
         assert saved[f"fr/{filename}"] == number
-        assert saved[f"fr/advanced/{filename}"] == f"{number}. {description}"
-        assert saved[f"fr/expert/{filename}"] == description
+        assert saved[f"fr/advanced/{filename}"] == location["advanced"].format(number=number)
+        assert number in saved[f"fr/advanced/{filename}"]
+        assert saved[f"fr/expert/{filename}"] == location["expert"]
+        assert number not in saved[f"fr/expert/{filename}"]
+        assert location["room_number"] not in saved[f"fr/expert/{filename}"]
+    assert len({text for path, text in saved.items() if path.startswith("fr/expert/")}) == len(LOCATIONS)
 
 
 def test_generation_failure_is_reported(monkeypatch, tmp_path):
