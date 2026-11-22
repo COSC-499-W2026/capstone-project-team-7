@@ -10,6 +10,7 @@ from class_enrollment import router as class_enrollment_router
 from class_roster import router as class_roster_router
 from database import get_connection
 from game_session import router as game_session_router
+from hunt_progress import router as hunt_progress_router
 from game_listens import router as game_listens_router
 from student_progress import router as student_progress_router
 from hunt_assignment import router as hunt_assignment_router
@@ -53,6 +54,7 @@ app.include_router(class_enrollment_router)
 app.include_router(class_roster_router)
 app.include_router(student_enrollment_router)
 app.include_router(game_session_router)
+app.include_router(hunt_progress_router)
 app.include_router(game_listens_router)
 app.include_router(student_progress_router)
 app.include_router(hunt_assignment_router)

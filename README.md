@@ -338,11 +338,19 @@ Tests: `python -m pytest tests/backend/test_student_progress.py -v` with `TEST_D
 Errors: 401 no session, 403 students, admins, or another teacher's class, 404 `"Class not found"`, 422 invalid difficulty or due date, 503 database failure.
 `GET /api/teacher/classes/{uuid}/hunts` lists a class's hunts, newest first, each with `id`, `difficulty`, `due_date`, and `assigned_at`; no hunts returns `[]`.
 Errors: 401 no session, 403 students and admins, 404 `"Class not found"` (missing or another teacher's class), 503 database failure.
-`DELETE /api/teacher/classes/{uuid}/hunts/{hunt_uuid}` deletes a hunt and returns 204. Same errors, plus 404 `"Hunt not found"` if the hunt isn't in that class.
+`DELETE /api/teacher/classes/{uuid}/hunts/{hunt_uuid}` deletes a hunt and returns 204. Same errors, plus 404 `"Hunt not found"` if the hunt isn't in that class. Games played for a deleted hunt are kept but no longer linked to it.
 The teacher dashboard hides hunts whose due date has passed unless "Show past-due hunts" is ticked.
-`GET /api/student/hunts` lists hunts assigned to the student's classes, soonest due first, each with `id`, `class_id`, `class_name`, `language_code`, `difficulty`, and `due_date`. No hunts returns `[]`.
+`GET /api/student/hunts` lists hunts assigned to the student's classes, soonest due first, each with `id`, `class_id`, `class_name`, `language_code`, `difficulty`, `due_date`, and `completed` (`true` only if this student has a finished game for that hunt). No hunts returns `[]`.
 Missing sessions return 401, non-students get 403.
 Run `python -m pytest tests/backend/test_hunt_assignment.py tests/backend/test_student_hunts.py -v` with `TEST_DATABASE_URL` set.
+
+Games can be linked to the hunt they were played for (`game_sessions.hunt_id`; apply `015_hunt_games.sql`). Normal games started with `POST /api/game/start` are never linked.
+`POST /api/student/hunts/{hunt_uuid}/start` starts a game with the hunt's language and difficulty, links it to the hunt, and returns 201 with the same fields as starting a normal game.
+Errors: 401 no session, 403 non-students, 404 `"Hunt not found"` (missing, or for a class the student isn't enrolled in), 409 not enough locations for the language, 503 database failure.
+`GET /api/teacher/hunts/{hunt_uuid}/completion` lists every student enrolled in the hunt's class, by username, each with `username`, `status`, `best_points`, and `fastest_time` (seconds).
+`status` is `completed` if the student has a finished game for the hunt, `in_progress` if they only have unfinished ones, otherwise `not_started`. `best_points` and `fastest_time` come from their finished games for the hunt and are `null` unless completed. Quit games never count.
+Errors: 401 no session, 403 non-teachers, 404 `"Hunt not found"` (missing or another teacher's hunt), 503 database failure.
+Run `python -m pytest tests/backend/test_hunt_progress.py -v` with `TEST_DATABASE_URL` set.
 
 ### Teacher locations and audio API
 
