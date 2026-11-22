@@ -52,9 +52,9 @@ def is_mp3(data):
             and (header[2] >> 2) & 3 != SAMPLE_RATE_RESERVED)
 
 
-def save_audio(language_code, location, data):
+def save_audio(language_code, location, data, difficulty=Difficulty.BASIC):
     """Swap in a finished temp file, so a failed write leaves any existing clip playing."""
-    path = audio_path(language_code, location)
+    path = audio_path(language_code, location, difficulty)
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(f".{uuid4().hex}.tmp")
     try:
