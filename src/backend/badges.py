@@ -11,7 +11,7 @@ class Progress:
     """One student's progress in one language."""
     games_finished: int
     found: dict[str, int]  # distinct locations found at each difficulty
-    total_locations: int  # locations that have a clue in this language
+    total_locations: int  # locations with a base-game clue in this language
 
 
 @dataclass(frozen=True)
@@ -80,21 +80,21 @@ def all_badges(languages):
 def load_progress(connection, student_id, languages):
     """The student's progress in every language, keyed by language code."""
     totals = connection.execute(
-        "SELECT language_code, count(*) AS n FROM location_clues GROUP BY language_code",
+        "SELECT language_code, count(*) AS n FROM location_clues WHERE base_game GROUP BY language_code",
     ).fetchall()
     finished = connection.execute(
         """SELECT language_code, count(*) AS n FROM game_sessions
         WHERE student_id = %s AND finished_at IS NOT NULL GROUP BY language_code""",
         (student_id,),
     ).fetchall()
-    # Only locations that still have a clue in the game's language count towards finishing it.
+    # Only locations that still have a base-game clue in the game's language count; teacher-added ones don't.
     found = connection.execute(
         """SELECT game_sessions.language_code, game_sessions.difficulty,
             count(DISTINCT game_session_locations.location_id) AS n
         FROM game_sessions
         JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
         JOIN location_clues ON location_clues.location_id = game_session_locations.location_id
-            AND location_clues.language_code = game_sessions.language_code
+            AND location_clues.language_code = game_sessions.language_code AND location_clues.base_game
         WHERE game_sessions.student_id = %s AND game_session_locations.found_at IS NOT NULL
         GROUP BY game_sessions.language_code, game_sessions.difficulty""",
         (student_id,),
