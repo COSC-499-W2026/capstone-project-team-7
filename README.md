@@ -619,3 +619,5 @@ location matching a seeded target. Submit a freshly captured photo; then retry w
 faraway location or blocked location permission. Outside-radius readings must not award
 points, and blocked permission must prevent upload. The backend remains responsible for
 GPS accuracy/freshness checks and photo verification.
+
+After five minutes on the same clue, students receive a text hint based on a fresh GPS reading: within 10 metres is close, and farther away is too far. The timer resets when the clue is completed or skipped and continues while the student is away from the game. Location permission and a reading accurate to 10 metres are required; students can retry if the reading is unavailable or inaccurate. Hint audio is not yet included.

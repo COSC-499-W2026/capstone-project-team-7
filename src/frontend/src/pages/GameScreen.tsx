@@ -4,6 +4,7 @@ import { quitGame } from '../api/game'
 import { SessionEndedError } from '../api/sessionEnded'
 import CluePlayer from '../components/CluePlayer'
 import Stopwatch from '../components/Stopwatch'
+import ClueHint from '../components/ClueHint'
 
 interface Props {
   gameId: string
@@ -81,6 +82,8 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSe
       <h1>Spot {clue.position} of {clue.total_locations}</h1>
       <Stopwatch startSeconds={clue.elapsed_seconds} />
       {clue.building && <p>Building: {clue.building}</p>}
+
+      <ClueHint key={`${clue.position}-${clue.revision ?? 0}`} gameId={gameId} clue={clue} onSessionEnded={onSessionEnded} />
 
       <p>Listen to the clue:</p>
       <CluePlayer key={`${gameId}:${clue.position}:${clue.clue_id}`} gameId={gameId} clue={clue} />

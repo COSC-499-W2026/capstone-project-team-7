@@ -274,7 +274,8 @@ def test_student_gets_first_clue_without_the_room_number(game_db, client):
                                "clue_id": str(game_locations(game_id)[0]["location_id"]),
                                "audio_url": f"/api/game/{game_id}/clue/audio?position=1",
                                "revision": 0, "audio_url": f"/api/game/{game_id}/clue/audio?position=1&revision=0",
-                               "elapsed_seconds": response.json()["elapsed_seconds"]}
+                               "elapsed_seconds": response.json()["elapsed_seconds"],
+                               "clue_elapsed_seconds": response.json()["clue_elapsed_seconds"]}
     assert 0 <= response.json()["elapsed_seconds"] <= 2
 
 
@@ -288,6 +289,8 @@ def test_skip_replaces_only_the_current_spot(game_db, client, monkeypatch, tmp_p
     monkeypatch.setattr(game_session, "audio_path", lambda *_: tmp_path / "replacement.mp3")
     if spare_has_audio:
         (tmp_path / "replacement.mp3").touch()
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET clue_started_at = now() - interval '10 minutes' WHERE id = %s", (game_id,))
     skip_url = f"/api/game/{game_id}/skip?position=1&revision=0"
     response = client.post(skip_url)
     if not spare_has_audio:
@@ -297,6 +300,7 @@ def test_skip_replaces_only_the_current_spot(game_db, client, monkeypatch, tmp_p
     assert response.status_code == 200
     assert response.json()["position"] == 1
     assert response.json()["revision"] == 1
+    assert client.get(clue_url(game_id)).json()["clue_elapsed_seconds"] < 5
     assert game_locations(game_id) == [{"position": 1, "location_id": spare}, *before[1:]]
     assert client.post(skip_url).status_code == 409
     second = client.post(f"/api/game/{game_id}/skip?position=1&revision=1")
@@ -416,13 +420,17 @@ def spot(game_id, position):
 
 def test_correct_answer_moves_to_next_spot(game_db, client):
     game_id = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET clue_started_at = now() - interval '10 minutes' WHERE id = %s", (game_id,))
     response = answer(client, game_id)
     assert response.status_code == 200
     assert response.json() == {"correct": True, "attempts": 1, "finished": False, "next_position": 2,
                                "points_awarded": 10, "total_points": 10, "final_time_seconds": None,
                                "message": "Correct room!"}
     assert spot(game_id, 1)["found_at"] is not None
-    assert client.get(clue_url(game_id)).json()["position"] == 2
+    next_clue = client.get(clue_url(game_id)).json()
+    assert next_clue["position"] == 2
+    assert next_clue["clue_elapsed_seconds"] < 5
 
 
 @pytest.mark.parametrize("difficulty,points", [("basic", 10), ("advanced", 20), ("expert", 30)])
