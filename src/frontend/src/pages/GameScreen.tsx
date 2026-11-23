@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getClue, skipClue, type Clue } from '../api/clue'
 import { quitGame } from '../api/game'
 import { SessionEndedError } from '../api/sessionEnded'
+import CluePlayer from '../components/CluePlayer'
 import Stopwatch from '../components/Stopwatch'
 
 interface Props {
@@ -82,7 +83,7 @@ export default function GameScreen({ gameId, notice, onSubmitPhoto, onBack, onSe
       {clue.building && <p>Building: {clue.building}</p>}
 
       <p>Listen to the clue:</p>
-      <audio key={clue.audio_url} controls src={clue.audio_url} />
+      <CluePlayer key={`${gameId}:${clue.position}:${clue.clue_id}`} gameId={gameId} clue={clue} />
 
       <p>
         <button onClick={() => onSubmitPhoto(clue)} disabled={skipping || quitting}>Submit photo</button>

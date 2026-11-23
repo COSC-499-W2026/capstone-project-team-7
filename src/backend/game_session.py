@@ -147,6 +147,7 @@ def clue_response(game_id, location):
     # The room number is never sent as text, and the audio link doesn't contain it either.
     return {
         "position": location["current_position"],
+        "clue_id": location["location_id"],
         "revision": location["revision"],
         "total_locations": LOCATIONS_PER_HUNT,
         # Basic only tests numbers, so it gets the building; Advanced and Expert must work it out from the clue.

@@ -398,7 +398,9 @@ Basic clips keep `<language>/<building>-<room>.mp3`; Advanced and Expert use
 A missing clip never falls back to another difficulty. Unsupported stored difficulties return
 500 with a friendly message. Games still start at Basic until difficulty selection is connected.
 
-`POST /api/game/{game_id}/listen` counts one play of the current clue's audio; call it each time the student presses play. It adds 1 to that spot's `listens` in a single update, so plays at the same moment are all counted, and returns `position` and the new `listens` count. Every spot starts at 0 listens. It counts presses of play rather than audio downloads, because browsers can download the same audio more than once. Missing/invalid/expired sessions return 401, non-students get 403, another student's game or an unknown id returns 404 `"Game not found"`, a finished or quit game returns 409, and database failures return 503. Apply `014_clue_listens.sql`. Run `python -m pytest tests/backend/test_game_listens.py -v` with `TEST_DATABASE_URL` set.
+`POST /api/game/{game_id}/listen` increments the clue's `listens` counter and returns the position and new count. The game screen sends the clue's `position` and `clue_id` when audio begins playing. Replaying after the clip ends counts again; pausing and resuming counts as the same play. Replays are unlimited and playback continues if recording fails.
+
+A finished game, quit game, or mismatched clue returns 409. Missing or expired sessions return 401, non-students get 403, an unknown or unowned game returns 404, and database failures return 503. Apply `014_clue_listens.sql` and run `python -m pytest tests/backend/test_game_listens.py -v` with `TEST_DATABASE_URL` set.
 
 `POST /api/game/{game_id}/answer` takes the photo as the request body (e.g. `Content-Type: image/jpeg`, up to 5 MiB).
 Each valid photo counts an attempt per spot, including incorrect/unreadable photos. A correct match awards points based on the game's stored difficulty and that spot's submission attempt: 100% of maximum points on the first attempt, 60% on the second, and 30% on the third and later attempts:

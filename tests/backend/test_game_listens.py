@@ -104,6 +104,16 @@ def test_only_the_current_location_goes_up(users, client):
     assert listens(game_id) == {1: 0, 2: 1, 3: 0, 4: 0, 5: 0}
 
 
+def test_play_for_the_wrong_clue_is_not_counted(users, client):
+    game_id = start(client)
+    clue = client.get(f"/api/game/{game_id}/clue").json()
+    url = f"/api/game/{game_id}/listen"
+    assert client.post(url, params={"position": 1, "clue_id": uuid4()}).status_code == 409
+    assert client.post(url, params={"position": 2, "clue_id": clue["clue_id"]}).status_code == 409
+    assert listens(game_id)[1] == 0
+    assert client.post(url, params={"position": 1, "clue_id": clue["clue_id"]}).json()["listens"] == 1
+
+
 def test_someone_elses_game_is_refused(users, client):
     other_game = start(client, "other")
     client.cookies.clear()
