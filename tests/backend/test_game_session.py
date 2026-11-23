@@ -633,3 +633,36 @@ def test_missing_gps_is_rejected(client):
     finally:
         app.dependency_overrides.clear()
     assert response.status_code == 422
+
+
+def test_skipped_clue_listens_do_not_follow_replacement_into_debrief(game_db, client):
+    add_locations(6, "fr")
+    login(client)
+    game_id = client.post(URL).json()["game_id"]
+    original_id = game_locations(game_id)[0]["location_id"]
+    listen_url = f"/api/game/{game_id}/listen"
+    assert client.post(listen_url).status_code == 200
+    assert client.post(listen_url).json()["listens"] == 2
+    assert client.post(f"/api/game/{game_id}/skip?position=1&revision=0").status_code == 200
+    replacement_id = game_locations(game_id)[0]["location_id"]
+    assert replacement_id != original_id
+    assert client.post(listen_url).json()["listens"] == 1
+    assert answer(client, game_id).status_code == 200
+    assert client.post(listen_url).status_code == 200
+    assert client.post(listen_url).status_code == 200
+    with get_connection() as db:
+        replacement = db.execute("SELECT building, room_number FROM locations WHERE id = %s", (replacement_id,)).fetchone()
+        struggled = db.execute("SELECT building, room_number FROM locations WHERE id = %s",
+                               (game_locations(game_id)[1]["location_id"],)).fetchone()
+    for _ in range(4):
+        result = answer(client, game_id)
+        assert result.status_code == 200
+    assert result.json()["finished"] is True
+    debrief = client.get("/api/student/debrief")
+    assert debrief.status_code == 200
+    assert debrief.json()["completed_hunts"] == 1
+    difficulties = debrief.json()["difficulties"]
+    assert len(difficulties) == 1
+    assert (difficulties[0]["building"], difficulties[0]["room_number"]) == (struggled["building"], struggled["room_number"])
+    assert (difficulties[0]["building"], difficulties[0]["room_number"]) != (replacement["building"], replacement["room_number"])
+    assert difficulties[0]["listens"] == 2
