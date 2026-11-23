@@ -84,7 +84,7 @@ def test_endpoint_returns_debrief_and_uses_student_id(monkeypatch):
             return {"completed_hunts": 1}
 
         def fetchall(self):
-            return [difficulty]
+            return [{**difficulty, "struggled": True}]
 
     class Connection:
         def __enter__(self):
@@ -107,7 +107,8 @@ def test_endpoint_returns_debrief_and_uses_student_id(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {"completed_hunts": 1, "difficulties": [difficulty]}
     assert len(calls) == 2
-    assert all(params == (student_id,) for _, params in calls)
+    assert calls[0][1] == (student_id,)
+    assert calls[1][1] == (student_id, False)
 
 
 def test_endpoint_requires_login():

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from database import get_connection
 from student_enrollment import require_student
 from teacher_access import database_unavailable
+from utils.completed_locations import completed_location_activity, progress_locations
 
 router = APIRouter(prefix="/api/student/progress", tags=["student"])
 
@@ -21,21 +22,8 @@ def progress_details(user=Depends(require_student)):
                 ORDER BY finished_at DESC, id""",
                 (user["id"],),
             ).fetchall()
-            # Only finished games, so a room number is never shown for a spot the student hasn't found yet.
-            hardest_locations = connection.execute(
-                """SELECT locations.building, locations.room_number, game_sessions.language_code,
-                    game_sessions.difficulty, SUM(game_session_locations.listens)::int AS listens
-                FROM game_session_locations
-                JOIN game_sessions ON game_sessions.id = game_session_locations.game_session_id
-                JOIN locations ON locations.id = game_session_locations.location_id
-                WHERE game_sessions.student_id = %s AND game_sessions.finished_at IS NOT NULL
-                GROUP BY locations.id, game_sessions.language_code, game_sessions.difficulty
-                HAVING SUM(game_session_locations.listens) > 0
-                ORDER BY SUM(game_session_locations.listens) DESC, SUM(game_session_locations.attempts) DESC,
-                    locations.building, locations.room_number
-                LIMIT 3""",
-                (user["id"],),
-            ).fetchall()
+            activity = completed_location_activity(connection, user["id"], include_quit=True)
+            hardest_locations = progress_locations(activity)
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None
 
