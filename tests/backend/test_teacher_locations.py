@@ -11,6 +11,8 @@ from utils.audio_storage import audio_path
 MP3 = bytes.fromhex("fff364c4") + b"new clip"
 OLD_CLIP = bytes.fromhex("fff364c4") + b"old clip"
 COM = {"building": "COM", "room_number": "316"}
+BASIC_ONLY = {"basic": True, "advanced": False, "expert": False}
+NO_AUDIO = {"basic": False, "advanced": False, "expert": False}
 
 
 @pytest.fixture
@@ -28,8 +30,8 @@ def add_location(building, room_number, language_code="fr"):
     return str(location_id)
 
 
-def add_old_clip():
-    path = audio_path("fr", COM)
+def add_old_clip(difficulty="basic"):
+    path = audio_path("fr", COM, difficulty)
     path.parent.mkdir(parents=True)
     path.write_bytes(OLD_CLIP)
     return path
@@ -39,8 +41,9 @@ def locations_url(class_id):
     return f"/api/teacher/classes/{class_id}/locations"
 
 
-def upload(client, class_id, location_id, data=MP3):
-    return client.put(f"{locations_url(class_id)}/{location_id}/audio", content=data,
+def upload(client, class_id, location_id, data=MP3, difficulty=None):
+    params = {"difficulty": difficulty} if difficulty else None
+    return client.put(f"{locations_url(class_id)}/{location_id}/audio", content=data, params=params,
                       headers={"Content-Type": "audio/mpeg"})
 
 
@@ -53,8 +56,17 @@ def test_list_shows_class_language_locations_and_audio_status(access_db, audio_d
     response = client.get(locations_url(access_db))
     assert response.status_code == 200
     assert response.json() == [
-        {"id": com, "building": "COM", "room_number": "316", "has_audio": True},
-        {"id": lib, "building": "LIB", "room_number": "312", "has_audio": False},
+        {"id": com, "building": "COM", "room_number": "316", "audio": BASIC_ONLY},
+        {"id": lib, "building": "LIB", "room_number": "312", "audio": NO_AUDIO},
+    ]
+
+
+def test_list_shows_each_difficulty_separately(access_db, audio_dir, client):
+    com = add_location("COM", "316")
+    add_old_clip("expert")
+    login(client)
+    assert client.get(locations_url(access_db)).json() == [
+        {"id": com, **COM, "audio": {"basic": False, "advanced": False, "expert": True}},
     ]
 
 
@@ -68,8 +80,36 @@ def test_upload_adds_a_clip_and_marks_the_location(access_db, audio_dir, client)
     login(client)
     response = upload(client, access_db, location_id)
     assert response.status_code == 200
-    assert response.json() == {"id": location_id, **COM, "has_audio": True}
+    assert response.json() == {"id": location_id, **COM, "audio": BASIC_ONLY}
     assert audio_path("fr", COM).read_bytes() == MP3
+
+
+@pytest.mark.parametrize("difficulty", ["advanced", "expert"])
+def test_upload_saves_the_clip_for_the_chosen_difficulty(access_db, audio_dir, client, difficulty):
+    location_id = add_location("COM", "316")
+    basic = add_old_clip()
+    login(client)
+    response = upload(client, access_db, location_id, difficulty=difficulty)
+    assert response.status_code == 200
+    assert response.json()["audio"] == {"basic": True, "advanced": difficulty == "advanced",
+                                        "expert": difficulty == "expert"}
+    assert audio_path("fr", COM, difficulty).read_bytes() == MP3
+    assert basic.read_bytes() == OLD_CLIP
+
+
+def test_upload_with_basic_difficulty_saves_the_basic_clip(access_db, audio_dir, client):
+    location_id = add_location("COM", "316")
+    login(client)
+    assert upload(client, access_db, location_id, difficulty="basic").status_code == 200
+    assert audio_path("fr", COM).read_bytes() == MP3
+
+
+def test_unknown_difficulty_is_rejected_and_nothing_is_saved(access_db, audio_dir, client):
+    location_id = add_location("COM", "316")
+    login(client)
+    response = upload(client, access_db, location_id, difficulty="hard")
+    assert response.status_code == 422
+    assert not any(audio_dir.rglob("*.mp3"))
 
 
 def test_upload_replaces_an_existing_clip(access_db, audio_dir, client):

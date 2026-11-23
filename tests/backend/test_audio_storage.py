@@ -30,6 +30,13 @@ def test_save_audio_replaces_the_clip_and_leaves_no_temp_file(monkeypatch, tmp_p
     assert [path.name for path in (tmp_path / "fr").iterdir()] == ["COM-316.mp3"]
 
 
+def test_save_audio_for_a_difficulty_goes_in_its_folder(monkeypatch, tmp_path):
+    monkeypatch.setenv("AUDIO_DIR", str(tmp_path))
+    save_audio("fr", LOCATION, b"expert clip", "expert")
+    assert (tmp_path / "fr" / "expert" / "COM-316.mp3").read_bytes() == b"expert clip"
+    assert not audio_path("fr", LOCATION).exists()
+
+
 def test_audio_is_named_by_building_and_room():
     assert audio_filename(LOCATION) == "COM-316.mp3"
 

@@ -19,6 +19,7 @@ from utils.answer_location import validate_answer_location
 from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
 from utils.audio_storage import audio_path
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
+from utils.ready_locations import ready_location_ids
 from utils.request_body import read_limited_body
 from utils.scoring import points_for_attempt, points_for_difficulty
 
@@ -32,18 +33,22 @@ class StartGameRequest(BaseModel):
 
 @router.post("/start", status_code=201, summary="Start a game with five random locations")
 def start_game(info: StartGameRequest = StartGameRequest(), user=Depends(require_student)):
+    return create_game(user["id"], info)
+
+
+def create_game(student_id, info: StartGameRequest, hunt_id=None):
+    """Start a game for the student. hunt_id links it to an assigned hunt; normal games have none."""
     try:
         with get_connection() as connection:
-            # Only locations with a clue in this language, so no clue is ever blank.
-            rows = connection.execute(
-                "SELECT location_id FROM location_clues WHERE language_code = %s", (info.language_code,),
-            ).fetchall()
-            location_ids = pick_locations([row["location_id"] for row in rows])
+            location_ids = pick_locations(ready_location_ids(connection, info.language_code, info.difficulty))
             game = connection.execute(
                 """INSERT INTO game_sessions (student_id, language_code, difficulty)
                 VALUES (%s, %s, %s) RETURNING id, language_code, difficulty, current_position""",
-                (user["id"], info.language_code, info.difficulty.value),
+                (student_id, info.language_code, info.difficulty.value),
             ).fetchone()
+            # Same transaction as the insert, so a hunt game is never saved without its hunt.
+            if hunt_id is not None:
+                connection.execute("UPDATE game_sessions SET hunt_id = %s WHERE id = %s", (hunt_id, game["id"]))
             for position, location_id in enumerate(location_ids, start=1):
                 connection.execute(
                     """INSERT INTO game_session_locations (game_session_id, position, location_id)
@@ -85,7 +90,7 @@ def current_location(game_id, student_id):
         with get_connection() as connection:
             location = connection.execute(
                 """SELECT game_sessions.language_code, game_sessions.current_position, game_sessions.finished_at,
-                game_session_locations.location_id,
+                game_session_locations.location_id, cardinality(game_session_locations.skipped_location_ids) AS revision,
                 game_sessions.quit_at, game_sessions.difficulty, locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
                 FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.started_at))::int AS elapsed_seconds
                 FROM game_sessions
@@ -135,16 +140,63 @@ def quit_game(game_id: UUID, user=Depends(require_student)):
 @router.get("/{game_id}/clue", summary="The current clue: the building and where to get its audio")
 def current_clue(game_id: UUID, user=Depends(require_student)):
     location = current_location(game_id, user["id"])
+    return clue_response(game_id, location)
+
+
+def clue_response(game_id, location):
     # The room number is never sent as text, and the audio link doesn't contain it either.
     return {
         "position": location["current_position"],
         "clue_id": location["location_id"],
+        "revision": location["revision"],
         "total_locations": LOCATIONS_PER_HUNT,
         # Basic only tests numbers, so it gets the building; Advanced and Expert must work it out from the clue.
         "building": location["building"] if location["difficulty"] == Difficulty.BASIC else None,
-        "audio_url": f"/api/game/{game_id}/clue/audio?position={location['current_position']}",
+        "audio_url": f"/api/game/{game_id}/clue/audio?position={location['current_position']}&revision={location['revision']}",
         "elapsed_seconds": location["elapsed_seconds"],
     }
+
+
+@router.post("/{game_id}/skip", summary="Replace the current hunt location")
+def skip_location(game_id: UUID, position: Annotated[int, Query(ge=1, le=LOCATIONS_PER_HUNT)],
+                  revision: Annotated[int, Query(ge=0)], user=Depends(require_student)):
+    location = current_location(game_id, user["id"])
+    if (position, revision) != (location["current_position"], location["revision"]):
+        raise HTTPException(status_code=409, detail="The clue has changed. Reload the hunt to continue.")
+    try:
+        with get_connection() as connection:
+            # Answers also lock the location row before updating the game.
+            spot = connection.execute(
+                """SELECT location_id FROM game_session_locations
+                WHERE game_session_id = %s AND position = %s AND location_id = %s AND found_at IS NULL FOR UPDATE""",
+                (game_id, position, location["location_id"]),
+            ).fetchone()
+            game = connection.execute(
+                """SELECT id FROM game_sessions WHERE id = %s AND current_position = %s
+                AND finished_at IS NULL AND quit_at IS NULL FOR UPDATE""", (game_id, position),
+            ).fetchone()
+            if spot is None or game is None:
+                raise HTTPException(status_code=409, detail="The clue has changed. Reload the hunt to continue.")
+            candidates = connection.execute(
+                """SELECT locations.* FROM locations JOIN location_clues ON location_clues.location_id = locations.id
+                WHERE location_clues.language_code = %s AND locations.latitude IS NOT NULL
+                  AND NOT EXISTS (SELECT 1 FROM game_session_locations AS used
+                    WHERE used.game_session_id = %s
+                    AND (used.location_id = locations.id OR locations.id = ANY(used.skipped_location_ids)))
+                ORDER BY random()""", (location["language_code"], game_id),
+            ).fetchall()
+            replacement = next((candidate for candidate in candidates
+                                if audio_path(location["language_code"], candidate, location["difficulty"]).is_file()), None)
+            if replacement is None:
+                raise HTTPException(status_code=409, detail="No other playable location is available for this hunt.")
+            connection.execute(
+                """UPDATE game_session_locations SET skipped_location_ids = array_append(skipped_location_ids, location_id),
+                location_id = %s, attempts = 0 WHERE game_session_id = %s AND position = %s""",
+                (replacement["id"], game_id, position),
+            )
+    except (psycopg.Error, RuntimeError):
+        raise database_unavailable() from None
+    return clue_response(game_id, {**location, "building": replacement["building"], "revision": revision + 1})
 
 
 @router.get("/{game_id}/clue/audio", summary="Play the audio for the current clue")
@@ -187,8 +239,9 @@ def submit_answer(game_id: UUID, reading: Annotated[LocationReading, Query()],
             spot = connection.execute(
                 """UPDATE game_session_locations
                 SET attempts = attempts + 1, found_at = CASE WHEN %s THEN now() ELSE found_at END
-                WHERE game_session_id = %s AND position = %s AND found_at IS NULL RETURNING attempts""",
-                (correct, game_id, position),
+                WHERE game_session_id = %s AND position = %s AND location_id = %s
+                AND found_at IS NULL RETURNING attempts""",
+                (correct, game_id, position, location["location_id"]),
             ).fetchone()
             if spot is None:
                 raise HTTPException(status_code=409, detail="This spot was already answered")
@@ -198,7 +251,7 @@ def submit_answer(game_id: UUID, reading: Annotated[LocationReading, Query()],
                 """UPDATE game_sessions
                 SET current_position = LEAST(current_position + %s, %s), points = points + %s,
                     finished_at = CASE WHEN %s AND current_position = %s THEN now() ELSE finished_at END
-                WHERE id = %s AND student_id = %s AND current_position = %s AND finished_at IS NULL
+                WHERE id = %s AND student_id = %s AND current_position = %s AND finished_at IS NULL AND quit_at IS NULL
                 RETURNING current_position, finished_at, points,
                     FLOOR(EXTRACT(EPOCH FROM finished_at - started_at))::int AS final_time_seconds""",
                 (int(correct), LOCATIONS_PER_HUNT, awarded, correct, LOCATIONS_PER_HUNT,

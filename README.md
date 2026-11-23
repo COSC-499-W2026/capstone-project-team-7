@@ -81,10 +81,10 @@ The Level 1 DFD breaks the main system process into its major functional areas, 
 The larger Level 1 processes are broken down further in their own diagrams:
 
 - **1.0 Authenticate User**: Accounts, login, sessions, and password resets. [Authentication DFD](./docs/design/DFDs/auth-dfd.png)
-- **5.0 Play Game**: Starting a game, clues and audio, GPS and photo checks, and points. [Game DFD](./docs/design/DFDs/game-dfd.png)
-- **9.0 Class Management**: Classes, rosters, joining by code, and assigned hunts. [Class DFD](./docs/design/DFDs/class-dfd.png)
-- **10.0 User Management**: Approving teacher emails and managing accounts and classes. [User DFD](./docs/design/DFDs/user-dfd.png)
-- **11.0 Manage Level Content**: Adding locations and audio. [Levels DFD](./docs/design/DFDs/levels-dfd.png)
+- **2.0 Play Game**: Starting a game, clues and audio, GPS and photo checks, and points. [Game DFD](./docs/design/DFDs/game-dfd.png)
+- **5.0 Class Management**: Classes, rosters, joining by code, and assigned hunts. [Class DFD](./docs/design/DFDs/class-dfd.png)
+- **6.0 Manage Level Content**: Adding locations and audio. [Levels DFD](./docs/design/DFDs/levels-dfd.png)
+- **7.0 User Management**: Approving teacher emails and managing accounts and classes. [User DFD](./docs/design/DFDs/user-dfd.png)
 
 ## Run the Backend and PostgreSQL Locally
 
@@ -320,6 +320,17 @@ Equal scores share ranks (1, 1, 3), ordered by username within ties.
 Errors: 401 unauthenticated, 403 wrong role/not enrolled, 404 class missing, 422 invalid UUID, 503 database unavailable.
 Tests: `python -m pytest tests/backend/test_student_leaderboard.py -q` (set `TEST_DATABASE_URL` for SQL coverage).
 
+### My progress API
+
+`GET /api/student/progress/details` returns the logged-in student's own progress for the "My progress" page, as plain numbers and names (the frontend writes the sentences).
+Only finished games count; unfinished and quit games are left out.
+Returns `total_points`, `games_finished`, and `games`: every finished game, newest first, with `finished_at`, `language_code`, `difficulty`, `points`, and `time_seconds` (finished minus started).
+`fastest_game` and `slowest_game` use the same fields and are `null` when there are no finished games.
+`hardest_locations` is the top 3 locations by clue listens (see `POST /api/game/{game_id}/listen`), each with `building`, `room_number`, `language_code`, `difficulty`, and `listens`; ties go to more photo attempts, and locations with 0 listens are left out. Only finished games count here, so a room is never shown for a spot the student hasn't found yet.
+`per_language` gives `games_finished` and `points` for each language played. A student with no finished games gets zeros, empty lists, and `null`s.
+Errors: 401 unauthenticated, 403 not a student, 503 database unavailable.
+Tests: `python -m pytest tests/backend/test_student_progress.py -v` with `TEST_DATABASE_URL` set.
+
 ### Assigned hunts API
 
 `POST /api/teacher/classes/{uuid}/hunts` with `{"difficulty": "basic", "due_date": "2026-11-30"}` assigns a hunt to a class the teacher owns and returns 201 with `id`, `class_id`, `language_code`, `difficulty`, and `due_date`.
@@ -327,18 +338,32 @@ Tests: `python -m pytest tests/backend/test_student_leaderboard.py -q` (set `TES
 Errors: 401 no session, 403 students, admins, or another teacher's class, 404 `"Class not found"`, 422 invalid difficulty or due date, 503 database failure.
 `GET /api/teacher/classes/{uuid}/hunts` lists a class's hunts, newest first, each with `id`, `difficulty`, `due_date`, and `assigned_at`; no hunts returns `[]`.
 Errors: 401 no session, 403 students and admins, 404 `"Class not found"` (missing or another teacher's class), 503 database failure.
-`DELETE /api/teacher/classes/{uuid}/hunts/{hunt_uuid}` deletes a hunt and returns 204. Same errors, plus 404 `"Hunt not found"` if the hunt isn't in that class.
+`DELETE /api/teacher/classes/{uuid}/hunts/{hunt_uuid}` deletes a hunt and returns 204. Same errors, plus 404 `"Hunt not found"` if the hunt isn't in that class. Games played for a deleted hunt are kept but no longer linked to it.
 The teacher dashboard hides hunts whose due date has passed unless "Show past-due hunts" is ticked.
-`GET /api/student/hunts` lists hunts assigned to the student's classes, soonest due first, each with `id`, `class_id`, `class_name`, `language_code`, `difficulty`, and `due_date`. No hunts returns `[]`.
+`GET /api/student/hunts` lists hunts assigned to the student's classes, soonest due first, each with `id`, `class_id`, `class_name`, `language_code`, `difficulty`, `due_date`, and `completed` (`true` only if this student has a finished game for that hunt). No hunts returns `[]`.
 Missing sessions return 401, non-students get 403.
 Run `python -m pytest tests/backend/test_hunt_assignment.py tests/backend/test_student_hunts.py -v` with `TEST_DATABASE_URL` set.
 
+Games can be linked to the hunt they were played for (`game_sessions.hunt_id`; apply `015_hunt_games.sql`). Normal games started with `POST /api/game/start` are never linked.
+`POST /api/student/hunts/{hunt_uuid}/start` starts a game with the hunt's language and difficulty, links it to the hunt, and returns 201 with the same fields as starting a normal game.
+Errors: 401 no session, 403 non-students, 404 `"Hunt not found"` (missing, or for a class the student isn't enrolled in), 409 not enough locations for the language, 503 database failure.
+`GET /api/teacher/hunts/{hunt_uuid}/completion` lists every student enrolled in the hunt's class, by username, each with `username`, `status`, `best_points`, and `fastest_time` (seconds).
+`status` is `completed` if the student has a finished game for the hunt, `in_progress` if they only have unfinished ones, otherwise `not_started`. `best_points` and `fastest_time` come from their finished games for the hunt and are `null` unless completed. Quit games never count.
+Errors: 401 no session, 403 non-teachers, 404 `"Hunt not found"` (missing or another teacher's hunt), 503 database failure.
+Run `python -m pytest tests/backend/test_hunt_progress.py -v` with `TEST_DATABASE_URL` set.
+
 ### Teacher locations and audio API
 
-`GET /api/teacher/classes/{uuid}/locations` lists the locations with a clue in the class's language, each with `id`, `building`, `room_number`, and `has_audio`.
-`PUT /api/teacher/classes/{uuid}/locations/{location_id}/audio` with an MP3 as the raw request body (`Content-Type: audio/mpeg`, up to 5 MB) adds or replaces that location's clip and returns the location. Clips are shared by every class using that location.
-Errors: 401 no session, 403 not a teacher, 404 `"Class not found"` (including another teacher's class) or `"Location not found"`, 413 file too large, 422 `"Please upload an MP3 file"`, 503 database or file storage failure. A rejected or failed upload leaves the existing clip in place.
+`GET /api/teacher/classes/{uuid}/locations` lists the locations with a clue in the class's language, each with `id`, `building`, `room_number`, and `audio`, which says whether each difficulty has a clip (`{"basic": true, "advanced": false, "expert": false}`).
+`PUT /api/teacher/classes/{uuid}/locations/{location_id}/audio` with an MP3 as the raw request body (`Content-Type: audio/mpeg`, up to 5 MB) adds or replaces that location's clip and returns the location. Add `?difficulty=advanced` or `?difficulty=expert` to save that level's clip; without it the Basic clip is saved. Games play the clip for their difficulty. Clips are shared by every class using that location.
+On the teacher dashboard, the Clue audio section lists what each location has and is missing, and has a Difficulty dropdown for uploads.
+Errors: 401 no session, 403 not a teacher, 404 `"Class not found"` (including another teacher's class) or `"Location not found"`, 413 file too large, 422 `"Please upload an MP3 file"` or an unknown difficulty, 503 database or file storage failure. A rejected or failed upload leaves the existing clip in place.
 Run `python -m pytest tests/backend/test_teacher_locations.py tests/backend/test_audio_storage.py -v` with `TEST_DATABASE_URL` set.
+
+`POST /api/teacher/classes/{uuid}/locations` with `{"building": "LIB", "room_number": "305", "number_text": "trois cent cinq", "description_text": "...", "latitude": 49.9401, "longitude": -119.3956}` adds a location with a clue in the class's language and returns 201 with `id`, `building`, `room_number`, `latitude`, `longitude`, and `radius_metres`.
+The building is saved in uppercase, and the building and room must be ones the photo check can read (for example `COM 316` or `EME 1101`). Latitude and longitude are required, since a location can't be edited yet; the arrival radius is 50 metres for every location. If the room already exists, the clue is added to it and its GPS target is left as it was. Locations are shared by every class in that language, and each records the teacher who added it. Teacher-added clues are saved with `base_game` false, and badges don't count them.
+Errors: 401 no session, 403 not a teacher, 404 `"Class not found"` (including another teacher's class), 409 `"This room already has a clue in this language"`, 422 invalid building, room, clue text or coordinates, 503 database failure.
+Run `python -m pytest tests/backend/test_location_creation.py -v` with `TEST_DATABASE_URL` set.
 
 ### Game session API
 
@@ -351,15 +376,15 @@ The form retains selections after an error and disables its controls while start
 both choices on the game, selecting locations only from that language's clue pool.
 Omitting the body or either field defaults to French (`fr`) and Basic for existing clients.
 Unsupported values, null fields, and extra fields return 422. A language with fewer than five
-clue locations returns 409 without creating a game. Audio availability is checked at playback;
+ready locations returns 409 without creating a game.
 Only French locations are seeded for the demo. Advanced/Expert audio needs the generator
 from #209 run first; serving difficulty-specific audio is covered by #208.
-The backend picks 5 random locations that have a clue in the selected language and saves them in order in `game_sessions` and `game_session_locations`.
+The backend picks 5 random ready locations and saves them in order in `game_sessions` and `game_session_locations`. A location is ready when it has a clue in the selected language, a GPS target, and a clip for the selected difficulty, so a game never reaches a room it can't play. Without the generated Advanced and Expert clips, those difficulties return 409 locally.
 Success returns 201 with `game_id`, `language_code`, `difficulty`, `current_position` (1), and `total_locations` (5); locations and clues are not returned.
-Fewer than 5 locations for the selected language returns 409 `"Not enough locations for this language yet"` and saves nothing.
+Fewer than 5 ready locations returns 409 `"Not enough locations for this language yet"` and saves nothing.
 Missing/invalid/expired sessions return 401, non-students get 403, and database failures return 503. Deleting a student keeps their games with no student linked.
 
-Run `python -m pytest tests/backend/test_game_session.py tests/backend/test_start_game_choices.py -v` with `TEST_DATABASE_URL` set.
+Run `python -m pytest tests/backend/test_game_session.py tests/backend/test_start_game_choices.py tests/backend/test_ready_locations.py -v` with `TEST_DATABASE_URL` set.
 
 `GET /api/game/ongoing` lists the student's unfinished games, newest first, each with `game_id`, `language_code`, `difficulty`, `current_position`, `total_locations`, and `started_at`. Finished games, quit games and other students' games are never listed; no unfinished games returns `[]`. Missing sessions return 401, non-students get 403, and database failures return 503. The student dashboard shows these under "Ongoing games" with a Resume button that opens the game at its current clue. There is no limit on unfinished games yet.
 
@@ -394,7 +419,7 @@ Errors: 422 no photo, 413 photo too large, 404 not your game, 409 game finished 
 
 ### Badges API
 
-Each language has a First hunt badge (finish 1 game), one badge per difficulty (e.g. `fr_basic` "Baguette Buddy": find every location with a French clue in Basic games), and a Master badge (e.g. `fr_master` "Eiffel Elite": earn First hunt and every difficulty badge in that language). Names come from the badge designs (`BADGE_NAMES` in `badges.py`).
+Each language has a First hunt badge (finish 1 game), one badge per difficulty (e.g. `fr_basic` "Baguette Buddy": find every location with a French base-game clue in Basic games; teacher-added clues don't count), and a Master badge (e.g. `fr_master` "Eiffel Elite": earn First hunt and every difficulty badge in that language). Names come from the badge designs (`BADGE_NAMES` in `badges.py`).
 Languages are read from the `languages` table, so a new language gets badges automatically, with plain names like "Italian First Hunt" until design names are added.
 The "Polyglot Legend" badge (id `polyglot`, `language` is `null`) is earned by finishing a game in every language in the database.
 Badges are listed in `src/backend/badges.py`; add one with one line there. Apply `008_student_badges.sql`.
@@ -418,6 +443,11 @@ Run `python -m pytest tests/backend/test_icon_store.py -v`; the database tests n
 
 ### Demo locations and audio
 
+During a hunt, **Skip location** replaces the current stop without requiring a failed attempt.
+The replacement must have a GPS target and audio for the hunt’s language and difficulty.
+The hunt keeps its current position, elapsed time, and points. If no unused stop is available,
+the current clue stays in place. A five-stop hunt needs a sixth playable location to test skipping.
+
 After running migrations, add the 5 demo locations and their French clues (safe to run again):
 
 ```sh
@@ -428,14 +458,12 @@ The French audio clues live in `src/backend/audio/fr/`, named by building and ro
 Docker bind-mounts that folder into the backend at `/app/audio` (`AUDIO_DIR` in `compose.yaml`), so the clips are not built into the image.
 Adding or replacing a file there plays straight away, with no rebuild. Outside Docker, set `AUDIO_DIR` to use another folder.
 To remake them: `pip install edge-tts`, then `cd src/backend && python -m utils.generate_audio`.
-The generator now produces all three difficulties using the shared clue rules:
-Basic contains only `number_text`, Advanced combines `number_text` and `description_text`,
-and Expert contains only `description_text`. Required text must not be blank.
+The French demo generator reads the scripts from `src/backend/utils/seed_locations.py`.
+Basic speaks the room number, Advanced gives directions followed by that number,
+and Expert tells a room-specific story with details players can use to infer the room.
 Basic keeps its existing path (`fr/COM-316.mp3`); Advanced and Expert use
 `fr/advanced/COM-316.mp3` and `fr/expert/COM-316.mp3` under `AUDIO_DIR` (or the default audio folder).
-Gameplay still plays Basic audio; selecting clips using a game's difficulty is follow-up work.
-The demo descriptions need review before Expert gameplay: LIB 312 and LIB 317 currently share
-the same description, so audio generation alone does not make them distinguishable.
+The game plays the clip for its saved difficulty. Regenerate the audio after changing the scripts.
 Tests: `python -m pytest tests/backend/test_audio_storage.py tests/backend/test_seed_locations.py tests/backend/test_generate_audio.py -v` (seed tests need `TEST_DATABASE_URL`).
 
 ### Current user API

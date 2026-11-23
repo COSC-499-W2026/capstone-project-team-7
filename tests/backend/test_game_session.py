@@ -10,8 +10,10 @@ from psycopg.conninfo import make_conninfo
 
 import game_session
 from database import get_connection
+from difficulties import Difficulty
 from main import app
 from migrate import apply_migrations
+from utils.audio_storage import audio_path
 from utils.passwords import hash_password
 
 URL = "/api/game/start"
@@ -19,8 +21,10 @@ PASSWORD = "test-password"
 
 
 @pytest.fixture
-def game_db(monkeypatch):
+def game_db(monkeypatch, tmp_path):
     monkeypatch.setattr(game_session, "check_answer", lambda photo, location: True)
+    # Its own folder, so tests that point AUDIO_DIR at tmp_path start with no clips.
+    monkeypatch.setenv("AUDIO_DIR", str(tmp_path / "clips"))
     url = os.getenv("TEST_DATABASE_URL")
     if not url:
         pytest.skip("Set TEST_DATABASE_URL to run game session integration tests")
@@ -57,8 +61,26 @@ def login(client, role="student"):
     assert response.status_code == 200, response.text
 
 
+CLIP = bytes.fromhex("fff364c4") + b"clip"
+
+
+def add_clips(language_code="fr", difficulties=tuple(Difficulty)):
+    """Write a clip for each difficulty for every location with a clue in the language, into AUDIO_DIR."""
+    # Never write into the real audio folder.
+    assert os.getenv("AUDIO_DIR"), "Set AUDIO_DIR to a temp folder first"
+    with get_connection() as db:
+        locations = db.execute("""SELECT building, room_number FROM locations
+            JOIN location_clues ON location_clues.location_id = locations.id
+            WHERE language_code = %s""", (language_code,)).fetchall()
+    for location in locations:
+        for difficulty in difficulties:
+            path = audio_path(language_code, location, difficulty)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(CLIP)
+
+
 def add_locations(count, language):
-    """Create locations that only have a clue in one language; return their ids."""
+    """Create locations that only have a clue in one language, ready to play when AUDIO_DIR is set; return their ids."""
     with get_connection() as db:
         ids = []
         for _ in range(count):
@@ -67,7 +89,10 @@ def add_locations(count, language):
             db.execute("""INSERT INTO location_clues (location_id, language_code, number_text, description_text)
                 VALUES (%s, %s, 'cent', 'une salle')""", (location_id, language))
             ids.append(location_id)
-        return ids
+    # Tests that never start a game (badges) have no temp audio folder and need no clips.
+    if os.getenv("AUDIO_DIR"):
+        add_clips(language)
+    return ids
 
 
 def game_locations(game_id):
@@ -248,8 +273,34 @@ def test_student_gets_first_clue_without_the_room_number(game_db, client):
     assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
                                "clue_id": str(game_locations(game_id)[0]["location_id"]),
                                "audio_url": f"/api/game/{game_id}/clue/audio?position=1",
+                               "revision": 0, "audio_url": f"/api/game/{game_id}/clue/audio?position=1&revision=0",
                                "elapsed_seconds": response.json()["elapsed_seconds"]}
     assert 0 <= response.json()["elapsed_seconds"] <= 2
+
+
+@pytest.mark.parametrize("spare_has_audio", [True, False])
+def test_skip_replaces_only_the_current_spot(game_db, client, monkeypatch, tmp_path, spare_has_audio):
+    pool = add_locations(6, "fr")
+    login(client)
+    game_id = client.post(URL).json()["game_id"]
+    before = game_locations(game_id)
+    spare = (set(pool) - {row["location_id"] for row in before}).pop()
+    monkeypatch.setattr(game_session, "audio_path", lambda *_: tmp_path / "replacement.mp3")
+    if spare_has_audio:
+        (tmp_path / "replacement.mp3").touch()
+    skip_url = f"/api/game/{game_id}/skip?position=1&revision=0"
+    response = client.post(skip_url)
+    if not spare_has_audio:
+        assert response.status_code == 409
+        assert game_locations(game_id) == before
+        return
+    assert response.status_code == 200
+    assert response.json()["position"] == 1
+    assert response.json()["revision"] == 1
+    assert game_locations(game_id) == [{"position": 1, "location_id": spare}, *before[1:]]
+    assert client.post(skip_url).status_code == 409
+    second = client.post(f"/api/game/{game_id}/skip?position=1&revision=1")
+    assert second.status_code == 409  # The first skipped room cannot come back.
 
 
 def started_ago(game_id, seconds):

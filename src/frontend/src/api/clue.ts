@@ -10,6 +10,16 @@ export interface Clue {
   building: string | null
   audio_url: string
   elapsed_seconds: number
+  revision?: number
+}
+
+export async function skipClue(gameId: string, clue: Clue): Promise<Clue> {
+  const res = await fetch(`/api/game/${encodeURIComponent(gameId)}/skip?position=${clue.position}&revision=${clue.revision ?? 0}`,
+    { method: 'POST' })
+  if (res.status === 401) throw new SessionEndedError()
+  if (res.status === 409) throw new Error((await res.json()).detail)
+  if (!res.ok) throw new Error('Could not skip the location, please try again')
+  return res.json() as Promise<Clue>
 }
 
 export async function recordCluePlay(gameId: string, clue: Clue): Promise<void> {
