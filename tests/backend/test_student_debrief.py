@@ -82,7 +82,8 @@ def test_database_failure_is_safe(monkeypatch):
 def test_endpoint_returns_debrief_and_uses_student_id(monkeypatch):
     student_id = uuid4()
     difficulty = {"building": "A", "room_number": "101", "language_code": "fr", "difficulty": "basic",
-                  "hunts": 1, "listens": 2, "attempts": 1, "extra_attempts": 0}
+                  "hunts": 1, "listens": 2, "attempts": 1, "extra_attempts": 0,
+                  "number_text": "cent un", "description_text": "près de la porte"}
     calls = []
 
     class Result:
@@ -90,7 +91,7 @@ def test_endpoint_returns_debrief_and_uses_student_id(monkeypatch):
             return {"completed_hunts": 1}
 
         def fetchall(self):
-            return [difficulty]
+            return [{**difficulty, "struggled": True}]
 
     class Connection:
         def __enter__(self):
@@ -113,7 +114,8 @@ def test_endpoint_returns_debrief_and_uses_student_id(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {"completed_hunts": 1, "difficulties": [difficulty]}
     assert len(calls) == 2
-    assert all(params == (student_id,) for _, params in calls)
+    assert calls[0][1] == (student_id,)
+    assert calls[1][1] == (student_id, False)
 
 
 def test_endpoint_requires_login():
