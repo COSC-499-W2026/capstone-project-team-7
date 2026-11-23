@@ -17,6 +17,7 @@ interface Props {
   onLogout: () => void
   onOpenBadges: () => void
   onOpenLeaderboard: () => void
+  onOpenDebrief: () => void
 }
 
 // Buttons for features we haven't built yet. They show but can't be clicked.
@@ -28,7 +29,7 @@ export function welcomeText(username: string) {
 }
 
 export default function StudentDashboard({
-  onOpenGame, onOpenStore, onLogout, onOpenBadges, onOpenLeaderboard,
+  onOpenGame, onOpenStore, onLogout, onOpenBadges, onOpenLeaderboard, onOpenDebrief,
 }: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -97,7 +98,8 @@ export default function StudentDashboard({
         {' '}<button onClick={onOpenStore} disabled={busy}>Store</button>
       </p>
 
-      <p><button onClick={onOpenLeaderboard}>Leaderboard</button></p>
+      <p><button onClick={onOpenLeaderboard}>Leaderboard</button>
+        {' '}<button onClick={onOpenDebrief}>Hunt debrief</button></p>
       <h2>Coming soon</h2>
       {COMING_SOON.map((label) => (
         <p key={label}>

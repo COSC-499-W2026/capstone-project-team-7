@@ -3,7 +3,7 @@ from utils.completed_locations import debrief_locations, progress_locations
 
 def location(building, listens, attempts, hunts=1, struggled=None):
     return {"building": building, "room_number": "101", "language_code": "fr", "difficulty": "basic",
-            "hunts": hunts, "listens": listens, "attempts": attempts,
+            "hunts": hunts, "listens": listens, "attempts": attempts, "number_text": None, "description_text": None,
             "extra_attempts": max(attempts - hunts, 0),
             "struggled": (listens > 1 or attempts > 1) if struggled is None else struggled}
 

@@ -5,6 +5,7 @@ import { getCurrentUser } from './api/currentUser'
 import type { StartGameResult } from './api/game'
 import { SessionEndedError } from './api/sessionEnded'
 import BadgesPage from './pages/BadgesPage'
+import DebriefPage from './pages/DebriefPage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import FinishedScreen from './pages/FinishedScreen'
 import GameScreen from './pages/GameScreen'
@@ -32,6 +33,7 @@ export default function App() {
   const [inStore, setInStore] = useState(false)
   const [showBadges, setShowBadges] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [showDebrief, setShowDebrief] = useState(false)
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
     getCurrentUser()
@@ -43,6 +45,7 @@ export default function App() {
   // useCallback keeps it the same function, so GameScreen doesn't reload the clue on every render.
   const sessionEnded = useCallback(() => {
     setShowLeaderboard(false)
+    setShowDebrief(false)
     setGame(null)
     setPhotoFor(null)
     setNotice('')
@@ -111,9 +114,13 @@ export default function App() {
     )
   }
 
+  if (role === 'student' && showDebrief) {
+    return <DebriefPage onBack={() => setShowDebrief(false)} onSessionEnded={sessionEnded} />
+  }
+
   if (game && finished) {
     return <FinishedScreen totalSpots={game.total_locations} totalPoints={totalPoints}
-      timeSeconds={finalTime} onBack={backToDashboard} />
+      timeSeconds={finalTime} onBack={backToDashboard} onDebrief={() => setShowDebrief(true)} />
   }
 
   if (game && photoFor) {
@@ -162,6 +169,7 @@ export default function App() {
       onLogout={() => setRole(null)}
       onOpenBadges={() => setShowBadges(true)}
       onOpenLeaderboard={() => setShowLeaderboard(true)}
+      onOpenDebrief={() => setShowDebrief(true)}
     />
   }
 

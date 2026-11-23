@@ -18,6 +18,11 @@ def test_completed_hunts_summarize_listens_and_attempts(users, client):
     add_game(users["student"], "2026-11-02", spots=[("D", 2, 1)])
     add_game(users["student"], None, spots=[("UNFINISHED", 20, 20)])
     add_game(users["other"], "2026-11-03", spots=[("OTHER", 20, 20)])
+    with get_connection() as db:
+        location = db.execute("SELECT id FROM locations WHERE building = 'B'").fetchone()["id"]
+        db.execute("""INSERT INTO location_clues (location_id, language_code, number_text, description_text)
+            VALUES (%s, 'fr', 'cent un', 'près de la porte'), (%s, 'es', 'ciento uno', 'cerca')""",
+            (location, location))
     login(client)
     response = client.get(URL)
     assert response.status_code == 200
@@ -27,6 +32,7 @@ def test_completed_hunts_summarize_listens_and_attempts(users, client):
     assert body["difficulties"][0] == {
         "building": "B", "room_number": "101", "language_code": "fr", "difficulty": "basic",
         "hunts": 1, "listens": 0, "attempts": 3, "extra_attempts": 2,
+        "number_text": "cent un", "description_text": "près de la porte",
     }
 
 
@@ -43,7 +49,7 @@ def test_debrief_aggregates_same_location_across_hunts(users, client):
     assert data["completed_hunts"] == 2
     assert data["difficulties"] == [{"building": "A", "room_number": "101", "language_code": "fr",
                                      "difficulty": "basic", "hunts": 2, "listens": 4,
-                                     "attempts": 5, "extra_attempts": 3}]
+                                     "attempts": 5, "extra_attempts": 3, "number_text": None, "description_text": None}]
 
 
 def test_no_completed_hunts_returns_empty_summary(users, client):
@@ -76,7 +82,8 @@ def test_database_failure_is_safe(monkeypatch):
 def test_endpoint_returns_debrief_and_uses_student_id(monkeypatch):
     student_id = uuid4()
     difficulty = {"building": "A", "room_number": "101", "language_code": "fr", "difficulty": "basic",
-                  "hunts": 1, "listens": 2, "attempts": 1, "extra_attempts": 0}
+                  "hunts": 1, "listens": 2, "attempts": 1, "extra_attempts": 0,
+                  "number_text": "cent un", "description_text": "près de la porte"}
     calls = []
 
     class Result:
