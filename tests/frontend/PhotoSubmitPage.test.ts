@@ -1,7 +1,8 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import FinishedScreen from '../../src/frontend/src/pages/FinishedScreen'
-import PhotoSubmitPage, { cameraErrorMessage } from '../../src/frontend/src/pages/PhotoSubmitPage'
+import PhotoSubmitPage from '../../src/frontend/src/pages/PhotoSubmitPage'
+import { cameraErrorMessage } from '../../src/frontend/src/hooks/useCameraCapture'
 
 function renderPhotoPage(sending = false) {
   return renderToStaticMarkup(createElement(PhotoSubmitPage, {

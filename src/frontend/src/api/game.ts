@@ -10,12 +10,26 @@ export interface StartGameResult {
   total_locations: number
 }
 
-export async function startGame(): Promise<StartGameResult> {
-  const res = await fetch('/api/game/start', { method: 'POST' })
+export async function startGame(languageCode = 'fr', difficulty = 'basic'): Promise<StartGameResult> {
+  const res = await fetch('/api/game/start', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ language_code: languageCode, difficulty }),
+  }).catch(() => { throw new Error('Could not start a game, please try again') })
 
   if (res.status === 401) throw new SessionEndedError()
   if (res.status === 409) throw new Error('Not enough locations for this language yet')
+  if (res.status === 422) throw new Error('Please choose a valid language and difficulty')
   if (!res.ok) throw new Error('Could not start a game, please try again')
 
   return res.json() as Promise<StartGameResult>
+}
+
+// Ends one of the student's unfinished games for good. The game is kept, but its points go back to 0.
+export async function quitGame(gameId: string): Promise<void> {
+  const res = await fetch(`/api/game/${encodeURIComponent(gameId)}/quit`, { method: 'POST' })
+    .catch(() => { throw new Error('Could not quit the game, please try again') })
+
+  if (res.status === 401) throw new SessionEndedError()
+  if (res.status === 409) throw new Error('This game has already ended')
+  if (!res.ok) throw new Error('Could not quit the game, please try again')
 }

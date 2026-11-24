@@ -1,11 +1,13 @@
 import bcrypt
 
+MAX_PASSWORD_BYTES = 72 # bcrypt only uses the first 72 bytes of a password.
+
 def validate_password(value: str) -> str:
     """Check blank passwords and bcrypt's byte limit without trimming the value."""
     if not value.strip():
         raise ValueError("Password must not be blank")
-    if len(value.encode("utf-8")) > 72:
-        raise ValueError("Password must not exceed 72 UTF-8 bytes")
+    if len(value.encode("utf-8")) > MAX_PASSWORD_BYTES:
+        raise ValueError(f"Password must not exceed {MAX_PASSWORD_BYTES} UTF-8 bytes")
     return value
 
 def hash_password(password: str) -> str:

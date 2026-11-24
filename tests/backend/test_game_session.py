@@ -10,8 +10,10 @@ from psycopg.conninfo import make_conninfo
 
 import game_session
 from database import get_connection
+from difficulties import Difficulty
 from main import app
 from migrate import apply_migrations
+from utils.audio_storage import audio_path
 from utils.passwords import hash_password
 
 URL = "/api/game/start"
@@ -19,8 +21,10 @@ PASSWORD = "test-password"
 
 
 @pytest.fixture
-def game_db(monkeypatch):
+def game_db(monkeypatch, tmp_path):
     monkeypatch.setattr(game_session, "check_answer", lambda photo, location: True)
+    # Its own folder, so tests that point AUDIO_DIR at tmp_path start with no clips.
+    monkeypatch.setenv("AUDIO_DIR", str(tmp_path / "clips"))
     url = os.getenv("TEST_DATABASE_URL")
     if not url:
         pytest.skip("Set TEST_DATABASE_URL to run game session integration tests")
@@ -57,8 +61,26 @@ def login(client, role="student"):
     assert response.status_code == 200, response.text
 
 
+CLIP = bytes.fromhex("fff364c4") + b"clip"
+
+
+def add_clips(language_code="fr", difficulties=tuple(Difficulty)):
+    """Write a clip for each difficulty for every location with a clue in the language, into AUDIO_DIR."""
+    # Never write into the real audio folder.
+    assert os.getenv("AUDIO_DIR"), "Set AUDIO_DIR to a temp folder first"
+    with get_connection() as db:
+        locations = db.execute("""SELECT building, room_number FROM locations
+            JOIN location_clues ON location_clues.location_id = locations.id
+            WHERE language_code = %s""", (language_code,)).fetchall()
+    for location in locations:
+        for difficulty in difficulties:
+            path = audio_path(language_code, location, difficulty)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(CLIP)
+
+
 def add_locations(count, language):
-    """Create locations that only have a clue in one language; return their ids."""
+    """Create locations that only have a clue in one language, ready to play when AUDIO_DIR is set; return their ids."""
     with get_connection() as db:
         ids = []
         for _ in range(count):
@@ -67,7 +89,10 @@ def add_locations(count, language):
             db.execute("""INSERT INTO location_clues (location_id, language_code, number_text, description_text)
                 VALUES (%s, %s, 'cent', 'une salle')""", (location_id, language))
             ids.append(location_id)
-        return ids
+    # Tests that never start a game (badges) have no temp audio folder and need no clips.
+    if os.getenv("AUDIO_DIR"):
+        add_clips(language)
+    return ids
 
 
 def game_locations(game_id):
@@ -105,6 +130,29 @@ def test_locations_without_french_clue_are_never_picked(game_db, client):
     response = client.post(URL)
     assert response.status_code == 201
     assert {row["location_id"] for row in game_locations(response.json()["game_id"])} == set(french)
+
+
+@pytest.mark.parametrize("difficulty", ["basic", "advanced", "expert"])
+def test_selected_language_and_difficulty_persist(game_db, client, difficulty):
+    spanish = add_locations(5, "es")
+    add_locations(5, "fr")
+    login(client)
+    response = client.post(URL, json={"language_code": "es", "difficulty": difficulty})
+    assert response.status_code == 201
+    game_id = response.json()["game_id"]
+    assert {row["location_id"] for row in game_locations(game_id)} == set(spanish)
+    with get_connection() as db:
+        saved = db.execute("SELECT language_code, difficulty FROM game_sessions WHERE id = %s", (game_id,)).fetchone()
+    assert saved == {"language_code": "es", "difficulty": difficulty}
+
+
+def test_selected_language_without_enough_locations_creates_no_game(game_db, client):
+    add_locations(5, "fr")
+    add_locations(4, "es")
+    login(client)
+    response = client.post(URL, json={"language_code": "es", "difficulty": "expert"})
+    assert response.status_code == 409
+    assert game_count() == 0
 
 
 def test_too_few_locations_returns_conflict(game_db, client):
@@ -223,9 +271,40 @@ def test_student_gets_first_clue_without_the_room_number(game_db, client):
     response = client.get(clue_url(game_id))
     assert response.status_code == 200
     assert response.json() == {"position": 1, "total_locations": 5, "building": "EME",
+                               "clue_id": str(game_locations(game_id)[0]["location_id"]),
                                "audio_url": f"/api/game/{game_id}/clue/audio?position=1",
-                               "elapsed_seconds": response.json()["elapsed_seconds"]}
+                               "revision": 0, "audio_url": f"/api/game/{game_id}/clue/audio?position=1&revision=0",
+                               "elapsed_seconds": response.json()["elapsed_seconds"],
+                               "clue_elapsed_seconds": response.json()["clue_elapsed_seconds"]}
     assert 0 <= response.json()["elapsed_seconds"] <= 2
+
+
+@pytest.mark.parametrize("spare_has_audio", [True, False])
+def test_skip_replaces_only_the_current_spot(game_db, client, monkeypatch, tmp_path, spare_has_audio):
+    pool = add_locations(6, "fr")
+    login(client)
+    game_id = client.post(URL).json()["game_id"]
+    before = game_locations(game_id)
+    spare = (set(pool) - {row["location_id"] for row in before}).pop()
+    monkeypatch.setattr(game_session, "audio_path", lambda *_: tmp_path / "replacement.mp3")
+    if spare_has_audio:
+        (tmp_path / "replacement.mp3").touch()
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET clue_started_at = now() - interval '10 minutes' WHERE id = %s", (game_id,))
+    skip_url = f"/api/game/{game_id}/skip?position=1&revision=0"
+    response = client.post(skip_url)
+    if not spare_has_audio:
+        assert response.status_code == 409
+        assert game_locations(game_id) == before
+        return
+    assert response.status_code == 200
+    assert response.json()["position"] == 1
+    assert response.json()["revision"] == 1
+    assert client.get(clue_url(game_id)).json()["clue_elapsed_seconds"] < 5
+    assert game_locations(game_id) == [{"position": 1, "location_id": spare}, *before[1:]]
+    assert client.post(skip_url).status_code == 409
+    second = client.post(f"/api/game/{game_id}/skip?position=1&revision=1")
+    assert second.status_code == 409  # The first skipped room cannot come back.
 
 
 def started_ago(game_id, seconds):
@@ -341,13 +420,17 @@ def spot(game_id, position):
 
 def test_correct_answer_moves_to_next_spot(game_db, client):
     game_id = start(client)
+    with get_connection() as db:
+        db.execute("UPDATE game_sessions SET clue_started_at = now() - interval '10 minutes' WHERE id = %s", (game_id,))
     response = answer(client, game_id)
     assert response.status_code == 200
     assert response.json() == {"correct": True, "attempts": 1, "finished": False, "next_position": 2,
                                "points_awarded": 10, "total_points": 10, "final_time_seconds": None,
                                "message": "Correct room!"}
     assert spot(game_id, 1)["found_at"] is not None
-    assert client.get(clue_url(game_id)).json()["position"] == 2
+    next_clue = client.get(clue_url(game_id)).json()
+    assert next_clue["position"] == 2
+    assert next_clue["clue_elapsed_seconds"] < 5
 
 
 @pytest.mark.parametrize("difficulty,points", [("basic", 10), ("advanced", 20), ("expert", 30)])
@@ -550,3 +633,36 @@ def test_missing_gps_is_rejected(client):
     finally:
         app.dependency_overrides.clear()
     assert response.status_code == 422
+
+
+def test_skipped_clue_listens_do_not_follow_replacement_into_debrief(game_db, client):
+    add_locations(6, "fr")
+    login(client)
+    game_id = client.post(URL).json()["game_id"]
+    original_id = game_locations(game_id)[0]["location_id"]
+    listen_url = f"/api/game/{game_id}/listen"
+    assert client.post(listen_url).status_code == 200
+    assert client.post(listen_url).json()["listens"] == 2
+    assert client.post(f"/api/game/{game_id}/skip?position=1&revision=0").status_code == 200
+    replacement_id = game_locations(game_id)[0]["location_id"]
+    assert replacement_id != original_id
+    assert client.post(listen_url).json()["listens"] == 1
+    assert answer(client, game_id).status_code == 200
+    assert client.post(listen_url).status_code == 200
+    assert client.post(listen_url).status_code == 200
+    with get_connection() as db:
+        replacement = db.execute("SELECT building, room_number FROM locations WHERE id = %s", (replacement_id,)).fetchone()
+        struggled = db.execute("SELECT building, room_number FROM locations WHERE id = %s",
+                               (game_locations(game_id)[1]["location_id"],)).fetchone()
+    for _ in range(4):
+        result = answer(client, game_id)
+        assert result.status_code == 200
+    assert result.json()["finished"] is True
+    debrief = client.get("/api/student/debrief")
+    assert debrief.status_code == 200
+    assert debrief.json()["completed_hunts"] == 1
+    difficulties = debrief.json()["difficulties"]
+    assert len(difficulties) == 1
+    assert (difficulties[0]["building"], difficulties[0]["room_number"]) == (struggled["building"], struggled["room_number"])
+    assert (difficulties[0]["building"], difficulties[0]["room_number"]) != (replacement["building"], replacement["room_number"])
+    assert difficulties[0]["listens"] == 2

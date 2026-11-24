@@ -32,7 +32,7 @@ test('gets the profile with the enrolled classes', async () => {
   const fetchMock = fakeBackend(200, profile)
 
   expect(await getProfile()).toEqual(profile)
-  expect(fetchMock).toHaveBeenCalledWith('/api/student/profile')
+  expect(fetchMock).toHaveBeenCalledWith('/api/student/profile', undefined)
 })
 
 test('says the session ended so the app can show the login page', async () => {

@@ -7,7 +7,7 @@ export interface TeacherClass {
   class_code: string
 }
 
-async function classResponse(options?: RequestInit, path = '') {
+export async function classResponse(options?: RequestInit, path = '') {
   const res = await fetch(`/api/teacher/classes${path}`, options)
     .catch(() => { throw new Error('Could not connect, please try again') })
   if (res.status === 401) throw new SessionEndedError()
@@ -36,6 +36,8 @@ export interface RosterStudent {
   first_name: string
   last_name: string
   student_number: string
+  status: 'enrolled' | 'unenrolled'
+  unenrolled_at: string | null
 }
 
 async function rosterResponse(classId: string, options?: RequestInit, studentId?: string) {

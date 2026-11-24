@@ -1,27 +1,43 @@
 import { useEffect, useState } from 'react'
+import { getStudentHunts, type StudentHunt } from '../api/assignHunt'
 import { startGame, type StartGameResult } from '../api/game'
 import { logout } from '../api/logout'
 import { getOngoingGames, type OngoingGame } from '../api/ongoingGames'
 import { getProfile, type StudentClass } from '../api/profile'
 import { SessionEndedError } from '../api/sessionEnded'
+import AssignedHunts from '../components/AssignedHunts'
 import JoinClass from '../components/JoinClass'
 import MyClasses from '../components/MyClasses'
 import OngoingGames from '../components/OngoingGames'
+import StartGameForm from '../components/StartGameForm'
 
 interface Props {
   onOpenGame: (game: StartGameResult) => void
+  onOpenStore: () => void
   onLogout: () => void
   onOpenBadges: () => void
+  onOpenLeaderboard: () => void
 }
 
 // Buttons for features we haven't built yet. They show but can't be clicked.
-const COMING_SOON = ['Choose language', 'Choose difficulty', 'My progress', 'Leaderboard']
+const COMING_SOON = ['My progress']
 
-export default function StudentDashboard({ onOpenGame, onLogout, onOpenBadges }: Props) {
+// e.g. "Welcome @learner"
+export function welcomeText(username: string) {
+  return `Welcome @${username}`
+}
+
+export default function StudentDashboard({
+  onOpenGame, onOpenStore, onLogout, onOpenBadges, onOpenLeaderboard,
+}: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [choosingGame, setChoosingGame] = useState(false)
   const [games, setGames] = useState<OngoingGame[]>([])
   const [classes, setClasses] = useState<StudentClass[] | null>(null)
+  const [hunts, setHunts] = useState<StudentHunt[] | null>(null)
+  // The student's own username and student number; null until the profile has loaded.
+  const [details, setDetails] = useState<{ username: string; studentNumber: string } | null>(null)
 
   function showError(err: unknown) {
     if (err instanceof SessionEndedError) onLogout()
@@ -29,7 +45,11 @@ export default function StudentDashboard({ onOpenGame, onLogout, onOpenBadges }:
   }
 
   function loadClasses() {
-    getProfile().then((profile) => setClasses(profile.classes)).catch(showError)
+    getProfile().then((profile) => {
+      setClasses(profile.classes)
+      setDetails({ username: profile.username, studentNumber: profile.student_number })
+    }).catch(showError)
+    getStudentHunts().then(setHunts).catch(showError)
   }
 
   // Load once when the dashboard opens; it opens again after every game, so the lists stay current.
@@ -53,21 +73,31 @@ export default function StudentDashboard({ onOpenGame, onLogout, onOpenBadges }:
   return (
     <main>
       <h1>Student dashboard</h1>
+      {details && <>
+        <p>{welcomeText(details.username)}</p>
+        <p>Student number: {details.studentNumber}</p>
+      </>}
 
-      <button onClick={() => run(async () => onOpenGame(await startGame()))} disabled={busy}>
+      {choosingGame ? <StartGameForm disabled={busy}
+        onStart={(language, difficulty) => run(async () => onOpenGame(await startGame(language, difficulty)))}
+        onCancel={() => { setChoosingGame(false); setError('') }} /> : <button onClick={() => { setError(''); setChoosingGame(true) }} disabled={busy}>
         Start game
-      </button>
+      </button>}
       {error && <p role="alert">{error}</p>}
 
       <OngoingGames games={games} disabled={busy} onResume={onOpenGame} />
 
       {classes && <MyClasses classes={classes} />}
+      {hunts && <AssignedHunts hunts={hunts} disabled={busy}
+        onPlay={(hunt) => run(async () => onOpenGame(await startGame(hunt.language_code, hunt.difficulty)))} />}
       <JoinClass onJoined={loadClasses} onSessionEnded={onLogout} />
 
       <p>
         <button onClick={onOpenBadges}>My badges</button>
+        {' '}<button onClick={onOpenStore} disabled={busy}>Store</button>
       </p>
 
+      <p><button onClick={onOpenLeaderboard}>Leaderboard</button></p>
       <h2>Coming soon</h2>
       {COMING_SOON.map((label) => (
         <p key={label}>

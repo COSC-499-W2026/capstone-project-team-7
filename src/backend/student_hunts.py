@@ -16,13 +16,15 @@ def assigned_hunts(user=Depends(require_student)):
         with get_connection() as connection:
             return connection.execute(
                 """SELECT assigned_hunts.id, classes.id AS class_id, classes.name AS class_name,
-                    assigned_hunts.language_code, assigned_hunts.difficulty, assigned_hunts.due_date
+                    assigned_hunts.language_code, assigned_hunts.difficulty, assigned_hunts.due_date,
+                    EXISTS (SELECT 1 FROM game_sessions WHERE game_sessions.hunt_id = assigned_hunts.id
+                        AND game_sessions.student_id = %s AND game_sessions.finished_at IS NOT NULL) AS completed
                 FROM assigned_hunts
                 JOIN classes ON classes.id = assigned_hunts.class_id
                 JOIN class_enrollments ON class_enrollments.class_id = classes.id
-                WHERE class_enrollments.student_id = %s
+                WHERE class_enrollments.student_id = %s AND class_enrollments.status = 'enrolled'
                 ORDER BY assigned_hunts.due_date NULLS LAST, assigned_hunts.assigned_at, assigned_hunts.id""",
-                (user["id"],),
+                (user["id"], user["id"]),
             ).fetchall()
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None

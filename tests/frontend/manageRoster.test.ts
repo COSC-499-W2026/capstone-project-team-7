@@ -4,9 +4,11 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { addStudent, getClassRoster, removeStudent } from '../../src/frontend/src/api/teacher'
 import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 import ClassRoster from '../../src/frontend/src/components/ClassRoster'
+import RemovedStudents from '../../src/frontend/src/components/RemovedStudents'
 
 afterEach(() => vi.unstubAllGlobals())
-const student = { student_id: 's1', first_name: 'Alex', last_name: 'Chen', student_number: '00123456' }
+const student = { student_id: 's1', first_name: 'Alex', last_name: 'Chen', student_number: '00123456',
+  status: 'enrolled', unenrolled_at: null }
 const operations = [() => getClassRoster('c1'), () => addStudent('c1', ' 00123456 '), () => removeStudent('c1', 's1')]
 
 test.each([
@@ -50,6 +52,19 @@ test('roster starts loading with enrollment disabled and explains account preser
   expect(html).toContain('Loading students...')
   expect(html).toContain('role="status"')
   expect(html).toContain('<button type="submit" disabled="">Add student</button>')
-  expect(html).toContain('Removing them keeps their account.')
+  expect(html).toContain('Removing them keeps their account and class history.')
   expect(html).not.toContain('No students enrolled yet.')
+  expect(html).not.toContain('Removed students')
+})
+
+test('removed students are listed with their removal date and no Remove button', () => {
+  const removed = [
+    { ...student, status: 'unenrolled', unenrolled_at: '2026-11-02T12:00:00Z' },
+    { ...student, student_id: 's2', first_name: 'Sam', last_name: 'Lee', student_number: '00654321', status: 'unenrolled', unenrolled_at: '2026-10-20T12:00:00Z' },
+  ] as const
+  const html = renderToStaticMarkup(createElement(RemovedStudents, { students: [...removed] }))
+  expect(html).toContain('aria-label="Removed students"')
+  expect(html).toContain('Alex Chen · 00123456 · Removed 2026-11-02')
+  expect(html).toContain('Sam Lee · 00654321 · Removed 2026-10-20')
+  expect(html).not.toContain('<button')
 })

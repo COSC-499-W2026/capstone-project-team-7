@@ -7,7 +7,7 @@ import psycopg
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from auth import current_user
+from auth import require_admin
 from database import get_connection
 
 router = APIRouter(prefix="/api/admin")
@@ -16,12 +16,6 @@ router = APIRouter(prefix="/api/admin")
 def database_unavailable():
     logging.getLogger(__name__).warning("Admin request failed: database unavailable")
     return HTTPException(status_code=503, detail="Database unavailable")
-
-
-def require_admin(user=Depends(current_user)):
-    """Only let logged-in admins through; current_user already rejects missing or expired sessions."""
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Forbidden")
 
 
 class TeacherAssignment(BaseModel):

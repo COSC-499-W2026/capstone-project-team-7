@@ -8,7 +8,7 @@ import psycopg
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from auth import current_user
+from auth import require_teacher
 from database import get_connection
 from schemas import RequiredText
 
@@ -24,13 +24,6 @@ class ClassCreate(BaseModel):
 def database_unavailable():
     logging.getLogger(__name__).warning("Teacher class access database operation failed")
     return HTTPException(status_code=503, detail="Database unavailable")
-
-
-def require_teacher(user=Depends(current_user)):
-    """Only let logged-in teachers through; current_user already rejects missing or expired sessions."""
-    if user["role"] != "teacher":
-        raise HTTPException(status_code=403, detail="Teacher access required")
-    return user
 
 
 def teacher_connection(user=Depends(require_teacher)):

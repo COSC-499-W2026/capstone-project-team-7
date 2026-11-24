@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { addStudent, getClassRoster, removeStudent, type RosterStudent } from '../api/teacher'
 import { SessionEndedError } from '../api/sessionEnded'
+import RemovedStudents from './RemovedStudents'
 
 interface Props { classId: string; disabled: boolean; onSessionEnded: () => void }
 
@@ -12,6 +13,8 @@ export default function ClassRoster({ classId, disabled, onSessionEnded }: Props
   const [attempt, setAttempt] = useState(0)
   const active = useRef(true)
   const inFlight = useRef(false)
+  const enrolled = students?.filter((student) => student.status === 'enrolled') ?? []
+  const removed = students?.filter((student) => student.status === 'unenrolled') ?? []
 
   function showError(err: unknown) {
     if (err instanceof SessionEndedError) onSessionEnded()
@@ -60,17 +63,18 @@ export default function ClassRoster({ classId, disabled, onSessionEnded }: Props
     <section aria-label="Class roster">
       <h2>Class roster</h2>
       {error && <p role="alert">{error} {students === null && <button disabled={disabled || busy} onClick={() => setAttempt(attempt + 1)}>Reload students</button>}</p>}
-      {students === null ? !error && <p role="status">Loading students...</p> : students.length === 0 ? <p>No students enrolled yet.</p> : <ul>
-        {students.map((student) => <li key={student.student_id}>
+      {students === null ? !error && <p role="status">Loading students...</p> : enrolled.length === 0 ? <p>No students enrolled yet.</p> : <ul>
+        {enrolled.map((student) => <li key={student.student_id}>
           {student.first_name} {student.last_name} · {student.student_number}{' '}
           <button disabled={disabled || busy} aria-label={`Remove ${student.first_name} ${student.last_name} from class`} onClick={() => handleRemove(student)}>Remove</button>
         </li>)}
       </ul>}
+      {removed.length > 0 && <RemovedStudents students={removed} />}
       <form onSubmit={handleAdd}>
         <p><label htmlFor="student-number">Student number </label><input id="student-number" value={number} onChange={(e) => setNumber(e.target.value)} required maxLength={30} disabled={disabled || busy || students === null} /></p>
         <button type="submit" disabled={disabled || busy || students === null || !number.trim()}>Add student</button>
       </form>
-      <p>Add a registered student by their student number. Removing them keeps their account.</p>
+      <p>Add a registered student by their student number. Removing them keeps their account and class history.</p>
     </section>
   )
 }

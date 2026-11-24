@@ -34,7 +34,7 @@ def test_student_sees_hunt_assigned_to_their_class(hunts_db, access_db, client):
     assert response.status_code == 200
     body = response.json()
     assert body == [{"id": body[0]["id"], "class_id": access_db, "class_name": "teacher",
-                     "language_code": "fr", "difficulty": "basic", "due_date": "2099-01-01"}]
+                     "language_code": "fr", "difficulty": "basic", "due_date": "2099-01-01", "completed": False}]
 
 
 def test_student_in_two_classes_sees_hunts_from_both(hunts_db, client):
@@ -51,6 +51,15 @@ def test_student_in_two_classes_sees_hunts_from_both(hunts_db, client):
 def test_hunts_from_other_classes_are_hidden(hunts_db, client):
     login(client, "student")
     assert "teacher2" not in [hunt["class_name"] for hunt in client.get(URL).json()]
+
+
+def test_hunts_from_a_class_the_student_was_removed_from_are_hidden(hunts_db, client):
+    with get_connection() as db:
+        db.execute("UPDATE class_enrollments SET status = 'unenrolled', unenrolled_at = now()")
+    login(client, "student")
+    response = client.get(URL)
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 def test_student_with_no_classes_gets_empty_list(access_db, client):

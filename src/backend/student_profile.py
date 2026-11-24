@@ -14,7 +14,8 @@ def profile(user=Depends(require_student)):
     try:
         with get_connection() as connection:
             account = connection.execute(
-                "SELECT username FROM users JOIN students ON students.user_id = users.id WHERE users.id = %s",
+                """SELECT username, students.student_number, equipped_icon_id FROM users
+                JOIN students ON students.user_id = users.id WHERE users.id = %s""",
                 (user["id"],),
             ).fetchone()
             if account is None:
@@ -22,7 +23,8 @@ def profile(user=Depends(require_student)):
             classes = connection.execute(
                 """SELECT classes.id, classes.name, classes.language_code
                 FROM classes JOIN class_enrollments ON class_enrollments.class_id = classes.id
-                WHERE class_enrollments.student_id = %s ORDER BY classes.name, classes.id""",
+                WHERE class_enrollments.student_id = %s AND class_enrollments.status = 'enrolled'
+                ORDER BY classes.name, classes.id""",
                 (user["id"],),
             ).fetchall()
             languages = connection.execute(
@@ -31,11 +33,11 @@ def profile(user=Depends(require_student)):
                     UNION
                     SELECT classes.language_code FROM classes
                     JOIN class_enrollments ON class_enrollments.class_id = classes.id
-                    WHERE class_enrollments.student_id = %s
+                    WHERE class_enrollments.student_id = %s AND class_enrollments.status = 'enrolled'
                 ) ORDER BY name""",
                 (user["id"], user["id"]),
             ).fetchall()
-            return {"username": account["username"], "classes": classes,
-                    "languages": languages, "profile_icon": None}
+            return {"username": account["username"], "student_number": account["student_number"], "classes": classes,
+                    "languages": languages, "profile_icon": account["equipped_icon_id"]}
     except (psycopg.Error, RuntimeError):
         raise HTTPException(status_code=503, detail="Database unavailable") from None

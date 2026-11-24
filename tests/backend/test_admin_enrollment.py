@@ -2,7 +2,6 @@ import os
 from hashlib import sha256
 from uuid import uuid4
 
-import psycopg
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -60,8 +59,9 @@ def enrolled(connection):
 
 def test_admin_enrolls_student_in_any_class(monkeypatch):
     class_id, student_id = uuid4(), uuid4()
-    # Rows: admin session, class, student.
-    connection = FakeConnection({"role": "admin"}, {"id": class_id}, {"user_id": student_id, "student_number": "12345678"})
+    # Rows: admin session, class, student, new enrollment.
+    connection = FakeConnection({"role": "admin"}, {"id": class_id},
+                                {"user_id": student_id, "student_number": "12345678"}, {"class_id": class_id})
     use_connection(monkeypatch, connection)
 
     response = enroll({"student_number": " 12345678 "}, class_id)
@@ -95,7 +95,8 @@ def test_unknown_student_returns_404(monkeypatch):
 
 def test_already_enrolled_returns_409(monkeypatch):
     student = {"user_id": uuid4(), "student_number": "12345678"}
-    connection = FakeConnection({"role": "admin"}, {"id": uuid4()}, student, psycopg.errors.UniqueViolation())
+    # The insert returns no row when the student is already enrolled.
+    connection = FakeConnection({"role": "admin"}, {"id": uuid4()}, student, None)
     use_connection(monkeypatch, connection)
 
     response = enroll()

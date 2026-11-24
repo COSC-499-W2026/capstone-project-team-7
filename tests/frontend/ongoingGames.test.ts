@@ -46,7 +46,7 @@ test('gets the ongoing games', async () => {
   const fetchMock = fakeBackend(200, [GAME])
 
   expect(await getOngoingGames()).toEqual([GAME])
-  expect(fetchMock).toHaveBeenCalledWith('/api/game/ongoing')
+  expect(fetchMock).toHaveBeenCalledWith('/api/game/ongoing', undefined)
 })
 
 test('says the session ended so the app can show the login page', async () => {

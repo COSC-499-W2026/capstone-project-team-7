@@ -20,7 +20,7 @@ def client(monkeypatch):
     app.dependency_overrides[auth.current_user] = lambda: USER
     class Connection(FakeConnection):
         def __init__(self):
-            self.results = [{"username": "learner"}, [], []]
+            self.results = [{"username": "learner", "student_number": "12345678", "equipped_icon_id": None}, [], []]
         def execute(self, query, params):
             assert all(value == USER["id"] for value in params)
             return self
@@ -40,6 +40,19 @@ def test_empty_profile(client):
     assert response.json()["username"] == "learner"
     assert response.json()["profile_icon"] is None
     assert response.json()["classes"] == response.json()["languages"] == []
+
+
+def test_profile_includes_student_number(client):
+    response = client.get(URL)
+    assert response.status_code == 200
+    assert response.json()["student_number"] == "12345678"
+
+
+def test_not_logged_in_gets_401_without_student_details(client):
+    app.dependency_overrides.clear()
+    response = client.get(URL)
+    assert response.status_code == 401
+    assert "student_number" not in response.json()
 
 
 @pytest.mark.parametrize("student_id", [str(USER["id"]), str(uuid4()), "invalid"])
@@ -102,7 +115,21 @@ def test_profile_with_classes_and_distinct_languages(enrollment_db):
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "student"
+    assert data["student_number"] == "12345678"
     assert data["profile_icon"] is None
     assert data["classes"] == [{"id": enrollment_db, "name": "French 101", "language_code": "fr"}]
     assert data["languages"] == [{"code": "fr", "name": "French"}, {"code": "ja", "name": "Japanese"}]
-    assert not {"password", "student_number", "email"} & data.keys()
+    assert not {"password", "email"} & data.keys()
+
+
+def test_profile_leaves_out_classes_the_student_was_removed_from(enrollment_db):
+    with get_connection() as db:
+        student = db.execute("SELECT id FROM users WHERE username = 'student'").fetchone()["id"]
+        db.execute("""INSERT INTO class_enrollments (class_id, student_id, status, unenrolled_at)
+            VALUES (%s, %s, 'unenrolled', now())""", (enrollment_db, student))
+    with TestClient(app, base_url="https://testserver") as client:
+        login(client)
+        response = client.get(URL)
+    assert response.status_code == 200
+    assert response.json()["classes"] == []
+    assert response.json()["languages"] == []

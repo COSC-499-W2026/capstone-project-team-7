@@ -5,13 +5,16 @@ import { getCurrentUser } from './api/currentUser'
 import type { StartGameResult } from './api/game'
 import { SessionEndedError } from './api/sessionEnded'
 import BadgesPage from './pages/BadgesPage'
+import LeaderboardPage from './pages/LeaderboardPage'
 import FinishedScreen from './pages/FinishedScreen'
 import GameScreen from './pages/GameScreen'
 import CreateAccountPage from './pages/CreateAccountPage'
 import LoginPage from './pages/LoginPage'
 import PhotoSubmitPage from './pages/PhotoSubmitPage'
+import StorePage from './pages/StorePage'
 import StudentDashboard from './pages/StudentDashboard'
 import TeacherDashboard from './pages/TeacherDashboard'
+import AdminDashboard from './pages/AdminDashboard'
 
 export default function App() {
   const [role, setRole] = useState<string | null>(null)
@@ -26,7 +29,9 @@ export default function App() {
   const [finalTime, setFinalTime] = useState(0)
   const [creatingAccount, setCreatingAccount] = useState(false)
   const [loginNotice, setLoginNotice] = useState('')
+  const [inStore, setInStore] = useState(false)
   const [showBadges, setShowBadges] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   // On page load, ask the backend if the login cookie is still valid.
   useEffect(() => {
     getCurrentUser()
@@ -37,6 +42,7 @@ export default function App() {
   // The login session ended mid-game, so drop the game and show the login page.
   // useCallback keeps it the same function, so GameScreen doesn't reload the clue on every render.
   const sessionEnded = useCallback(() => {
+    setShowLeaderboard(false)
     setGame(null)
     setPhotoFor(null)
     setNotice('')
@@ -135,19 +141,34 @@ export default function App() {
     )
   }
 
+  if (role === 'student' && showLeaderboard) {
+    return <LeaderboardPage onBack={() => setShowLeaderboard(false)} onSessionEnded={sessionEnded} />
+  }
+
+  if (role === 'student' && inStore) {
+    return <StorePage onBack={() => setInStore(false)}
+      onSessionEnded={() => { setInStore(false); setRole(null) }} />
+  }
+
   if (role === 'student' && showBadges) {
     return <BadgesPage onBack={() => setShowBadges(false)}
       onSessionEnded={() => { setShowBadges(false); setRole(null) }} />
   }
 
   if (role === 'student') {
-    return <StudentDashboard onOpenGame={setGame} onLogout={() => setRole(null)}
-      onOpenBadges={() => setShowBadges(true)} />
+    return <StudentDashboard
+      onOpenGame={setGame}
+      onOpenStore={() => setInStore(true)}
+      onLogout={() => setRole(null)}
+      onOpenBadges={() => setShowBadges(true)}
+      onOpenLeaderboard={() => setShowLeaderboard(true)}
+    />
   }
 
   if (role === 'teacher') return <TeacherDashboard onLogout={sessionEnded} />
 
-  // Admin dashboard comes later.
+  if (role === 'admin') return <AdminDashboard onLogout={sessionEnded} />
+
   return (
     <main>
       <h1>Logged in</h1>

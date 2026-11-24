@@ -15,8 +15,8 @@ from utils.ocr import InvalidPhoto, OCRUnavailable
 @pytest.fixture
 def api(monkeypatch):
     state = SimpleNamespace(candidates=[], queries=[], attempts=1, student=uuid4())
-    state.location = {"building": "LIB", "room_number": "308", "current_position": 1, "finished_at": None, "difficulty": "basic"}
-    state.location.update(latitude=49.94, longitude=-119.4, radius_metres=50)
+    state.location = {"building": "LIB", "room_number": "308", "current_position": 1, "finished_at": None, "quit_at": None, "difficulty": "basic"}
+    state.location.update(location_id=uuid4(), latitude=49.94, longitude=-119.4, radius_metres=50)
     state.game = {"current_position": 1, "finished_at": None, "points": 0, "final_time_seconds": None}
     connection = FakeConnection(None)
 
@@ -53,6 +53,7 @@ def test_photo_matches_owned_target_and_awards_only_correct_answers(api, buildin
     assert response.status_code == 200 and response.json()["correct"] == correct
     assert response.json()["points_awarded"] == response.json()["total_points"] == (10 if correct else 0)
     assert api.queries[0][1][1] == api.student and api.queries[2][1][-2:] == (api.student, 1)
+    assert api.queries[1][1][-1] == api.location["location_id"]
     assert api.queries[2][1][2] == (10 if correct else 0)
 
 

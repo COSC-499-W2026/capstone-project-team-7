@@ -6,7 +6,7 @@ import pytest
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
-from badges import award_badges
+from badges import all_badges, award_badges, load_languages, load_progress
 from database import get_connection
 from migrate import apply_migrations
 from test_game_session import add_locations
@@ -88,6 +88,35 @@ def test_french_progress_does_not_earn_spanish_badges(student):
     assert not any(badge.startswith("es_") for badge in saved_badges(student))
 
 
+def mark_teacher_added(location_ids):
+    with get_connection() as db:
+        db.execute("UPDATE location_clues SET base_game = FALSE WHERE location_id = ANY(%s)", (location_ids,))
+
+
+def progress(student_id):
+    with get_connection() as db:
+        return load_progress(db, student_id, load_languages(db))
+
+
+def test_adding_a_teacher_clue_leaves_badge_progress_unchanged(student):
+    play_game(student, "fr", "basic", add_locations(5, "fr"), found_count=5)
+    before = progress(student)
+    mark_teacher_added(add_locations(1, "fr"))
+
+    assert progress(student) == before
+    assert sorted(check_badges(student)) == ["fr_basic", "fr_first_hunt"]
+
+
+def test_finding_a_teacher_added_room_does_not_count_towards_a_badge(student):
+    base = add_locations(5, "fr")
+    teacher_room = add_locations(1, "fr")
+    mark_teacher_added(teacher_room)
+    play_game(student, "fr", "basic", base[:4] + teacher_room, found_count=5)
+
+    assert progress(student)["fr"].found == {"basic": 4}
+    assert check_badges(student) == ["fr_first_hunt"]
+
+
 def test_basic_and_advanced_only_does_not_earn_french_master(student):
     locations = add_locations(5, "fr")
     play_game(student, "fr", "basic", locations, found_count=5)
@@ -120,6 +149,14 @@ def test_finishing_games_in_all_six_languages_earns_polyglot(student):
 
     assert "polyglot" in check_badges(student)
     assert "polyglot" in saved_badges(student)
+
+
+def test_polyglot_is_named_polyglot_legend_and_keeps_its_saved_id():
+    # Earned badges are saved by id, so renaming must keep the id "polyglot".
+    names = {badge.id: badge.name for badge in all_badges({"fr": "French"})}
+
+    assert names["polyglot"] == "Polyglot Legend"
+    assert "Polyglot" not in names.values()
 
 
 def add_language(code, name):
