@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test, vi } from 'vitest'
 import { signup, signupAndLogin } from '../../src/frontend/src/api/signup'
-import CreateAccountPage from '../../src/frontend/src/pages/CreateAccountPage'
+import CreateAccountPage, { signupFields } from '../../src/frontend/src/pages/CreateAccountPage'
 import LoginPage from '../../src/frontend/src/pages/LoginPage'
 
 const info = {
@@ -128,4 +128,53 @@ test('the create account page asks for every signup field and links back to logi
     expect(html).toContain(`id="${id}"`)
   }
   expect(html).toContain('Back to login')
+})
+
+test('a teacher signup goes to the teacher endpoint without a student number', async () => {
+  const fetchMock = fakeBackend(201, { id: 'abc', role: 'teacher' })
+  const { student_number: _, ...teacherInfo } = info
+
+  await expect(signup(info, 'teacher')).resolves.toBeUndefined()
+  expect(fetchMock).toHaveBeenCalledWith('/api/auth/teacher/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(teacherInfo),
+  })
+})
+
+test('a teacher email that is not approved says to ask an admin', async () => {
+  fakeBackend(403, { detail: 'Error, unauthorized account' })
+
+  await expect(signup(info, 'teacher')).rejects.toThrow("This email hasn't been approved for a teacher account. Ask an admin to approve it.")
+})
+
+test('a teacher email already in use does not mention a student number', async () => {
+  fakeBackend(409, { detail: 'Email or username already in use' })
+
+  await expect(signup(info, 'teacher')).rejects.toThrow('That email or username is already in use.')
+})
+
+test('a new teacher account is logged straight in', async () => {
+  const fetchMock = fakeSignupThenLogin(201, 200)
+
+  await expect(signupAndLogin(info, 'teacher')).resolves.not.toBeNull()
+  expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/teacher/signup', expect.anything())
+  expect(fetchMock).toHaveBeenLastCalledWith('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: info.email, password: info.password }),
+  })
+})
+
+test('the create account page lets you choose student or teacher, with student picked first', () => {
+  const html = renderToStaticMarkup(createElement(CreateAccountPage, { onCreated: () => {}, onBack: () => {} }))
+  expect(html).toContain("I&#x27;m a student")
+  expect(html).toContain("I&#x27;m a teacher")
+  expect(html).toMatch(/checked="" value="student"/)
+  expect(html).not.toMatch(/checked="" value="teacher"/)
+})
+
+test('teachers are not asked for a student number, students are', () => {
+  expect(signupFields('student').map((field) => field.name)).toContain('student_number')
+  expect(signupFields('teacher').map((field) => field.name)).toEqual(['first_name', 'last_name', 'username', 'email', 'password'])
 })
