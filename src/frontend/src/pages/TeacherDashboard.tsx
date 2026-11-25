@@ -7,6 +7,7 @@ import ClassRoster from '../components/ClassRoster'
 import AssignHuntForm from '../components/AssignHuntForm'
 import ClueAudioForm from '../components/ClueAudioForm'
 import { languageName } from '../utils/languageName'
+import ClassReportPage from './ClassReportPage'
 
 export default function TeacherDashboard({ onLogout }: { onLogout: () => void }) {
   const [classes, setClasses] = useState<TeacherClass[] | null>(null)
@@ -14,6 +15,7 @@ export default function TeacherDashboard({ onLogout }: { onLogout: () => void })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  const [reportFor, setReportFor] = useState<TeacherClass | null>(null)
   const inFlight = useRef(false)
   const selected = classes?.find((item) => item.id === selectedId)
 
@@ -43,6 +45,8 @@ export default function TeacherDashboard({ onLogout }: { onLogout: () => void })
     } finally { inFlight.current = false; setBusy(false) }
   }
 
+  if (reportFor) return <ClassReportPage classroom={reportFor} onBack={() => setReportFor(null)} onSessionEnded={onLogout} />
+
   return (
     <main>
       <h1>Teacher dashboard</h1>
@@ -53,6 +57,7 @@ export default function TeacherDashboard({ onLogout }: { onLogout: () => void })
         <select id="teacher-class" value={selectedId} disabled={busy} onChange={(e) => setSelectedId(e.target.value)}>
           {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
+        {selected && <> <button onClick={() => setReportFor(selected)} disabled={busy}>View report</button></>}
         {selected && <p>Language: {languageName(selected.language_code)} · Class code: <strong>{selected.class_code}</strong></p>}
         {selected && <ClassRoster key={`roster-${selected.id}`} classId={selected.id} disabled={busy} onSessionEnded={onLogout} />}
         {selected && <AssignHuntForm key={`hunt-${selected.id}`} classId={selected.id} disabled={busy} onSessionEnded={onLogout} />}
