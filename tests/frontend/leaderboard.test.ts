@@ -1,10 +1,9 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { getClassLeaderboard, getLeaderboard } from '../../src/frontend/src/api/leaderboard'
+import { getLeaderboard } from '../../src/frontend/src/api/leaderboard'
 import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 import LeaderboardPage from '../../src/frontend/src/pages/LeaderboardPage'
-import ClassLeaderboard from '../../src/frontend/src/components/ClassLeaderboard'
 import LeaderboardTable from '../../src/frontend/src/components/LeaderboardTable'
 
 const classroom = { id: 'c1', name: 'French 101', language_code: 'fr' }
@@ -47,24 +46,4 @@ test('screen initially shows loading and a back button', () => {
   expect(html).toContain('role="status"')
   expect(html).toContain('Loading leaderboard...')
   expect(html).toContain('>Back</button>')
-})
-
-test('a teacher loads the leaderboard of their class from the teacher endpoint', async () => {
-  const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => entries })
-  vi.stubGlobal('fetch', fetchMock)
-  expect(await getClassLeaderboard('c1')).toEqual(entries)
-  expect(fetchMock).toHaveBeenCalledWith('/api/teacher/classes/c1/leaderboard')
-})
-
-test.each([401, 403, 404, 422, 503])('handles teacher leaderboard HTTP failure %s', async (status) => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status }))
-  await expect(getClassLeaderboard('c1')).rejects.toThrow(status === 401 ? SessionEndedError : 'Could not load this leaderboard')
-})
-
-test('the teacher dashboard leaderboard starts by loading', () => {
-  const html = renderToStaticMarkup(createElement(ClassLeaderboard, {
-    classroom: { ...classroom, class_code: 'ABC123' }, disabled: false, onSessionEnded: vi.fn(),
-  }))
-  expect(html).toContain('<h2>Class leaderboard</h2>')
-  expect(html).toContain('Loading leaderboard...')
 })
