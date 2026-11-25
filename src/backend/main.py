@@ -33,6 +33,7 @@ from teacher_locations import router as teacher_locations_router
 from location_creation import router as location_creation_router
 from student_deletion import router as student_deletion_router
 from teacher_deletion import router as teacher_deletion_router
+from teacher_report import router as teacher_report_router
 
 app = FastAPI()
 app.include_router(teacher_signup_router)
@@ -54,6 +55,7 @@ app.include_router(student_deletion_router)
 app.include_router(teacher_deletion_router)
 app.include_router(class_enrollment_router)
 app.include_router(class_roster_router)
+app.include_router(teacher_report_router)
 app.include_router(student_enrollment_router)
 app.include_router(game_session_router)
 app.include_router(hunt_progress_router)
