@@ -24,13 +24,14 @@ CLASS_GAMES = """class_games AS (
     WHERE e.class_id = %(class_id)s AND e.status = 'enrolled'
 )"""
 # Every clue a game showed: the one at each spot, plus the ones skipped there.
-# Skips from before migration 019 have no saved play count, so they show 0 plays.
+# Skips from before migrations 019 and 020 have no saved plays or attempts, so they show 0.
 CLUES = """clues AS (
     SELECT game_session_id, location_id, listens, attempts, 0 AS skipped FROM game_session_locations
     UNION ALL
-    SELECT gl.game_session_id, s.location_id, COALESCE(s.listens, 0), 0, 1
+    SELECT gl.game_session_id, s.location_id, COALESCE(s.listens, 0), COALESCE(s.attempts, 0), 1
     FROM game_session_locations gl,
-        unnest(gl.skipped_location_ids, gl.skipped_location_listens) AS s(location_id, listens)
+        unnest(gl.skipped_location_ids, gl.skipped_location_listens, gl.skipped_location_attempts)
+            AS s(location_id, listens, attempts)
 )"""
 
 

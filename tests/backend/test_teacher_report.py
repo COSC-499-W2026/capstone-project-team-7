@@ -5,9 +5,10 @@ from uuid import uuid4
 
 import pytest
 
+import game_session
 from database import get_connection
 from test_class_roster import add_student
-from test_game_session import URL as START_URL, add_locations, game_db, game_locations, login as student_login
+from test_game_session import URL as START_URL, add_locations, answer, game_db, game_locations, login as student_login
 from teacher_report import safe_cell
 from test_teacher_access import access_db, client, login
 
@@ -17,7 +18,7 @@ START = datetime(2026, 3, 1, 10, tzinfo=timezone.utc)
 
 
 def add_game(db, student, difficulty, minutes, points, spots, language="fr", quit=False):
-    """spots: (location_id, listens, attempts, skipped_location_ids, skipped_location_listens) per clue."""
+    """spots: (location_id, listens, attempts, skipped ids, skipped listens, skipped attempts) per clue."""
     end = START + timedelta(minutes=minutes)
     game = db.execute("""INSERT INTO game_sessions
         (student_id, language_code, difficulty, started_at, finished_at, quit_at, points)
@@ -25,7 +26,8 @@ def add_game(db, student, difficulty, minutes, points, spots, language="fr", qui
         (student, language, difficulty, START, None if quit else end, end if quit else None, points)).fetchone()["id"]
     for position, spot in enumerate(spots, start=1):
         db.execute("""INSERT INTO game_session_locations (game_session_id, position, location_id, listens, attempts,
-            skipped_location_ids, skipped_location_listens, found_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            skipped_location_ids, skipped_location_listens, skipped_location_attempts, found_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (game, position, *spot, None if quit else end))
 
 
@@ -38,10 +40,10 @@ def report_db(access_db):
         rooms = [db.execute("INSERT INTO locations (building, room_number) VALUES ('EME', %s) RETURNING id",
                             (room,)).fetchone()["id"] for room in ("101", "102", "103", "104")]
         a, b, c, d = rooms
-        add_game(db, amir, "basic", 10, 100, [(a, 2, 3, [c], [4]), (b, 1, 1, [], [])])
-        add_game(db, amir, "expert", 6, 200, [(a, 3, 2, [d], [])])  # a skip saved before migration 019
-        add_game(db, amir, "advanced", 3, 50, [(b, 5, 9, [c], [7])], quit=True)
-        add_game(db, amir, "advanced", 2, 400, [(b, 9, 9, [c], [7])], language="es")
+        add_game(db, amir, "basic", 10, 100, [(a, 2, 3, [c], [4], [5]), (b, 1, 1, [], [], [])])
+        add_game(db, amir, "expert", 6, 200, [(a, 3, 2, [d], [], [])])  # a skip saved before migration 019
+        add_game(db, amir, "advanced", 3, 50, [(b, 5, 9, [c], [7], [7])], quit=True)
+        add_game(db, amir, "advanced", 2, 400, [(b, 9, 9, [c], [7], [7])], language="es")
     return access_db, rooms
 
 
@@ -68,17 +70,19 @@ def test_report_counts_only_finished_games_in_the_class_language(report_db, clie
                    "locations_skipped": 0, "clue_plays": []}
 
 
-def test_skip_saves_the_skipped_clue_plays(game_db, client):
+def test_skip_saves_the_skipped_clue_plays_and_attempts(game_db, client, monkeypatch):
     add_locations(6, "fr")
     student_login(client)
     game_id = client.post(START_URL).json()["game_id"]
     for _ in range(2):
         assert client.post(f"/api/game/{game_id}/listen").status_code == 200
+    monkeypatch.setattr(game_session, "check_answer", lambda photo, location: False)
+    assert answer(client, game_id).status_code == 200
     assert client.post(f"/api/game/{game_id}/skip?position=1&revision=0").status_code == 200
     with get_connection() as db:
-        spot = db.execute("""SELECT listens, skipped_location_listens FROM game_session_locations
+        spot = db.execute("""SELECT listens, attempts, skipped_location_listens, skipped_location_attempts FROM game_session_locations
             WHERE game_session_id = %s AND position = 1""", (game_id,)).fetchone()
-    assert spot == {"listens": 0, "skipped_location_listens": [2]}
+    assert spot == {"listens": 0, "attempts": 0, "skipped_location_listens": [2], "skipped_location_attempts": [1]}
     assert len(game_locations(game_id)) == 5
 
 
@@ -115,7 +119,7 @@ def test_hardest_levels_rank_each_location_and_difficulty_separately(report_db, 
     assert ranked == {
         "most_skipped": [("103", "basic", 1), ("104", "expert", 1)],
         "most_replayed": [("103", "basic", 4), ("101", "expert", 3), ("101", "basic", 2), ("102", "basic", 1)],
-        "most_attempts": [("101", "basic", 3), ("101", "expert", 2), ("102", "basic", 1)],
+        "most_attempts": [("103", "basic", 5), ("101", "basic", 3), ("101", "expert", 2), ("102", "basic", 1)],
     }
     assert set(levels["most_skipped"][0]) == {"building", "room_number", "difficulty", "count"}
 
