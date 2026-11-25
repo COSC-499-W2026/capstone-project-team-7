@@ -1,7 +1,8 @@
 import csv
 import io
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -134,13 +135,13 @@ def test_class_without_games_has_empty_hardest_levels(access_db, client):
 def test_csv_download_has_students_and_hardest_levels(report_db, client):
     class_id, _ = report_db
     with get_connection() as db:
-        db.execute("UPDATE classes SET name = 'French 101 / A' WHERE id = %s", (class_id,))
+        db.execute("UPDATE classes SET name = 'French 101 - Section A' WHERE id = %s", (class_id,))
     login(client)
     response = client.get(CSV_URL.format(class_id))
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/csv")
     assert response.headers["content-disposition"] == \
-        f'attachment; filename="French-101-A-report-{date.today().isoformat()}.csv"'
+        f'attachment; filename="French-101-Section-A-report-{datetime.now(ZoneInfo("America/Vancouver")).date()}.csv"'
     rows = list(csv.reader(io.StringIO(response.text)))
     assert rows[0][:3] == ["Full name", "Username", "Total points"]
     assert rows[1] == ["Zoe Adams", "zoe", "0", "", "0", "0m 0s", "No games completed yet", "0", "0", ""]

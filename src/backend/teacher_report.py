@@ -3,7 +3,6 @@
 import csv
 import io
 import re
-from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -13,6 +12,7 @@ from teacher_access import owned_class, teacher_connection
 
 router = APIRouter(prefix="/api/teacher/classes", tags=["teacher"])
 NO_GAMES = "No games completed yet"
+SCHOOL_TIME_ZONE = "America/Vancouver"  # UBCO is in Kelowna; the server clock runs in UTC.
 HARDEST = {"most_skipped": "skips", "most_replayed": "plays", "most_attempts": "attempts"}
 
 # The same games as the class leaderboard: finished (so never quit), in the class's language,
@@ -161,7 +161,8 @@ def class_report_csv(class_id: UUID, access=Depends(teacher_connection)):
     language = classroom["language_code"]
     text = report_csv(student_report_rows(connection, class_id, language),
                       hardest_levels(connection, class_id, language))
-    # Only letters, digits, - and _ so the class name can't break the download header.
-    name = re.sub(r"[^A-Za-z0-9_-]+", "-", classroom["name"]).strip("-") or "class"
-    filename = f"{name}-report-{date.today().isoformat()}.csv"
+    # Only letters, digits, _ and single dashes so the class name can't break the download header.
+    name = re.sub(r"[^A-Za-z0-9_]+", "-", classroom["name"]).strip("-") or "class"
+    today = connection.execute("SELECT (now() AT TIME ZONE %s)::date AS today", (SCHOOL_TIME_ZONE,)).fetchone()["today"]
+    filename = f"{name}-report-{today.isoformat()}.csv"
     return Response(text, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{filename}"'})
