@@ -10,6 +10,7 @@ from difficulties import Difficulty
 class Progress:
     """One student's progress in one language."""
     games_finished: int
+    finished: dict[str, int]  # finished games at each difficulty
     found: dict[str, int]  # distinct locations found at each difficulty
     total_locations: int  # locations with a base-game clue in this language
 
@@ -24,6 +25,10 @@ class Badge:
 
 def finished_games(count):
     return lambda progress: progress.games_finished >= count
+
+
+def finished_game_on(difficulty):
+    return lambda progress: progress.finished.get(difficulty.value, 0) >= 1
 
 
 def found_every_location(difficulty):
@@ -62,18 +67,23 @@ def load_languages(connection):
     return {row["code"]: row["name"] for row in rows}
 
 
-def all_badges(languages):
-    """Every badge for these languages. Add a badge by adding one line; ids are saved, so must never change."""
+def language_badges(code, name):
+    """One language's badges, in the order they are shown: first hunt, basic, advanced, expert, master."""
     return [
-        *(Badge(f"{code}_first_hunt", badge_name(code, name, "first_hunt"), code, finished_games(1))
-          for code, name in languages.items()),
+        Badge(f"{code}_first_hunt", badge_name(code, name, "first_hunt"), code, finished_games(1)),
         *(Badge(f"{code}_{difficulty.value}", badge_name(code, name, difficulty.value), code,
                 found_every_location(difficulty))
-          for code, name in languages.items() for difficulty in Difficulty),
-        *(Badge(f"{code}_master", badge_name(code, name, "master"), code,
-                all_of(finished_games(1), *map(found_every_location, Difficulty)))
-          for code, name in languages.items()),
-        Badge("polyglot", "Polyglot Legend", None, in_every_language(finished_games(1))),
+          for difficulty in Difficulty),
+        Badge(f"{code}_master", badge_name(code, name, "master"), code,
+              all_of(finished_games(1), *map(found_every_location, Difficulty))),
+    ]
+
+
+def all_badges(languages):
+    """Every badge: non-language badges first, then each language's badges together. Ids are saved, so must never change."""
+    return [
+        Badge("polyglot", "Polyglot Legend", None, in_every_language(all_of(*map(finished_game_on, Difficulty)))),
+        *(badge for code, name in languages.items() for badge in language_badges(code, name)),
     ]
 
 
@@ -82,9 +92,10 @@ def load_progress(connection, student_id, languages):
     totals = connection.execute(
         "SELECT language_code, count(*) AS n FROM location_clues WHERE base_game GROUP BY language_code",
     ).fetchall()
+    # Quit games never have finished_at, so they don't count.
     finished = connection.execute(
-        """SELECT language_code, count(*) AS n FROM game_sessions
-        WHERE student_id = %s AND finished_at IS NOT NULL GROUP BY language_code""",
+        """SELECT language_code, difficulty, count(*) AS n FROM game_sessions
+        WHERE student_id = %s AND finished_at IS NOT NULL GROUP BY language_code, difficulty""",
         (student_id,),
     ).fetchall()
     # Only locations that still have a base-game clue in the game's language count; teacher-added ones don't.
@@ -101,7 +112,8 @@ def load_progress(connection, student_id, languages):
     ).fetchall()
     return {
         code: Progress(
-            games_finished=next((row["n"] for row in finished if row["language_code"] == code), 0),
+            games_finished=sum(row["n"] for row in finished if row["language_code"] == code),
+            finished={row["difficulty"]: row["n"] for row in finished if row["language_code"] == code},
             found={row["difficulty"]: row["n"] for row in found if row["language_code"] == code},
             total_locations=next((row["n"] for row in totals if row["language_code"] == code), 0),
         )

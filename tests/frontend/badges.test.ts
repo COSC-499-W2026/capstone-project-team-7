@@ -63,5 +63,5 @@ test('each badge says what it is for', () => {
   expect(badgeDescription({ ...EARNED, id: 'fr_first_hunt' })).toBe('Complete a full game in French on any difficulty')
   expect(badgeDescription(LOCKED)).toBe('Find every Spanish location on Advanced difficulty (across any number of games)')
   expect(badgeDescription({ ...LOCKED, id: 'ko_master', language: 'ko' })).toContain('every Korean location on all three')
-  expect(badgeDescription({ ...LOCKED, id: 'polyglot', language: null })).toBe('Complete a full game in every language')
+  expect(badgeDescription({ ...LOCKED, id: 'polyglot', language: null })).toBe('Complete a full game on Basic, Advanced and Expert in every language')
 })
