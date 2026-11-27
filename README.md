@@ -367,6 +367,14 @@ The building is saved in uppercase, and the building and room must be ones the p
 Errors: 401 no session, 403 not a teacher, 404 `"Class not found"` (including another teacher's class), 409 `"This room already has a clue in this language"`, 422 invalid building, room, clue text or coordinates, 503 database failure.
 Run `python -m pytest tests/backend/test_location_creation.py -v` with `TEST_DATABASE_URL` set.
 
+### Teacher own clips API
+
+Teachers can add their own extra clips for a location as well as the shared default clip. Only the teacher who added a clip sees it, in every class they teach in that language. Games still play default clips; choosing own clips for a hunt comes later.
+`POST /api/teacher/classes/{uuid}/locations/{location_id}/clips?difficulty=basic&label=Café%20clue&description=...` with an MP3 as the raw request body (`Content-Type: audio/mpeg`, up to 5 MB) adds a clip and returns 201 with `id`, `location_id`, `building`, `room_number`, `difficulty`, `label`, `description` and `created_at`. `difficulty` and `label` (up to 60 characters) are required; `description` (up to 300) is optional. Files are saved as `<AUDIO_DIR>/<language>/clips/<clip id>.mp3`.
+`GET /api/teacher/classes/{uuid}/clips` lists your clips in the class's language, newest first; add `?difficulty=expert` for one level. `GET .../clips/{clip_id}/audio` plays one. `DELETE .../clips/{clip_id}` retires it (204): it leaves the list, but its file and row are kept.
+Errors: 401 no session, 403 not a teacher, 404 `"Class not found"`, `"Location not found"` or `"Clip not found"` (including another teacher's clip or a retired one), 413 file too large, 422 `"Please upload an MP3 file"` or a bad difficulty, label or description, 503 database or file storage failure. A failed save leaves no clip behind.
+Run `python -m pytest tests/backend/test_teacher_clips.py -v` with `TEST_DATABASE_URL` set.
+
 ### Game session API
 
 After login, a student can start a game with their chosen language and difficulty.
