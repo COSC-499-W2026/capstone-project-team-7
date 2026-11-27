@@ -8,6 +8,7 @@ import hunt_assignment
 import teacher_access
 from database import get_connection
 from test_teacher_access import access_db, client, login
+from test_teacher_locations import COM, add_location
 
 URL = "/api/teacher/classes/{}/hunts"
 
@@ -35,6 +36,25 @@ def add_hunt(class_id):
 
 def hunt_url(class_id, hunt_id):
     return f"{URL.format(class_id)}/{hunt_id}"
+
+
+def add_clip(location_id, owner="teacher", language_code="fr", difficulty="basic", retired=False):
+    """Save a clip row straight to the database; hunts only need the row, not the file."""
+    with get_connection() as db:
+        return str(db.execute("""INSERT INTO location_clips
+            (location_id, language_code, difficulty, label, created_by, retired_at)
+            SELECT %s, %s, %s, 'Café clue', id, CASE WHEN %s THEN now() END FROM users WHERE username = %s
+            RETURNING id""", (location_id, language_code, difficulty, retired, owner)).fetchone()["id"])
+
+
+def saved_choices():
+    with get_connection() as db:
+        return [(str(row["location_id"]), str(row["clip_id"]))
+                for row in db.execute("SELECT location_id, clip_id FROM hunt_clips").fetchall()]
+
+
+def choice(location_id, clip_id):
+    return {"location_id": location_id, "clip_id": clip_id}
 
 
 def test_teacher_assigns_basic_hunt_with_class_language(access_db, client):
@@ -218,3 +238,134 @@ def test_database_failure_is_safe(access_db, client, monkeypatch):
     response = assign(client, access_db)
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
+
+
+def test_hunt_saves_and_lists_clip_choices(access_db, client):
+    com, ask = add_location("COM", "316"), add_location("ASC", "140")
+    com_clip, ask_clip = add_clip(com), add_clip(ask)
+    login(client)
+    response = assign(client, access_db, clips=[choice(com, com_clip), choice(ask, ask_clip)])
+    assert response.status_code == 201
+    assert "clips" not in response.json()
+    assert sorted(saved_choices()) == sorted([(com, com_clip), (ask, ask_clip)])
+    [hunt] = client.get(URL.format(access_db)).json()
+    assert hunt["clips"] == [
+        {"location_id": ask, "building": "ASC", "room_number": "140", "clip_id": ask_clip, "label": "Café clue"},
+        {"location_id": com, **COM, "clip_id": com_clip, "label": "Café clue"},
+    ]
+
+
+def test_hunt_without_clip_choices_lists_none(access_db, client):
+    login(client)
+    assert assign(client, access_db).status_code == 201
+    assert assign(client, access_db, clips=[]).status_code == 201
+    assert [hunt["clips"] for hunt in client.get(URL.format(access_db)).json()] == [[], []]
+    assert saved_choices() == []
+
+
+def test_retired_clip_is_left_out_of_the_hunt_list(access_db, client):
+    location_id = add_location("COM", "316")
+    clip_id = add_clip(location_id)
+    login(client)
+    assign(client, access_db, clips=[choice(location_id, clip_id)])
+    with get_connection() as db:
+        db.execute("UPDATE location_clips SET retired_at = now() WHERE id = %s", (clip_id,))
+    assert client.get(URL.format(access_db)).json()[0]["clips"] == []
+    assert saved_choices() == [(location_id, clip_id)]
+
+
+@pytest.mark.parametrize("clip", [
+    {"owner": "teacher2"},
+    {"difficulty": "expert"},
+    {"language_code": "es"},
+    {"retired": True},
+], ids=["other teacher", "wrong difficulty", "other language", "retired"])
+def test_unusable_clip_is_rejected_and_nothing_is_saved(access_db, client, clip):
+    location_id = add_location("COM", "316", clip.get("language_code", "fr"))
+    clip_id = add_clip(location_id, **clip)
+    login(client)
+    response = assign(client, access_db, clips=[choice(location_id, clip_id)])
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Your clip for COM 316 can't be used in this hunt"}
+    assert assigned_hunts() == []
+    assert saved_choices() == []
+
+
+def test_clip_for_a_different_room_is_rejected(access_db, client):
+    com, ask = add_location("COM", "316"), add_location("ASC", "140")
+    clip_id = add_clip(com)
+    login(client)
+    response = assign(client, access_db, clips=[choice(ask, clip_id)])
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Your clip for ASC 140 can't be used in this hunt"}
+    assert assigned_hunts() == []
+
+
+def test_unknown_clip_or_room_is_rejected(access_db, client):
+    location_id = add_location("COM", "316")
+    login(client)
+    for body in (choice(location_id, str(uuid4())), choice(str(uuid4()), add_clip(location_id))):
+        response = assign(client, access_db, clips=[body])
+        assert response.status_code == 422
+        assert "can't be used in this hunt" in response.json()["detail"]
+    assert assigned_hunts() == []
+
+
+def test_one_bad_choice_rejects_the_whole_hunt(access_db, client):
+    com, ask = add_location("COM", "316"), add_location("ASC", "140")
+    clips = [choice(com, add_clip(com)), choice(ask, add_clip(ask, owner="teacher2"))]
+    login(client)
+    response = assign(client, access_db, clips=clips)
+    assert response.status_code == 422
+    assert assigned_hunts() == []
+    assert saved_choices() == []
+
+
+@pytest.mark.parametrize("clips", [
+    "duplicate",
+    [{"location_id": str(uuid4())}],
+    [{"location_id": "not-a-uuid", "clip_id": str(uuid4())}],
+    [{"location_id": str(uuid4()), "clip_id": str(uuid4()), "label": "extra"}],
+    [{"location_id": str(uuid4()), "clip_id": str(uuid4())} for _ in range(21)],
+], ids=["duplicate room", "missing clip", "bad id", "extra field", "too many"])
+def test_invalid_clip_choices_are_rejected(access_db, client, clips):
+    if clips == "duplicate":
+        location_id = add_location("COM", "316")
+        clips = [choice(location_id, add_clip(location_id)), choice(location_id, add_clip(location_id))]
+    login(client)
+    response = assign(client, access_db, clips=clips)
+    assert response.status_code == 422
+    assert assigned_hunts() == []
+    assert saved_choices() == []
+
+
+def test_duplicate_room_message_is_friendly(access_db, client):
+    location_id = add_location("COM", "316")
+    clip_id = add_clip(location_id)
+    login(client)
+    response = assign(client, access_db, clips=[choice(location_id, clip_id)] * 2)
+    assert "Choose only one clip per room" in response.text
+
+
+def test_deleting_a_hunt_removes_its_clip_choices(access_db, client):
+    location_id = add_location("COM", "316")
+    clip_id = add_clip(location_id)
+    login(client)
+    hunt_id = assign(client, access_db, clips=[choice(location_id, clip_id)]).json()["id"]
+    assert client.delete(hunt_url(access_db, hunt_id)).status_code == 204
+    assert saved_choices() == []
+    with get_connection() as db:
+        assert db.execute("SELECT retired_at FROM location_clips WHERE id = %s", (clip_id,)).fetchone()
+
+
+def test_failed_clip_choice_save_keeps_no_hunt(access_db, client, monkeypatch):
+    location_id = add_location("COM", "316")
+    clip_id = add_clip(location_id)
+    login(client)
+    def fail(*args):
+        raise psycopg.OperationalError("private database details")
+    monkeypatch.setattr(hunt_assignment, "save_clip_choices", fail)
+    response = assign(client, access_db, clips=[choice(location_id, clip_id)])
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+    assert assigned_hunts() == []
