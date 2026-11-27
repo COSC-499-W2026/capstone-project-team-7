@@ -1,6 +1,8 @@
-// Sends a new student's details to the backend signup endpoint.
+// Sends a new student's or teacher's details to the backend signup endpoint.
 
 import { login, type LoginResult } from './login'
+
+export type AccountType = 'student' | 'teacher'
 
 export interface SignupInfo {
   email: string
@@ -22,13 +24,21 @@ function invalidFieldMessage(detail: unknown): string {
   return 'Please fill in every field.'
 }
 
-export async function signup(info: SignupInfo): Promise<void> {
-  const res = await fetch('/api/auth/student/signup', {
+// The teacher endpoint rejects unknown fields, so teachers don't send a student number.
+function teacherDetails({ email, password, first_name, last_name, username }: SignupInfo) {
+  return { email, password, first_name, last_name, username }
+}
+
+export async function signup(info: SignupInfo, accountType: AccountType = 'student'): Promise<void> {
+  const isTeacher = accountType === 'teacher'
+  const res = await fetch(isTeacher ? '/api/auth/teacher/signup' : '/api/auth/student/signup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(info),
+    body: JSON.stringify(isTeacher ? teacherDetails(info) : info),
   }).catch(() => { throw new Error('Something went wrong, please try again') })
 
+  if (res.status === 403) throw new Error("This email hasn't been approved for a teacher account. Ask an admin to approve it.")
+  if (res.status === 409 && isTeacher) throw new Error('That email or username is already in use.')
   if (res.status === 409) throw new Error('That email, username or student number is already in use.')
   if (res.status === 422) {
     const body = await res.json().catch(() => null)
@@ -39,7 +49,7 @@ export async function signup(info: SignupInfo): Promise<void> {
 
 // Creates the account, then logs in with the same details.
 // Returns null if the account was made but the login failed, so the caller can send them to the login page.
-export async function signupAndLogin(info: SignupInfo): Promise<LoginResult | null> {
-  await signup(info)
+export async function signupAndLogin(info: SignupInfo, accountType: AccountType = 'student'): Promise<LoginResult | null> {
+  await signup(info, accountType)
   return login(info.email, info.password).catch(() => null)
 }
