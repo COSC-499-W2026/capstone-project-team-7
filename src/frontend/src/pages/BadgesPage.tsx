@@ -63,7 +63,7 @@ export function badgeStyle(badge: Badge, width = BADGE_WIDTH): CSSProperties {
 
 // What the student has to do to earn the badge. These match the rules in src/backend/badges.py.
 export function badgeDescription(badge: Badge) {
-  if (badge.id === 'polyglot') return 'Complete a full game in every language'
+  if (badge.id === 'polyglot') return 'Complete a full game on Basic, Advanced and Expert in every language'
   const language = languageName(badge.language ?? '')
   const kind = badge.id.slice(badge.id.indexOf('_') + 1)
   if (kind === 'first_hunt') return `Complete a full game in ${language} on any difficulty`
