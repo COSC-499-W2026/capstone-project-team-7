@@ -1,8 +1,7 @@
 // Lists a class's locations and uploads clue audio for them. Clips are shared by every class using a location.
 
 import { classResponse } from './teacher'
-
-export type Difficulty = 'basic' | 'advanced' | 'expert'
+import type { Difficulty } from '../utils/difficulties'
 
 export interface ClassLocation {
   id: string
