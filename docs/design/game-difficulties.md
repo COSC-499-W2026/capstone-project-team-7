@@ -17,7 +17,8 @@ Returned rules are immutable so callers cannot change shared difficulty behavior
 `utils/clue_text.py` composes the required fields using these rules and rejects
 blank required content. `python -m utils.generate_audio` generates French demo
 clips for every difficulty. Basic keeps the existing language/location path;
-Advanced and Expert use a difficulty subfolder. Playback still uses Basic audio;
-connecting playback to the saved game difficulty is follow-up work.
+Advanced and Expert use a difficulty subfolder. Playback uses the game's saved
+difficulty. A teacher's own clips are also for one difficulty, and a hunt can
+only choose own clips for its own difficulty.
 
 Run the focused tests with `python -m pytest tests/backend/test_difficulties.py tests/backend/test_clue_text.py tests/backend/test_generate_audio.py tests/backend/test_audio_storage.py`.

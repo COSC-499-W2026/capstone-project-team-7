@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { SessionEndedError } from '../api/sessionEnded'
-import { getClassLocations, uploadClueAudio, type ClassLocation, type Difficulty } from '../api/teacherLocations'
+import { getClassLocations, uploadClueAudio, type ClassLocation } from '../api/teacherLocations'
+import { DIFFICULTIES, DIFFICULTY_NAMES, type Difficulty } from '../utils/difficulties'
 
 interface Props { classId: string; disabled: boolean; onSessionEnded: () => void }
 
-const DIFFICULTIES: [Difficulty, string][] = [['basic', 'Basic'], ['advanced', 'Advanced'], ['expert', 'Expert']]
-const DIFFICULTY_NAMES: Record<string, string> = Object.fromEntries(DIFFICULTIES)
-
-export function locationLabel(location: ClassLocation) {
+export function locationLabel(location: Pick<ClassLocation, 'building' | 'room_number'>) {
   return `${location.building} ${location.room_number}`
 }
 

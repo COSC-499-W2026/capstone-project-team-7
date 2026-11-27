@@ -6,6 +6,7 @@ import CreateClassForm from '../components/CreateClassForm'
 import ClassRoster from '../components/ClassRoster'
 import AssignHuntForm from '../components/AssignHuntForm'
 import ClueAudioForm from '../components/ClueAudioForm'
+import OwnClips from '../components/OwnClips'
 import { languageName } from '../utils/languageName'
 
 export default function TeacherDashboard({ onLogout }: { onLogout: () => void }) {
@@ -57,6 +58,7 @@ export default function TeacherDashboard({ onLogout }: { onLogout: () => void })
         {selected && <ClassRoster key={`roster-${selected.id}`} classId={selected.id} disabled={busy} onSessionEnded={onLogout} />}
         {selected && <AssignHuntForm key={`hunt-${selected.id}`} classId={selected.id} disabled={busy} onSessionEnded={onLogout} />}
         {selected && <ClueAudioForm key={`audio-${selected.id}`} classId={selected.id} disabled={busy} onSessionEnded={onLogout} />}
+        {selected && <OwnClips key={`clips-${selected.id}`} classId={selected.id} disabled={busy} onSessionEnded={onLogout} />}
       </>}
       <CreateClassForm disabled={busy || classes === null} onSessionEnded={onLogout} onCreated={(classroom) => {
         setClasses((items) => [...(items ?? []), classroom])

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { assignHunt, deleteHunt, getAssignedHunts, hideOverdue, type ClassHunt } from '../api/assignHunt'
 import { SessionEndedError } from '../api/sessionEnded'
+import { getClips, type OwnClip } from '../api/teacherClips'
+import { DIFFICULTIES, DIFFICULTY_NAMES } from '../utils/difficulties'
+import { locationLabel } from './ClueAudioForm'
+import HuntClipChoices, { clipChoices, type ClipPicks } from './HuntClipChoices'
 
 interface Props {
   classId: string
@@ -8,12 +12,12 @@ interface Props {
   onSessionEnded: () => void
 }
 
-const DIFFICULTIES = [['basic', 'Basic'], ['advanced', 'Advanced'], ['expert', 'Expert']]
-const DIFFICULTY_NAMES: Record<string, string> = Object.fromEntries(DIFFICULTIES)
-
 export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Props) {
   const [difficulty, setDifficulty] = useState('basic')
   const [dueDate, setDueDate] = useState('')
+  const [picks, setPicks] = useState<ClipPicks>({})
+  const [clips, setClips] = useState<OwnClip[]>([])
+  const [clipsError, setClipsError] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -46,6 +50,19 @@ export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Pr
     return () => { current = false }
   }, [classId, onSessionEnded, refresh])
 
+  useEffect(() => {
+    let current = true
+    setClips([])
+    setClipsError('')
+    getClips(classId).then((items) => { if (current) setClips(items) })
+      .catch((err) => {
+        if (!current) return
+        if (err instanceof SessionEndedError) onSessionEnded()
+        else setClipsError('Could not load your clips, so every room will play the default clip.')
+      })
+    return () => { current = false }
+  }, [classId, onSessionEnded])
+
   // Runs one change at a time, then shows the done message and reloads the list.
   async function run(action: () => Promise<void>, done: string) {
     if (disabled || inFlight.current) return
@@ -69,9 +86,10 @@ export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Pr
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     run(async () => {
-      await assignHunt(classId, difficulty, dueDate)
+      await assignHunt(classId, difficulty, dueDate, clipChoices(picks))
       setDifficulty('basic')
       setDueDate('')
+      setPicks({})
     }, 'Hunt assigned!')
   }
 
@@ -85,11 +103,13 @@ export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Pr
       <h2>Assign a hunt</h2>
       <form onSubmit={handleSubmit}>
         <p><label htmlFor="hunt-difficulty">Difficulty </label>
-          <select id="hunt-difficulty" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} disabled={disabled || saving}>
+          <select id="hunt-difficulty" value={difficulty} onChange={(e) => { setDifficulty(e.target.value); setPicks({}) }} disabled={disabled || saving}>
             {DIFFICULTIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select></p>
         <p><label htmlFor="hunt-due-date">Due date (optional) </label>
           <input id="hunt-due-date" type="date" min={today} value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={disabled || saving} /></p>
+        {clipsError ? <p role="alert">{clipsError}</p>
+          : <HuntClipChoices clips={clips} difficulty={difficulty} picks={picks} disabled={disabled || saving} onChange={setPicks} />}
         {error && <p role="alert">{error}</p>}
         {message && <p role="status">{message}</p>}
         <button type="submit" disabled={disabled || saving}>{saving ? 'Assigning hunt...' : 'Assign hunt'}</button>
@@ -103,6 +123,7 @@ export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Pr
           <li key={hunt.id}>
             {DIFFICULTY_NAMES[hunt.difficulty] ?? hunt.difficulty} · Assigned {new Date(hunt.assigned_at).toLocaleDateString('en-CA')}
             {' · '}{hunt.due_date ? `Due ${hunt.due_date}` : 'No due date'}
+            {hunt.clips?.length > 0 && <>{' · '}Own clips: {hunt.clips.map((clip) => `${locationLabel(clip)} (${clip.label})`).join(', ')}</>}
             {confirmingId === hunt.id ? <>
               {' '}Remove this hunt? Students in this class will no longer see it.
               {' '}<button type="button" onClick={() => handleRemove(hunt)} disabled={disabled || saving}>Yes, remove</button>

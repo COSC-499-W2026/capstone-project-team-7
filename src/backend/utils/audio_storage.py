@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from difficulties import Difficulty
 
@@ -31,6 +31,11 @@ def audio_path(language_code, location, difficulty=Difficulty.BASIC):
     return folder / audio_filename(location)
 
 
+def clip_path(language_code, clip_id):
+    """A teacher's extra clip; parsing the id as a UUID keeps it from naming another path."""
+    return audio_root() / language_code / "clips" / f"{UUID(str(clip_id))}.mp3"
+
+
 def id3_tag_length(data):
     """Bytes of ID3v2 metadata before the audio; each size byte holds only 7 bits."""
     if data[:3] != b"ID3" or len(data) < 10:
@@ -52,9 +57,8 @@ def is_mp3(data):
             and (header[2] >> 2) & 3 != SAMPLE_RATE_RESERVED)
 
 
-def save_audio(language_code, location, data, difficulty=Difficulty.BASIC):
+def replace_file(path, data):
     """Swap in a finished temp file, so a failed write leaves any existing clip playing."""
-    path = audio_path(language_code, location, difficulty)
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(f".{uuid4().hex}.tmp")
     try:
@@ -62,3 +66,11 @@ def save_audio(language_code, location, data, difficulty=Difficulty.BASIC):
         temp.replace(path)
     finally:
         temp.unlink(missing_ok=True)
+
+
+def save_audio(language_code, location, data, difficulty=Difficulty.BASIC):
+    replace_file(audio_path(language_code, location, difficulty), data)
+
+
+def save_clip(language_code, clip_id, data):
+    replace_file(clip_path(language_code, clip_id), data)
