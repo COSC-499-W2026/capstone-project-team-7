@@ -1,6 +1,6 @@
 # Week 12 Individual Log: Gamu
 
-Team 7 | Repo: capstone-project-team-7 | PRs this week: #275 (harder Polyglot Legend), #279 (teacher class report, part 1), #280 (hardest levels and CSV export, part 2), #282 (demo teacher report screen), #276 (demo teacher signup) and #284 (demo teacher class leaderboard), 
+Team 7 | Repo: capstone-project-team-7 | PRs this week: #275 (harder Polyglot Legend), #279 (teacher class report, part 1), #280 (hardest levels and CSV export, part 2), #282 (demo teacher report screen), #276 (demo teacher signup) and #284 (demo teacher class leaderboard), all merged into `main` on November 27.
 
 I worked on the teacher side of progress tracking. Teachers can now get a per-student report for their class, see which levels were hardest, and download it all as a CSV. I also built plain demo screens for the M1 video: the report, teacher signup and a class leaderboard on the teacher dashboard.
 
@@ -12,16 +12,16 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 ---
 
 
-## PR #275: Make Polyglot Legend harder and group badges by language (branch `273-make-polyglot-badge-slightly-harder`, into `main`), open
+## PR #275: Make Polyglot Legend harder and group badges by language (branch `273-make-polyglot-badge-slightly-harder`, into `main`), merged
 
 **Size:** 4 files changed, +88 / -19 lines.
 
-- Polyglot Legend was too easy, and badges came back in no clear order (task #273).
+- Polyglot Legend was too easy: it only needed one finished game in every language, on any difficulty, so a student could earn it playing Basic only. Badges also came back in no clear order (task #273).
 - Therefore, Polyglot Legend now needs a finished game on Basic, Advanced and Expert in every language, and badges are grouped by language with Polyglot first.
 
 **Review receipts**
 
-- I kept the badge id as `polyglot`, so students don't lose a badge they already earned.
+- I kept the badge id as `polyglot`, so students don't lose a badge they already earned (although noone would have earned the badge yet as right now it is impossible)
 - Limitation: only French locations are seeded, so the badge can't be earned by playing locally yet. The tests cover the rule.
 
 
@@ -36,7 +36,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 ![Backend badge tests](screenshots/week-12/backend%20badges.png)
 
 
-## PR #279: Teacher class report: per-student summary (branch `277-teacher-dashboard-reports`, into `main`), open
+## PR #279: Teacher class report: per-student summary (branch `277-teacher-dashboard-reports`, into `main`), merged
 
 **Size:** 5 files changed, +188 lines.
 
@@ -59,9 +59,9 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 ![Teacher report tests](screenshots/week-12/teacher%20report%20tests.png)
 
 
-## PR #280: Teacher class report: hardest levels and CSV export (branch `278-hardest-levels-and-export-csv`, into `main`), open
+## PR #280: Teacher class report: hardest levels and CSV export (branch `278-hardest-levels-and-export-csv`, into `main`), merged
 
-**Size:** 6 files changed, +392 lines (includes #279's changes until it merges).
+**Size:** 4 files changed, +243 / -39 lines.
 
 - Teachers need to see which levels students struggle with and keep the report outside the app (task #278).
 - Therefore, the report now lists the most skipped, most replayed and most attempted levels, and `.../report.csv` downloads it all.
@@ -88,7 +88,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 ![Hardest levels and CSV tests](screenshots/week-12/hardest%20levels%20csv%20tests.png)
 
 
-## PR #282: Demo teacher class report screen (branch `281-demo-frontend-teacher-reports`, into `278-hardest-levels-and-export-csv`), open
+## PR #282: Demo teacher class report screen (branch `281-demo-frontend-teacher-reports`, into `main`), merged
 
 **Size:** 5 files changed, +307 lines.
 
@@ -98,6 +98,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 **Review receipts**
 
 - The first version looked squished: the shared page style is 720px wide, which is too narrow for a 10-column table. I widened only this page and made the table scroll sideways on phones. I used inline styles in my own file instead of editing the shared `style.css`, so I didn't change teammates' pages.
+- It first targeted the #280 branch, so the diff only showed this screen. After #280 merged, I pulled `main` into it and it went into `main`.
 - Limitation: plain demo styling only, to be redone in Milestone 2.
 
 **Architecture receipts**
@@ -111,7 +112,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 ![Report frontend tests](screenshots/week-12/report%20frontend%20tests.png)
 
 
-## PR #276: Demo teacher account signup (branch `274-demo-teacher-account-creation-frontend`, into `main`), open
+## PR #276: Demo teacher account signup (branch `274-demo-teacher-account-creation-frontend`, into `main`), merged
 
 **Size:** 3 files changed, +91 / -10 lines.
 
@@ -132,7 +133,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 - 6 new tests, including the 403 message for an unapproved email. 244 frontend and 943 backend tests passed.
 
 
-## PR #284: Demo teacher class leaderboard (branch `283-demo-teacher-class-leaderboard`, into `main`), open
+## PR #284: Demo teacher class leaderboard (branch `283-demo-teacher-class-leaderboard`, into `main`), merged
 
 **Size:** 7 files changed, +173 / -3 lines.
 
@@ -142,6 +143,8 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 **Review receipts**
 
 - Only the teacher who owns the class can see it.
+- It conflicted with `main` after #279 merged, because both added a router line in the same spot in `main.py`. The fix was to keep both lines.
+- Limitation: Ashish noticed the leaderboard doesn't refresh when the roster changes. We agreed to leave it for Milestone 2, when the teacher dashboard is restructured.
 
 **Architecture receipts**
 
@@ -157,4 +160,17 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 **PR #286: Table and file storage for teachers' own location clips (Ashish)**
 
 - I approved, and pointed out that `game_session_locations.clip_id` only references the clip's id, so a game could save a clip recorded for a different room. `hunt_clips` already blocks this with a composite key, so I suggested doing the same here.
+
+**PR #288: Teacher API for their own clips (Ashish)**
+
+- I approved, and flagged for the later hunt-clips PR that retiring a clip leaves its `hunt_clips` rows, so game start would need to skip retired clips.
+
+
+**PR #294: Play teacher-chosen clips in hunts (Ashish)**
+
+- I agreed with Dan's requested change: after an admin reassigns a class, the new teacher could see the old teacher's private clip labels. I suggested the fix (`AND clip.created_by = %s` with the teacher's id) and a reassignment test, and Ashish added both. I also flagged that an old hunt still plays the previous teacher's clip, which seemed fine.
+
+**PR #296: Teachers choose clips in the assign hunt form (Ashish)**
+
+- I approved, and asked Ashish to pull in Dan's privacy fix from #294 before merging. I also suggested a note that a chosen clip only plays if its room is one of the student's 5 random rooms, and reloading clips after one is added in My clips.
 
