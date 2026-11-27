@@ -29,6 +29,7 @@ from admin_enrollment import router as admin_enrollment_router
 from teacher_signup import router as teacher_signup_router
 from teacher_approval import router as teacher_approval_router
 from teacher_access import router as teacher_access_router
+from teacher_leaderboard import router as teacher_leaderboard_router
 from teacher_locations import router as teacher_locations_router
 from location_creation import router as location_creation_router
 from student_deletion import router as student_deletion_router
@@ -55,6 +56,7 @@ app.include_router(student_deletion_router)
 app.include_router(teacher_deletion_router)
 app.include_router(class_enrollment_router)
 app.include_router(class_roster_router)
+app.include_router(teacher_leaderboard_router)
 app.include_router(teacher_report_router)
 app.include_router(student_enrollment_router)
 app.include_router(game_session_router)
