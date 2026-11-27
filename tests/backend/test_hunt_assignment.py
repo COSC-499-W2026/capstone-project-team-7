@@ -274,6 +274,41 @@ def test_retired_clip_is_left_out_of_the_hunt_list(access_db, client):
     assert saved_choices() == [(location_id, clip_id)]
 
 
+def reassign_class(class_id, username):
+    with get_connection() as db:
+        db.execute("UPDATE classes SET teacher_id = (SELECT id FROM users WHERE username = %s) WHERE id = %s",
+                   (username, class_id))
+
+
+def add_choice(hunt_id, location_id, clip_id):
+    with get_connection() as db:
+        db.execute("INSERT INTO hunt_clips (hunt_id, location_id, clip_id) VALUES (%s, %s, %s)",
+                   (hunt_id, location_id, clip_id))
+
+
+def test_reassigned_class_hides_previous_teachers_clips(access_db, client):
+    location_id = add_location("COM", "316")
+    login(client)
+    assign(client, access_db, clips=[choice(location_id, add_clip(location_id))])
+    reassign_class(access_db, "teacher2")
+    login(client, "teacher2")
+    [hunt] = client.get(URL.format(access_db)).json()
+    assert hunt["clips"] == []
+    assert len(saved_choices()) == 1
+
+
+def test_reassigned_teacher_sees_only_their_own_clips(access_db, client):
+    com, ask = add_location("COM", "316"), add_location("ASC", "140")
+    login(client)
+    hunt_id = assign(client, access_db, clips=[choice(com, add_clip(com))]).json()["id"]
+    reassign_class(access_db, "teacher2")
+    own_clip = add_clip(ask, owner="teacher2")
+    add_choice(hunt_id, ask, own_clip)
+    login(client, "teacher2")
+    [hunt] = client.get(URL.format(access_db)).json()
+    assert [clip["clip_id"] for clip in hunt["clips"]] == [own_clip]
+
+
 @pytest.mark.parametrize("clip", [
     {"owner": "teacher2"},
     {"difficulty": "expert"},
