@@ -13,7 +13,7 @@ from teacher_access import owned_class, teacher_connection
 router = APIRouter(prefix="/api/teacher/classes", tags=["teacher"])
 NO_GAMES = "No games completed yet"
 SCHOOL_TIME_ZONE = "America/Vancouver"  # UBCO is in Kelowna; the server clock runs in UTC.
-HARDEST = {"most_skipped": "skips", "most_replayed": "plays", "most_attempts": "attempts"}
+HARDEST = {"most_skipped": "skips", "most_replayed": "extra_plays", "most_attempts": "extra_attempts"}
 TOP_LEVELS = 5  # Each hardest-levels list shows only the top few, so it stays short.
 
 # The same games as the class leaderboard: finished (so never quit), in the class's language,
@@ -90,8 +90,10 @@ def hardest_levels(connection, class_id, language_code):
     levels = connection.execute(
         "WITH " + CLASS_GAMES + ", " + CLUES + """
         SELECT l.building, l.room_number, g.difficulty,
-            SUM(clues.skipped)::int AS skips, SUM(clues.listens)::int AS plays,
-            SUM(clues.attempts)::int AS attempts
+            SUM(clues.skipped)::int AS skips,
+            -- Every clue is played once and every found clue takes one right photo, so only the extras show difficulty.
+            SUM(GREATEST(clues.listens - 1, 0))::int AS extra_plays,
+            SUM(GREATEST(clues.attempts - 1 + clues.skipped, 0))::int AS extra_attempts
         FROM class_games g
         JOIN clues ON clues.game_session_id = g.id
         JOIN locations l ON l.id = clues.location_id
@@ -134,7 +136,7 @@ def report_csv(students, levels):
                      s["locations_completed"], s["locations_skipped"], plays])
     for name, count in HARDEST.items():
         rows += [[], [name.replace("_", " ").capitalize() + " levels"],
-                 ["Building", "Room", "Difficulty", count.capitalize()]]
+                 ["Building", "Room", "Difficulty", count.replace("_", " ").capitalize()]]
         rows += [[l["building"], l["room_number"], l["difficulty"].title(), l["count"]] for l in levels[name]]
     writer.writerows([safe_cell(value) for value in row] for row in rows)
     return out.getvalue()

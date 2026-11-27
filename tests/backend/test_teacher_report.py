@@ -119,10 +119,24 @@ def test_hardest_levels_rank_each_location_and_difficulty_separately(report_db, 
     # The quit game and the Spanish game have the biggest counts, so they would top every list if counted.
     assert ranked == {
         "most_skipped": [("103", "basic", 1), ("104", "expert", 1)],
-        "most_replayed": [("103", "basic", 4), ("101", "expert", 3), ("101", "basic", 2), ("102", "basic", 1)],
-        "most_attempts": [("103", "basic", 5), ("101", "basic", 3), ("101", "expert", 2), ("102", "basic", 1)],
+        # Only plays after the first, and wrong photos (all of a skipped clue's photos were wrong).
+        "most_replayed": [("103", "basic", 3), ("101", "expert", 2), ("101", "basic", 1)],
+        "most_attempts": [("103", "basic", 5), ("101", "basic", 2), ("101", "expert", 1)],
     }
     assert set(levels["most_skipped"][0]) == {"building", "room_number", "difficulty", "count"}
+
+
+def test_a_room_found_first_try_is_not_hard_however_often_it_was_picked(access_db, client):
+    with get_connection() as db:
+        amir = add_student(db, "amir", "Young", "20000002", "teacher")
+        easy, hard = [db.execute("INSERT INTO locations (building, room_number) VALUES ('ENG', %s) RETURNING id",
+                                 (room,)).fetchone()["id"] for room in ("1", "2")]
+        for _ in range(5):
+            add_game(db, amir, "basic", 10, 100, [(easy, 1, 1, [], [], [])])
+        add_game(db, amir, "basic", 10, 100, [(hard, 2, 4, [], [], [])])
+    levels = get_report(client, access_db).json()["hardest_levels"]
+    assert [(item["room_number"], item["count"]) for item in levels["most_replayed"]] == [("2", 1)]
+    assert [(item["room_number"], item["count"]) for item in levels["most_attempts"]] == [("2", 3)]
 
 
 def test_hardest_levels_show_only_the_top_five(access_db, client):
@@ -134,7 +148,7 @@ def test_hardest_levels_show_only_the_top_five(access_db, client):
         add_game(db, amir, "basic", 10, 100, spots[:5])  # a game has at most 5 spots
         add_game(db, amir, "basic", 10, 100, spots[5:])
     levels = get_report(client, access_db).json()["hardest_levels"]
-    assert [item["count"] for item in levels["most_replayed"]] == [7, 6, 5, 4, 3]
+    assert [item["count"] for item in levels["most_replayed"]] == [6, 5, 4, 3, 2]
 
 
 def test_class_without_games_has_empty_hardest_levels(access_db, client):
@@ -161,8 +175,9 @@ def test_csv_download_has_students_and_hardest_levels(report_db, client):
                        "EME 101: 5; EME 102: 1; EME 103: 4; EME 104: 0"]
     assert rows[3:9] == [[], ["Most skipped levels"], ["Building", "Room", "Difficulty", "Skips"],
                          ["EME", "103", "Basic", "1"], ["EME", "104", "Expert", "1"], []]
-    assert ["Most replayed levels"] in rows and ["Most attempts levels"] in rows
-    assert rows[-1] == ["EME", "102", "Basic", "1"]
+    assert ["Building", "Room", "Difficulty", "Extra plays"] in rows
+    assert ["Building", "Room", "Difficulty", "Extra attempts"] in rows
+    assert rows[-1] == ["EME", "101", "Expert", "1"]
 
 
 def test_csv_makes_formula_text_safe(report_db, client):
