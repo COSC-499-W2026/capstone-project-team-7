@@ -19,6 +19,7 @@ from utils.answer_check import check_answer
 from utils.answer_location import validate_answer_location
 from utils.ocr import InvalidPhoto, MAX_PHOTO_BYTES, OCRUnavailable
 from utils.audio_storage import audio_path
+from utils.clip_audio import resolve_clip_path
 from utils.location_picker import LOCATIONS_PER_HUNT, NotEnoughLocations, pick_locations
 from utils.ready_locations import ready_location_ids
 from utils.request_body import read_limited_body
@@ -37,6 +38,19 @@ def start_game(info: StartGameRequest = StartGameRequest(), user=Depends(require
     return create_game(user["id"], info)
 
 
+def hunt_clip_ids(connection, hunt_id, location_ids):
+    """The hunt's live clip choices for these rooms, by location id; dashboard games have none."""
+    if hunt_id is None:
+        return {}
+    rows = connection.execute(
+        """SELECT choice.location_id, choice.clip_id FROM hunt_clips AS choice
+        JOIN location_clips AS clip ON clip.id = choice.clip_id
+        WHERE choice.hunt_id = %s AND choice.location_id = ANY(%s) AND clip.retired_at IS NULL""",
+        (hunt_id, list(location_ids)),
+    ).fetchall()
+    return {row["location_id"]: row["clip_id"] for row in rows}
+
+
 def create_game(student_id, info: StartGameRequest, hunt_id=None):
     """Start a game for the student. hunt_id links it to an assigned hunt; normal games have none."""
     try:
@@ -50,11 +64,12 @@ def create_game(student_id, info: StartGameRequest, hunt_id=None):
             # Same transaction as the insert, so a hunt game is never saved without its hunt.
             if hunt_id is not None:
                 connection.execute("UPDATE game_sessions SET hunt_id = %s WHERE id = %s", (hunt_id, game["id"]))
+            clip_ids = hunt_clip_ids(connection, hunt_id, location_ids)
             for position, location_id in enumerate(location_ids, start=1):
                 connection.execute(
-                    """INSERT INTO game_session_locations (game_session_id, position, location_id)
-                    VALUES (%s, %s, %s)""",
-                    (game["id"], position, location_id),
+                    """INSERT INTO game_session_locations (game_session_id, position, location_id, clip_id)
+                    VALUES (%s, %s, %s, %s)""",
+                    (game["id"], position, location_id, clip_ids.get(location_id)),
                 )
     except NotEnoughLocations:
         raise HTTPException(status_code=409, detail="Not enough locations for this language yet") from None
@@ -94,11 +109,14 @@ def current_location(game_id, student_id):
                 game_session_locations.location_id, cardinality(game_session_locations.skipped_location_ids) AS revision,
                 game_sessions.quit_at, game_sessions.difficulty, locations.building, locations.room_number, locations.latitude, locations.longitude, locations.radius_metres,
                 FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.started_at))::int AS elapsed_seconds,
-                GREATEST(0, FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.clue_started_at)))::int AS clue_elapsed_seconds
+                GREATEST(0, FLOOR(EXTRACT(EPOCH FROM now() - game_sessions.clue_started_at)))::int AS clue_elapsed_seconds,
+                game_sessions.hunt_id, game_session_locations.clip_id, clip.retired_at AS clip_retired_at,
+                clip.language_code AS clip_language_code
                 FROM game_sessions
                 JOIN game_session_locations ON game_session_locations.game_session_id = game_sessions.id
                     AND game_session_locations.position = game_sessions.current_position
                 JOIN locations ON locations.id = game_session_locations.location_id
+                LEFT JOIN location_clips AS clip ON clip.id = game_session_locations.clip_id
                 WHERE game_sessions.id = %s AND game_sessions.student_id = %s""",
                 (game_id, student_id),
             ).fetchone()
@@ -192,12 +210,13 @@ def skip_location(game_id: UUID, position: Annotated[int, Query(ge=1, le=LOCATIO
                                 if audio_path(location["language_code"], candidate, location["difficulty"]).is_file()), None)
             if replacement is None:
                 raise HTTPException(status_code=409, detail="No other playable location is available for this hunt.")
+            clip_id = hunt_clip_ids(connection, location["hunt_id"], [replacement["id"]]).get(replacement["id"])
             connection.execute(
                 """UPDATE game_session_locations SET skipped_location_ids = array_append(skipped_location_ids, location_id),
                 skipped_location_listens = array_append(skipped_location_listens, listens),
                 skipped_location_attempts = array_append(skipped_location_attempts, attempts),
-                location_id = %s, attempts = 0, listens = 0 WHERE game_session_id = %s AND position = %s""",
-                (replacement["id"], game_id, position),
+                location_id = %s, clip_id = %s, attempts = 0, listens = 0 WHERE game_session_id = %s AND position = %s""",
+                (replacement["id"], clip_id, game_id, position),
             )
             connection.execute("UPDATE game_sessions SET clue_started_at = now() WHERE id = %s", (game_id,))
     except (psycopg.Error, RuntimeError):
@@ -232,7 +251,7 @@ def clue_hint(game_id: UUID, reading: Annotated[HintReading, Query()], user=Depe
 def current_clue_audio(game_id: UUID, user=Depends(require_student)):
     location = current_location(game_id, user["id"])
     try:
-        path = audio_path(location["language_code"], location, location["difficulty"])
+        path = resolve_clip_path(location)
     except ValueError:
         raise HTTPException(status_code=500, detail="Could not select clue audio. Please try again later.") from None
     if not path.is_file():

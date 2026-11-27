@@ -31,6 +31,7 @@ from teacher_approval import router as teacher_approval_router
 from teacher_access import router as teacher_access_router
 from teacher_leaderboard import router as teacher_leaderboard_router
 from teacher_locations import router as teacher_locations_router
+from teacher_clips import router as teacher_clips_router
 from location_creation import router as location_creation_router
 from student_deletion import router as student_deletion_router
 from teacher_deletion import router as teacher_deletion_router
@@ -66,6 +67,7 @@ app.include_router(student_progress_router)
 app.include_router(student_debrief_router)
 app.include_router(hunt_assignment_router)
 app.include_router(teacher_locations_router)
+app.include_router(teacher_clips_router)
 app.include_router(location_creation_router)
 app.include_router(student_hunts_router)
 
