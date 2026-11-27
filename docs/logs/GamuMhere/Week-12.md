@@ -1,6 +1,6 @@
 # Week 12 Individual Log: Gamu
 
-Team 7 | Repo: capstone-project-team-7 | PRs this week: #275 (harder Polyglot Legend), #279 (teacher class report, part 1), #280 (hardest levels and CSV export, part 2), #282 (demo teacher report screen), #276 (demo teacher signup) and #284 (demo teacher class leaderboard), all open and waiting for review.
+Team 7 | Repo: capstone-project-team-7 | PRs this week: #275 (harder Polyglot Legend), #279 (teacher class report, part 1), #280 (hardest levels and CSV export, part 2), #282 (demo teacher report screen), #276 (demo teacher signup) and #284 (demo teacher class leaderboard), 
 
 I worked on the teacher side of progress tracking. Teachers can now get a per-student report for their class, see which levels were hardest, and download it all as a CSV. I also built plain demo screens for the M1 video: the report, teacher signup and a class leaderboard on the teacher dashboard.
 
@@ -24,6 +24,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 - I kept the badge id as `polyglot`, so students don't lose a badge they already earned.
 - Limitation: only French locations are seeded, so the badge can't be earned by playing locally yet. The tests cover the rule.
 
+
 **Architecture receipts**
 
 - The badge order is set in one place, `all_badges()`.
@@ -45,7 +46,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 **Review receipts**
 
 - It counts the same games as the class leaderboard (finished, in the class language, by enrolled students), so the numbers match.
-- Skipping a clue used to delete its play count, so I now save it first. Limitation: skips from before this change have no saved count, so they show as 0.
+- Skipping a clue used to delete its play count. This came from my own review on Dan's #263, where I asked for plays to reset on a skip so they don't carry over to the new room. Resetting meant the report lost them, so I now save them in `skipped_location_listens` first. Limitation: skips from before this change have no saved count, so they show as 0.
 
 **Architecture receipts**
 
@@ -60,7 +61,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 
 ## PR #280: Teacher class report: hardest levels and CSV export (branch `278-hardest-levels-and-export-csv`, into `main`), open
 
-**Size:** 6 files changed, +362 lines (includes #279's changes until it merges).
+**Size:** 6 files changed, +392 lines (includes #279's changes until it merges).
 
 - Teachers need to see which levels students struggle with and keep the report outside the app (task #278).
 - Therefore, the report now lists the most skipped, most replayed and most attempted levels, and `.../report.csv` downloads it all.
@@ -69,6 +70,9 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 
 - A level is a room on one difficulty, because the same room is much harder on Expert than on Basic.
 - CSV text starting with `=`, `+`, `-` or `@` gets a `'` in front, so Excel won't run it as a formula.
+- Bug I fixed: the CSV file name was wrong in two ways. The class name "French 101 - Section A" became `French-101---Section-A`, because my regex kept dashes. And the date came from the server clock, which runs in UTC, so in BC evenings it showed tomorrow's date. I now collapse anything that isn't a letter or digit into one dash, and ask Postgres for today's date in Vancouver time.
+- Each list shows only the top 5 levels, because with real data the lists grew to every room ever played.
+- Ashish requested changes: every clue is played at least once and every found room has at least one photo, so the totals mostly show how often a room was picked, not how hard it was. He suggested counting only extra plays and attempts (`GREATEST(x - 1, 0)`), like `utils/completed_locations.py` already does for students. I fixed it: replays count plays after the first, and attempts count only wrong photos. 
 - Limitation: locations have no name column, so levels are shown by building and room only.
 
 **Architecture receipts**
@@ -77,7 +81,9 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 
 **Testing receipts**
 
-- Tests check the exact order of all three lists, the CSV contents and file name, and access checks. 958 backend tests passed.
+- Tests check the exact order of all three lists, Ashish's example (a room found first try in 5 games isn't listed), the top-5 cap, the CSV contents and access checks. 960 backend tests passed.
+- I ran Ashish's example test on the old code first, and it failed, so it really checks the fix.
+- My first top-5 test failed with a database `CheckViolation`, because I put 7 rooms in one game and a game can only have 5 spots. I split it into two games.
 
 ![Hardest levels and CSV tests](screenshots/week-12/hardest%20levels%20csv%20tests.png)
 
@@ -91,7 +97,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 
 **Review receipts**
 
-- It targets the #280 branch so the diff only shows this screen. It moves to `main` once #280 merges.
+- The first version looked squished: the shared page style is 720px wide, which is too narrow for a 10-column table. I widened only this page and made the table scroll sideways on phones. I used inline styles in my own file instead of editing the shared `style.css`, so I didn't change teammates' pages.
 - Limitation: plain demo styling only, to be redone in Milestone 2.
 
 **Architecture receipts**
@@ -115,7 +121,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 **Review receipts**
 
 - This PR first also had the class leaderboard (10 files), so I split that into #284 to keep one feature per PR.
-- Limitation: an approved teacher email can still sign up as a student, and can't switch afterwards.
+- Limitation: an approved teacher email can still sign up as a student, and can't switch afterwards, perhaps something to discuss later as a team.
 
 **Architecture receipts**
 
@@ -135,7 +141,7 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 
 **Review receipts**
 
-- Only the teacher who owns the class can see it. Limitation: demo only, so the README wasn't updated.
+- Only the teacher who owns the class can see it.
 
 **Architecture receipts**
 
@@ -147,4 +153,8 @@ Screenshots of the UI for each frontend PR are in the PR descriptions on GitHub.
 
 
 ## Code reviews for teammates
+
+**PR #286: Table and file storage for teachers' own location clips (Ashish)**
+
+- I approved, and pointed out that `game_session_locations.clip_id` only references the clip's id, so a game could save a clip recorded for a different room. `hunt_clips` already blocks this with a composite key, so I suggested doing the same here.
 
