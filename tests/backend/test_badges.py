@@ -143,12 +143,48 @@ def test_finishing_games_in_five_languages_does_not_earn_polyglot(student):
     assert "polyglot" not in saved_badges(student)
 
 
-def test_finishing_games_in_all_six_languages_earns_polyglot(student):
-    for language in ("zh", "fr", "de", "ja", "ko", "es"):
-        play_game(student, language, "basic", add_locations(1, language), found_count=1)
+LANGUAGES = ("zh", "fr", "de", "ja", "ko", "es")
+
+
+def finish_every_difficulty(student_id, language, difficulties=("basic", "advanced", "expert")):
+    for difficulty in difficulties:
+        play_game(student_id, language, difficulty, add_locations(1, language), found_count=1)
+
+
+def test_finishing_every_difficulty_in_every_language_earns_polyglot(student):
+    for language in LANGUAGES:
+        finish_every_difficulty(student, language)
 
     assert "polyglot" in check_badges(student)
     assert "polyglot" in saved_badges(student)
+
+
+def test_finishing_basic_only_in_every_language_does_not_earn_polyglot(student):
+    for language in LANGUAGES:
+        play_game(student, language, "basic", add_locations(1, language), found_count=1)
+
+    assert "polyglot" not in check_badges(student)
+
+
+def test_one_language_missing_expert_does_not_earn_polyglot(student):
+    for language in ("zh", "fr", "de", "ja", "ko"):
+        finish_every_difficulty(student, language)
+    finish_every_difficulty(student, "es", ("basic", "advanced"))
+
+    assert "polyglot" not in check_badges(student)
+    assert "polyglot" not in saved_badges(student)
+
+
+def test_a_quit_game_does_not_count_towards_polyglot(student):
+    for language in ("zh", "fr", "de", "ja", "ko"):
+        finish_every_difficulty(student, language)
+    finish_every_difficulty(student, "es", ("basic", "advanced"))
+    with get_connection() as db:
+        db.execute("""INSERT INTO game_sessions (student_id, language_code, difficulty, quit_at)
+            VALUES (%s, 'es', 'expert', now())""", (student,))
+
+    assert "polyglot" not in check_badges(student)
+    assert "polyglot" not in saved_badges(student)
 
 
 def test_polyglot_is_named_polyglot_legend_and_keeps_its_saved_id():
@@ -157,6 +193,27 @@ def test_polyglot_is_named_polyglot_legend_and_keeps_its_saved_id():
 
     assert names["polyglot"] == "Polyglot Legend"
     assert "Polyglot" not in names.values()
+
+
+def test_badges_are_grouped_by_language_with_polyglot_first():
+    ids = [badge.id for badge in all_badges({"de": "German", "fr": "French"})]
+
+    assert ids == [
+        "polyglot",
+        "de_first_hunt", "de_basic", "de_advanced", "de_expert", "de_master",
+        "fr_first_hunt", "fr_basic", "fr_advanced", "fr_expert", "fr_master",
+    ]
+
+
+def test_every_language_has_its_badges_together_in_the_same_order(student):
+    with get_connection() as db:
+        badges = all_badges(load_languages(db))
+    languages = [badge.language for badge in badges[1:]]
+    kinds = [badge.id.split("_", 1)[1] for badge in badges[1:]]
+
+    assert badges[0].language is None
+    assert languages == sorted(languages)  # each language appears in one block
+    assert kinds == ["first_hunt", "basic", "advanced", "expert", "master"] * len(LANGUAGES)
 
 
 def add_language(code, name):
@@ -175,8 +232,8 @@ def test_a_new_language_gets_badges_with_plain_names(student):
 
 def test_a_new_language_is_needed_for_polyglot(student):
     add_language("it", "Italian")
-    for language in ("zh", "fr", "de", "ja", "ko", "es"):
-        play_game(student, language, "basic", add_locations(1, language), found_count=1)
+    for language in LANGUAGES:
+        finish_every_difficulty(student, language)
 
     assert "polyglot" not in check_badges(student)
     assert "polyglot" not in saved_badges(student)
