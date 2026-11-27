@@ -213,6 +213,8 @@ def skip_location(game_id: UUID, position: Annotated[int, Query(ge=1, le=LOCATIO
             clip_id = hunt_clip_ids(connection, location["hunt_id"], [replacement["id"]]).get(replacement["id"])
             connection.execute(
                 """UPDATE game_session_locations SET skipped_location_ids = array_append(skipped_location_ids, location_id),
+                skipped_location_listens = array_append(skipped_location_listens, listens),
+                skipped_location_attempts = array_append(skipped_location_attempts, attempts),
                 location_id = %s, clip_id = %s, attempts = 0, listens = 0 WHERE game_session_id = %s AND position = %s""",
                 (replacement["id"], clip_id, game_id, position),
             )
