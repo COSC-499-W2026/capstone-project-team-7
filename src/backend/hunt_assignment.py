@@ -64,16 +64,17 @@ def save_clip_choices(connection, hunt_id, choices):
         )
 
 
-def hunt_clips(connection, hunt_ids):
-    """Each hunt's chosen clips that aren't retired, by hunt id; retired ones play the default."""
+def hunt_clips(connection, hunt_ids, teacher_id):
+    """Each hunt's live clips that the teacher owns, by hunt id; after a class is reassigned,
+    the previous teacher's clips still play but aren't shown."""
     rows = connection.execute(
         """SELECT choice.hunt_id, choice.location_id, locations.building, locations.room_number,
             choice.clip_id, clip.label
         FROM hunt_clips AS choice
         JOIN location_clips AS clip ON clip.id = choice.clip_id
         JOIN locations ON locations.id = choice.location_id
-        WHERE choice.hunt_id = ANY(%s) AND clip.retired_at IS NULL
-        ORDER BY locations.building, locations.room_number""", (hunt_ids,),
+        WHERE choice.hunt_id = ANY(%s) AND clip.retired_at IS NULL AND clip.created_by = %s
+        ORDER BY locations.building, locations.room_number""", (hunt_ids, teacher_id),
     ).fetchall()
     clips = {hunt_id: [] for hunt_id in hunt_ids}
     for row in rows:
@@ -114,7 +115,7 @@ def list_hunts(class_id: UUID, access=Depends(teacher_connection)):
         """SELECT id, difficulty, due_date, assigned_at FROM assigned_hunts
         WHERE class_id = %s ORDER BY assigned_at DESC, id""", (class_id,),
     ).fetchall()
-    clips = hunt_clips(connection, [hunt["id"] for hunt in hunts])
+    clips = hunt_clips(connection, [hunt["id"] for hunt in hunts], teacher_id)
     return [{**hunt, "clips": clips[hunt["id"]]} for hunt in hunts]
 
 
