@@ -26,6 +26,15 @@ GPS coordinates are added by migration `006_location_coordinates.sql`; see
 [GPS location validation](gps-location.md). Sessions and management endpoints
 remain future work.
 
+## Teachers' own clips
+
+Each location has one default clip per language and difficulty, as a file named
+after the room. A teacher can also add their own clips (`location_clips`, files at
+`<language>/clips/<clip id>.mp3`), which only they see. When assigning a hunt, the
+teacher can choose one of their clips per room (`hunt_clips`). A hunt game saves
+the chosen clip on each round when it starts, and plays the default if that clip
+is retired or its file is missing. Dashboard games always play default clips.
+
 ## Picking locations for a hunt
 
 `pick_locations(pool)` in `src/backend/utils/location_picker.py` returns 5 distinct
