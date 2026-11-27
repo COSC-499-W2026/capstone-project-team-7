@@ -8,7 +8,7 @@ import teacher_locations
 from database import get_connection
 from test_teacher_access import access_db, client, login
 from test_teacher_locations import COM, MP3, add_location, audio_dir, locations_url
-from utils.audio_storage import audio_path, clip_path
+from utils.audio_storage import audio_path, clip_path, save_clip
 
 CLIP = {"difficulty": "basic", "label": "Café clue"}
 
@@ -214,7 +214,22 @@ def test_database_failure_returns_503(access_db, audio_dir, client, monkeypatch)
         assert response.json() == {"detail": "Database unavailable"}
 
 
-def test_failed_insert_returns_503_and_saves_no_file(access_db, audio_dir, client, monkeypatch):
+def test_file_is_saved_before_the_clip_row_exists(access_db, audio_dir, client, monkeypatch):
+    location_id = add_location("COM", "316")
+    login(client)
+    rows_while_saving = []
+
+    def save_and_check(*args):
+        rows_while_saving.extend(clip_rows())
+        save_clip(*args)
+
+    monkeypatch.setattr(teacher_clips, "save_clip", save_and_check)
+    assert add_clip(client, access_db, location_id).status_code == 201
+    assert rows_while_saving == []
+    assert clip_rows() == [{"label": "Café clue", "retired": False}]
+
+
+def test_failed_insert_returns_503_and_leaves_no_file(access_db, audio_dir, client, monkeypatch):
     location_id = add_location("COM", "316")
     login(client)
 

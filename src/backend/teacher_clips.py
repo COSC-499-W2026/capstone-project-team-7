@@ -2,7 +2,7 @@
 
 import logging
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -52,26 +52,34 @@ def own_clip(connection, class_id, clip_id, teacher_id):
     return language_code, clips[0]
 
 
-def insert_clip(location, language_code, clip, teacher_id):
+def insert_clip(clip_id, location, language_code, clip, teacher_id):
     try:
         with get_connection() as connection:
-            clip_id = connection.execute(
-                """INSERT INTO location_clips (location_id, language_code, difficulty, label, description, created_by)
-                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
-                (location["id"], language_code, clip.difficulty.value, clip.label, clip.description, teacher_id),
-            ).fetchone()["id"]
+            connection.execute(
+                """INSERT INTO location_clips (id, location_id, language_code, difficulty, label, description, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (clip_id, location["id"], language_code, clip.difficulty.value, clip.label, clip.description,
+                 teacher_id),
+            )
             return own_clips(connection, teacher_id, language_code, clip_id=clip_id)[0]
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None
 
 
-def remove_clip_row(clip_id):
-    """Undo the insert when the file can't be saved, so no clip is listed without audio."""
+def save_clip_file(language_code, clip_id, audio):
     try:
-        with get_connection() as connection:
-            connection.execute("DELETE FROM location_clips WHERE id = %s", (clip_id,))
-    except (psycopg.Error, RuntimeError):
-        logging.getLogger(__name__).warning("Removing a clip whose file failed to save also failed")
+        save_clip(language_code, clip_id, audio)
+    except OSError:
+        logging.getLogger(__name__).warning("Saving a teacher clip failed")
+        raise HTTPException(status_code=503, detail="Could not save the audio, please try again") from None
+
+
+def remove_clip_file(language_code, clip_id):
+    """Undo the save when the row can't be added; a leftover file is never listed."""
+    try:
+        clip_path(language_code, clip_id).unlink(missing_ok=True)
+    except OSError:
+        logging.getLogger(__name__).warning("Removing a clip file whose row failed to save also failed")
 
 
 @router.post("/{class_id}/locations/{location_id}/clips", status_code=201,
@@ -81,14 +89,14 @@ def add_clip(class_id: UUID, location_id: UUID, clip: Annotated[NewClip, Query()
     location, language_code = class_location(class_id, location_id, user["id"])
     if not is_mp3(audio):
         raise HTTPException(status_code=422, detail=NOT_AN_MP3)
-    saved = insert_clip(location, language_code, clip, user["id"])
+    # The file is saved before the row exists, so a listed clip always has audio.
+    clip_id = uuid4()
+    save_clip_file(language_code, clip_id, audio)
     try:
-        save_clip(language_code, saved["id"], audio)
-    except OSError:
-        remove_clip_row(saved["id"])
-        logging.getLogger(__name__).warning("Saving a teacher clip failed")
-        raise HTTPException(status_code=503, detail="Could not save the audio, please try again") from None
-    return saved
+        return insert_clip(clip_id, location, language_code, clip, user["id"])
+    except HTTPException:
+        remove_clip_file(language_code, clip_id)
+        raise
 
 
 @router.get("/{class_id}/clips", summary="List your own clips in the class's language, newest first")
