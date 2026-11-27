@@ -34,7 +34,7 @@ test.each([
   [422, "Due date can't be in the past"], [403, "You can't assign hunts to this class"],
   [404, "You can't assign hunts to this class"], [503, 'Could not assign the hunt, please try again'],
 ] as const)('assigning a hunt explains failures (%s)', async (status, message) => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status }))
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status, json: async () => ({}) }))
   await expect(assignHunt('c1', 'basic', '')).rejects.toThrow(message)
 })
 
