@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/teacher/classes", tags=["teacher"])
 NO_GAMES = "No games completed yet"
 SCHOOL_TIME_ZONE = "America/Vancouver"  # UBCO is in Kelowna; the server clock runs in UTC.
 HARDEST = {"most_skipped": "skips", "most_replayed": "plays", "most_attempts": "attempts"}
+TOP_LEVELS = 5  # Each hardest-levels list shows only the top few, so it stays short.
 
 # The same games as the class leaderboard: finished (so never quit), in the class's language,
 # by students still enrolled. Every report query starts from these.
@@ -103,7 +104,7 @@ def hardest_levels(connection, class_id, language_code):
         # sorted() keeps the building/room order for ties.
         top = sorted((level for level in levels if level[count] > 0), key=lambda level: -level[count])
         ranked[name] = [{"building": level["building"], "room_number": level["room_number"],
-                         "difficulty": level["difficulty"], "count": level[count]} for level in top]
+                         "difficulty": level["difficulty"], "count": level[count]} for level in top[:TOP_LEVELS]]
     return ranked
 
 

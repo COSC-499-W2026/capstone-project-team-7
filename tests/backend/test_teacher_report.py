@@ -125,6 +125,18 @@ def test_hardest_levels_rank_each_location_and_difficulty_separately(report_db, 
     assert set(levels["most_skipped"][0]) == {"building", "room_number", "difficulty", "count"}
 
 
+def test_hardest_levels_show_only_the_top_five(access_db, client):
+    with get_connection() as db:
+        amir = add_student(db, "amir", "Young", "20000002", "teacher")
+        rooms = [db.execute("INSERT INTO locations (building, room_number) VALUES ('ENG', %s) RETURNING id",
+                            (str(room),)).fetchone()["id"] for room in range(1, 8)]
+        spots = [(room, plays, 0, [], [], []) for plays, room in enumerate(rooms, 1)]
+        add_game(db, amir, "basic", 10, 100, spots[:5])  # a game has at most 5 spots
+        add_game(db, amir, "basic", 10, 100, spots[5:])
+    levels = get_report(client, access_db).json()["hardest_levels"]
+    assert [item["count"] for item in levels["most_replayed"]] == [7, 6, 5, 4, 3]
+
+
 def test_class_without_games_has_empty_hardest_levels(access_db, client):
     response = get_report(client, access_db)
     assert response.status_code == 200
