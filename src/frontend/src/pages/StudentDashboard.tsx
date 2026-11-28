@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getStudentHunts, type StudentHunt } from '../api/assignHunt'
+import { getStudentHunts, startAssignedHunt, type StudentHunt } from '../api/assignHunt'
 import { startGame, type StartGameResult } from '../api/game'
 import { logout } from '../api/logout'
 import { getOngoingGames, type OngoingGame } from '../api/ongoingGames'
@@ -89,7 +89,7 @@ export default function StudentDashboard({
 
       {classes && <MyClasses classes={classes} />}
       {hunts && <AssignedHunts hunts={hunts} disabled={busy}
-        onPlay={(hunt) => run(async () => onOpenGame(await startGame(hunt.language_code, hunt.difficulty)))} />}
+        onPlay={(hunt) => run(async () => onOpenGame(await startAssignedHunt(hunt.id)))} />}
       <JoinClass onJoined={loadClasses} onSessionEnded={onLogout} />
 
       <p>

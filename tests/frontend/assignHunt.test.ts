@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { assignHunt, deleteHunt, getAssignedHunts, getHuntBuildings, hideOverdue } from '../../src/frontend/src/api/assignHunt'
+import { assignHunt, deleteHunt, getAssignedHunts, getHuntBuildings, hideOverdue, startAssignedHunt } from '../../src/frontend/src/api/assignHunt'
 import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 import AssignHuntForm from '../../src/frontend/src/components/AssignHuntForm'
 
@@ -142,4 +142,19 @@ test('reports invalid due dates separately from invalid building selections', as
   vi.stubGlobal('fetch', fetchMock)
   await expect(assignHunt('c1', 'basic', '2000-01-01', 'COM')).rejects.toThrow('Choose a valid due date')
   await expect(assignHunt('c1', 'basic', '')).rejects.toThrow('Check the difficulty and building selection')
+})
+
+
+test('starts a game using the assigned hunt ID', async () => {
+  const game = { game_id: 'g1', language_code: 'fr', difficulty: 'basic', current_position: 1, total_locations: 5 }
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => game })
+  vi.stubGlobal('fetch', fetchMock)
+  await expect(startAssignedHunt('h1')).resolves.toEqual(game)
+  expect(fetchMock).toHaveBeenCalledWith('/api/student/hunts/h1/start', { method: 'POST' })
+})
+
+test('reports when the assigned building no longer has enough ready locations', async () => {
+  const detail = 'Not enough ready locations in this building for this hunt'
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 409, json: async () => ({ detail }) }))
+  await expect(startAssignedHunt('h1')).rejects.toThrow(detail)
 })

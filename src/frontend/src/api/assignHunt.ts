@@ -1,5 +1,6 @@
 // Asks the backend to assign a hunt to one of the teacher's classes. The class's language is used automatically.
 
+import type { StartGameResult } from './game'
 import { SessionEndedError } from './sessionEnded'
 
 export interface AssignedHunt {
@@ -100,4 +101,20 @@ export async function getStudentHunts(): Promise<StudentHunt[]> {
   if (!res.ok) throw new Error('Could not load your assigned hunts, please try again')
 
   return res.json() as Promise<StudentHunt[]>
+}
+
+
+export async function startAssignedHunt(huntId: string): Promise<StartGameResult> {
+  const res = await fetch(`/api/student/hunts/${encodeURIComponent(huntId)}/start`, { method: 'POST' })
+    .catch(() => { throw new Error('Could not start the assigned hunt, please try again') })
+
+  if (res.status === 401) throw new SessionEndedError()
+  if (res.status === 404) throw new Error('This hunt is no longer assigned to you')
+  if (res.status === 409) {
+    const { detail } = await res.json()
+    throw new Error(detail)
+  }
+  if (!res.ok) throw new Error('Could not start the assigned hunt, please try again')
+
+  return res.json() as Promise<StartGameResult>
 }
