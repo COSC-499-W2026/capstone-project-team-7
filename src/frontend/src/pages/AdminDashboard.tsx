@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { approveTeacher, reassignClass } from '../api/admin'
+import { approveTeacher, deleteAdmin, getOtherAdmins, reassignClass, type AdminAccount } from '../api/admin'
 import { logout } from '../api/logout'
 import { SessionEndedError } from '../api/sessionEnded'
 
@@ -7,6 +7,8 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [admins, setAdmins] = useState<AdminAccount[]>([])
+  const [adminListStatus, setAdminListStatus] = useState('Loading admin accounts…')
   const inFlight = useRef(false)
   const active = useRef(true)
 
@@ -14,6 +16,20 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     active.current = true
     return () => { active.current = false }
   }, [])
+
+  useEffect(() => {
+    let current = true
+    getOtherAdmins().then((accounts) => {
+      if (!current) return
+      setAdmins(accounts)
+      setAdminListStatus(accounts.length ? '' : 'There are no other admin accounts.')
+    }).catch((err) => {
+      if (!current) return
+      if (err instanceof SessionEndedError) onLogout()
+      else setAdminListStatus((err as Error).message)
+    })
+    return () => { current = false }
+  }, [onLogout])
 
   async function run(action: () => Promise<void>, success: string, form?: HTMLFormElement) {
     if (inFlight.current) return
@@ -45,6 +61,20 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       reassign ? 'Class reassigned. Enrollments and progress are preserved.' : 'Teacher email approved for signup.', form)
   }
 
+  function submitDeletion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = event.currentTarget
+    const id = new FormData(form).get('adminId')
+    const admin = admins.find((account) => account.id === id)
+    if (!admin || !window.confirm(`Permanently delete ${admin.email}?`)) return
+    void run(async () => {
+      await deleteAdmin(admin.id)
+      if (!active.current) return
+      setAdmins((accounts) => accounts.filter((account) => account.id !== admin.id))
+      if (admins.length === 1) setAdminListStatus('There are no other admin accounts.')
+    }, 'Admin account deleted.', form)
+  }
+
   return (
     <main>
       <h1>Admin dashboard</h1>
@@ -67,6 +97,19 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
           <label>New teacher email <input name="email" type="email" required /></label>{' '}
           <button type="submit">Reassign class</button>
         </fieldset>
+      </form>
+      <form onSubmit={submitDeletion}>
+        <fieldset disabled={busy || !admins.length}>
+          <legend>Delete an admin account</legend>
+          <label>Admin account{' '}
+            <select name="adminId" defaultValue="" required>
+              <option value="">Choose an admin</option>
+              {admins.map((admin) => <option key={admin.id} value={admin.id}>{admin.username} ({admin.email})</option>)}
+            </select>
+          </label>{' '}
+          <button type="submit">Delete admin</button>
+        </fieldset>
+        {adminListStatus && <p role="status">{adminListStatus}</p>}
       </form>
       <p><button disabled={busy} onClick={() => void run(logout, '')}>Log out</button></p>
     </main>
