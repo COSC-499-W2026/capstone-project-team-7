@@ -3,7 +3,7 @@
 from utils.audio_storage import audio_path
 
 
-def ready_location_ids(connection, language_code, difficulty):
+def ready_location_ids(connection, language_code, difficulty, building=None):
     """Ids of the locations a game in this language and difficulty can play from start to finish."""
     locations = connection.execute(
         """SELECT locations.id, locations.building, locations.room_number FROM locations
@@ -13,4 +13,5 @@ def ready_location_ids(connection, language_code, difficulty):
     ).fetchall()
     # Clips are files, not rows, so they are checked on disk.
     return [location["id"] for location in locations
-            if audio_path(language_code, location, difficulty).is_file()]
+            if (building is None or location["building"] == building)
+            and audio_path(language_code, location, difficulty).is_file()]

@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { assignHunt, deleteHunt, getAssignedHunts, hideOverdue } from '../../src/frontend/src/api/assignHunt'
+import { assignHunt, deleteHunt, getAssignedHunts, getHuntBuildings, hideOverdue } from '../../src/frontend/src/api/assignHunt'
 import { SessionEndedError } from '../../src/frontend/src/api/sessionEnded'
 import AssignHuntForm from '../../src/frontend/src/components/AssignHuntForm'
 
@@ -18,11 +18,11 @@ test('assigns a hunt to the class and returns it', async () => {
   })
 })
 
-test('an empty due date is sent as null', async () => {
+test('sends the selected building and an empty due date as null', async () => {
   const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({}) })
   vi.stubGlobal('fetch', fetchMock)
-  await assignHunt('c1', 'basic', '')
-  expect(fetchMock.mock.calls[0][1].body).toBe(JSON.stringify({ difficulty: 'basic', due_date: null }))
+  await assignHunt('c1', 'basic', '', 'COM')
+  expect(fetchMock.mock.calls[0][1].body).toBe(JSON.stringify({ difficulty: 'basic', due_date: null, building: 'COM' }))
 })
 
 test('expired sessions request a return to login', async () => {
@@ -31,7 +31,7 @@ test('expired sessions request a return to login', async () => {
 })
 
 test.each([
-  [422, "Due date can't be in the past"], [403, "You can't assign hunts to this class"],
+  [403, "You can't assign hunts to this class"],
   [404, "You can't assign hunts to this class"], [503, 'Could not assign the hunt, please try again'],
 ] as const)('assigning a hunt explains failures (%s)', async (status, message) => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status }))
@@ -45,10 +45,10 @@ test('network failures explain that the teacher can retry', async () => {
 
 test('form offers three difficulties, an optional due date and an assign button', () => {
   const html = renderToStaticMarkup(createElement(AssignHuntForm, { classId: 'c1', disabled: false, onSessionEnded: vi.fn() }))
-  expect(html.match(/<option /g)).toHaveLength(3)
+  expect(html.match(/<option /g)).toHaveLength(4)
   expect(html).toContain('type="date"')
-  expect(html).not.toContain('required')
-  expect(html).toContain('<button type="submit">Assign hunt</button>')
+  expect(html).toContain('id="hunt-building"')
+  expect(html).toContain('<button type="submit" disabled="">Assign hunt</button>')
 })
 
 test('lists the hunts already assigned to the class', async () => {
@@ -118,4 +118,28 @@ test('past-due hunts are hidden until the teacher ticks the box', () => {
   expect(html).toContain('type="checkbox"')
   expect(html).not.toContain('checked')
   expect(html).toContain('Show past-due hunts')
+})
+
+
+test('shows the server error when the selected building has too few ready rooms', async () => {
+  const detail = "Choose a building with at least 5 ready locations for this class's language."
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ detail }) }))
+  await expect(assignHunt('c1', 'basic', '', 'LIB')).rejects.toThrow(detail)
+})
+
+
+test('loads the buildings for the selected class', async () => {
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ['COM', 'LIB'] })
+  vi.stubGlobal('fetch', fetchMock)
+  expect(await getHuntBuildings('c1')).toEqual(['COM', 'LIB'])
+  expect(fetchMock).toHaveBeenCalledWith('/api/teacher/classes/c1/hunt-buildings')
+})
+
+test('reports invalid due dates separately from invalid building selections', async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce({ status: 422, json: async () => ({ detail: [{ loc: ['body', 'due_date'] }] }) })
+    .mockResolvedValueOnce({ status: 422, json: async () => ({ detail: [{ loc: ['body'] }] }) })
+  vi.stubGlobal('fetch', fetchMock)
+  await expect(assignHunt('c1', 'basic', '2000-01-01', 'COM')).rejects.toThrow('Choose a valid due date')
+  await expect(assignHunt('c1', 'basic', '')).rejects.toThrow('Check the difficulty and building selection')
 })
