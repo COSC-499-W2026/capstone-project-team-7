@@ -133,3 +133,71 @@ def test_profile_leaves_out_classes_the_student_was_removed_from(enrollment_db):
     assert response.status_code == 200
     assert response.json()["classes"] == []
     assert response.json()["languages"] == []
+
+
+@pytest.mark.parametrize("body", [
+    {},
+    {"first_name": "   "},
+    {"last_name": None},
+    {"username": "x" * 51},
+    {"username": "newname", "email": "new@example.com"},
+    {"username": "newname", "student_id": str(uuid4())},
+])
+def test_profile_update_rejects_invalid_fields_before_writing(client, monkeypatch, body):
+    def unexpected():
+        pytest.fail("Invalid profile updates must not access the database")
+
+    monkeypatch.setattr(student_profile, "get_connection", unexpected)
+    assert client.patch(URL, json=body).status_code == 422
+
+
+@pytest.mark.parametrize("role, status", [(None, 401), ("teacher", 403), ("admin", 403)])
+def test_only_signed_in_students_can_update_their_profile(client, role, status):
+    if role is None:
+        app.dependency_overrides.clear()
+    else:
+        app.dependency_overrides[auth.current_user] = lambda: dict(USER, role=role)
+    assert client.patch(URL, json={"username": "newname"}).status_code == status
+
+
+def test_update_returns_404_for_missing_student(client, monkeypatch):
+    monkeypatch.setattr(student_profile, "get_connection", FakeConnection(None))
+    response = client.patch(URL, json={"username": "newname"})
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Student profile not found"}
+
+
+def test_update_database_failure_is_safe(client, monkeypatch):
+    def unavailable():
+        raise psycopg.OperationalError("private details")
+
+    monkeypatch.setattr(student_profile, "get_connection", unavailable)
+    response = client.patch(URL, json={"username": "newname"})
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
+def test_student_updates_own_name_and_username(enrollment_db):
+    with TestClient(app, base_url="https://testserver") as client:
+        login(client)
+        response = client.patch(URL, json={"first_name": " Alex ", "last_name": " Lee ", "username": " alex123 "})
+        assert response.status_code == 200
+        assert response.json() == {"first_name": "Alex", "last_name": "Lee", "username": "alex123"}
+        partial = client.patch(URL, json={"last_name": "Chan"})
+        assert partial.status_code == 200
+        assert partial.json() == {"first_name": "Alex", "last_name": "Chan", "username": "alex123"}
+        assert client.get(URL).json()["username"] == "alex123"
+    with get_connection() as db:
+        assert db.execute("SELECT first_name, last_name, username FROM users WHERE email = %s",
+                          ("student@example.com",)).fetchone() == partial.json()
+
+
+def test_duplicate_username_rejects_the_entire_update(enrollment_db):
+    with TestClient(app, base_url="https://testserver") as client:
+        login(client)
+        response = client.patch(URL, json={"first_name": "Alex", "username": "TEACHER"})
+        assert response.status_code == 409
+        assert response.json() == {"detail": "Username already in use"}
+    with get_connection() as db:
+        assert db.execute("SELECT first_name, username FROM users WHERE email = %s",
+                          ("student@example.com",)).fetchone() == {"first_name": "Test", "username": "student"}
