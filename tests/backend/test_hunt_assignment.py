@@ -7,6 +7,7 @@ import pytest
 import hunt_assignment
 import teacher_access
 from database import get_connection
+from test_game_session import add_clips
 from test_teacher_access import access_db, client, login
 
 URL = "/api/teacher/classes/{}/hunts"
@@ -14,7 +15,7 @@ URL = "/api/teacher/classes/{}/hunts"
 
 def assigned_hunts():
     with get_connection() as db:
-        return db.execute("SELECT class_id, language_code, difficulty, due_date FROM assigned_hunts").fetchall()
+        return db.execute("SELECT class_id, language_code, difficulty, due_date, building FROM assigned_hunts").fetchall()
 
 
 def other_teachers_class():
@@ -23,7 +24,10 @@ def other_teachers_class():
 
 
 def assign(client, class_id, **body):
-    return client.post(URL.format(class_id), json={"difficulty": "basic", **body})
+    body = {"difficulty": "basic", **body}
+    if body["difficulty"] == "basic":
+        body.setdefault("building", "COM")
+    return client.post(URL.format(class_id), json=body)
 
 
 def add_hunt(class_id):
@@ -37,15 +41,32 @@ def hunt_url(class_id, hunt_id):
     return f"{URL.format(class_id)}/{hunt_id}"
 
 
+@pytest.fixture(autouse=True)
+def building_locations(access_db, monkeypatch, tmp_path):
+    monkeypatch.setenv("AUDIO_DIR", str(tmp_path))
+    with get_connection() as db:
+        for building, count in [("COM", 5), ("LIB", 4)]:
+            for room in range(count):
+                row = db.execute(
+                    """INSERT INTO locations (building, room_number, latitude, longitude, radius_metres)
+                    VALUES (%s, %s, 49.94, -119.4, 50) RETURNING id""", (building, str(room)),
+                ).fetchone()
+                db.execute(
+                    """INSERT INTO location_clues (location_id, language_code, number_text, description_text)
+                    VALUES (%s, 'fr', 'cent', 'une salle')""", (row["id"],),
+                )
+    add_clips(difficulties=["basic"])
+
+
 def test_teacher_assigns_basic_hunt_with_class_language(access_db, client):
     login(client)
     response = assign(client, access_db)
     assert response.status_code == 201
     body = response.json()
     assert body == {"id": body["id"], "class_id": access_db, "language_code": "fr",
-                    "difficulty": "basic", "due_date": None}
-    assert [(str(row["class_id"]), row["language_code"], row["difficulty"], row["due_date"])
-            for row in assigned_hunts()] == [(access_db, "fr", "basic", None)]
+                    "difficulty": "basic", "due_date": None, "building": "COM"}
+    assert [(str(row["class_id"]), row["language_code"], row["difficulty"], row["due_date"], row["building"])
+            for row in assigned_hunts()] == [(access_db, "fr", "basic", None, "COM")]
 
 
 def test_teacher_assigns_hunt_with_future_due_date(access_db, client):
@@ -54,6 +75,7 @@ def test_teacher_assigns_hunt_with_future_due_date(access_db, client):
     response = assign(client, access_db, difficulty="expert", due_date=due_date.isoformat())
     assert response.status_code == 201
     assert response.json()["due_date"] == due_date.isoformat()
+    assert response.json()["building"] is None
     assert [row["due_date"] for row in assigned_hunts()] == [due_date]
 
 
@@ -96,7 +118,8 @@ def test_missing_class_is_not_found(access_db, client):
 
 @pytest.mark.parametrize("body", [{}, {"difficulty": "impossible"}, {"difficulty": None},
                                   {"difficulty": "basic", "language_code": "es"},
-                                  {"difficulty": "basic", "due_date": "not-a-date"}])
+                                  {"difficulty": "basic", "due_date": "not-a-date", "building": "COM"},
+                                  {"difficulty": "basic"}, {"difficulty": "advanced", "building": "COM"}])
 def test_invalid_body_is_rejected(access_db, client, body):
     login(client)
     assert client.post(URL.format(access_db), json=body).status_code == 422
@@ -130,6 +153,7 @@ def test_teacher_lists_class_hunts_newest_first(access_db, client):
     hunts = response.json()
     assert [(hunt["difficulty"], hunt["due_date"]) for hunt in hunts] == [("expert", due_date), ("basic", None)]
     assert all(hunt["id"] and hunt["assigned_at"] for hunt in hunts)
+    assert [hunt["building"] for hunt in hunts] == [None, "COM"]
 
 
 def test_class_without_hunts_lists_nothing(access_db, client):
@@ -218,3 +242,17 @@ def test_database_failure_is_safe(access_db, client, monkeypatch):
     response = assign(client, access_db)
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
+
+
+def test_assignment_rejects_a_building_with_too_few_ready_locations(access_db, client):
+    login(client)
+    response = assign(client, access_db, building="LIB")
+    assert response.status_code == 409
+    assert "at least 5 ready locations" in response.json()["detail"]
+    assert assigned_hunts() == []
+
+
+def test_teacher_lists_buildings_for_owned_class(access_db, client):
+    login(client)
+    assert client.get(f"/api/teacher/classes/{access_db}/hunt-buildings").json() == ["COM", "LIB"]
+    assert client.get(f"/api/teacher/classes/{other_teachers_class()}/hunt-buildings").status_code == 404

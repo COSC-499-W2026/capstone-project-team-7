@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { assignHunt, deleteHunt, getAssignedHunts, hideOverdue, type ClassHunt } from '../api/assignHunt'
+import { assignHunt, deleteHunt, getAssignedHunts, getHuntBuildings, hideOverdue, type ClassHunt } from '../api/assignHunt'
 import { SessionEndedError } from '../api/sessionEnded'
 
 interface Props {
@@ -13,6 +13,9 @@ const DIFFICULTY_NAMES: Record<string, string> = Object.fromEntries(DIFFICULTIES
 
 export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Props) {
   const [difficulty, setDifficulty] = useState('basic')
+  const [building, setBuilding] = useState('')
+  const [buildings, setBuildings] = useState<string[] | null>(null)
+  const [buildingsError, setBuildingsError] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -46,6 +49,20 @@ export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Pr
     return () => { current = false }
   }, [classId, onSessionEnded, refresh])
 
+  useEffect(() => {
+    let current = true
+    setBuilding('')
+    setBuildings(null)
+    setBuildingsError('')
+    getHuntBuildings(classId).then((items) => { if (current) setBuildings(items) })
+      .catch((err) => {
+        if (!current) return
+        if (err instanceof SessionEndedError) onSessionEnded()
+        else setBuildingsError((err as Error).message)
+      })
+    return () => { current = false }
+  }, [classId, onSessionEnded])
+
   // Runs one change at a time, then shows the done message and reloads the list.
   async function run(action: () => Promise<void>, done: string) {
     if (disabled || inFlight.current) return
@@ -68,8 +85,10 @@ export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Pr
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    if (difficulty === 'basic' && !building) return
     run(async () => {
-      await assignHunt(classId, difficulty, dueDate)
+      await assignHunt(classId, difficulty, dueDate, difficulty === 'basic' ? building : undefined)
+      setBuilding('')
       setDifficulty('basic')
       setDueDate('')
     }, 'Hunt assigned!')
@@ -88,11 +107,21 @@ export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Pr
           <select id="hunt-difficulty" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} disabled={disabled || saving}>
             {DIFFICULTIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select></p>
+        {difficulty === 'basic' && <>
+          <p><label htmlFor="hunt-building">Building </label>
+            <select id="hunt-building" value={building} onChange={(e) => setBuilding(e.target.value)}
+              required disabled={disabled || saving || !buildings?.length}>
+              <option value="">{buildings === null && !buildingsError ? 'Loading buildings...' : 'Choose a building'}</option>
+              {buildings?.map((code) => <option key={code} value={code}>{code}</option>)}
+            </select></p>
+          {buildingsError && <p role="alert">{buildingsError}</p>}
+          {buildings?.length === 0 && <p>No buildings are available.</p>}
+        </>}
         <p><label htmlFor="hunt-due-date">Due date (optional) </label>
           <input id="hunt-due-date" type="date" min={today} value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={disabled || saving} /></p>
         {error && <p role="alert">{error}</p>}
         {message && <p role="status">{message}</p>}
-        <button type="submit" disabled={disabled || saving}>{saving ? 'Assigning hunt...' : 'Assign hunt'}</button>
+        <button type="submit" disabled={disabled || saving || (difficulty === 'basic' && !building)}>{saving ? 'Assigning hunt...' : 'Assign hunt'}</button>
       </form>
       <h3>Currently assigned</h3>
       <p><label><input type="checkbox" checked={showPastDue} onChange={(e) => setShowPastDue(e.target.checked)} /> Show past-due hunts</label></p>
@@ -102,6 +131,7 @@ export default function AssignHuntForm({ classId, disabled, onSessionEnded }: Pr
         : <ul>{shown.map((hunt) => (
           <li key={hunt.id}>
             {DIFFICULTY_NAMES[hunt.difficulty] ?? hunt.difficulty} · Assigned {new Date(hunt.assigned_at).toLocaleDateString('en-CA')}
+            {hunt.building && ` · ${hunt.building}`}
             {' · '}{hunt.due_date ? `Due ${hunt.due_date}` : 'No due date'}
             {confirmingId === hunt.id ? <>
               {' '}Remove this hunt? Students in this class will no longer see it.

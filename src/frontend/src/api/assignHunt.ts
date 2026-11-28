@@ -1,5 +1,6 @@
 // Asks the backend to assign a hunt to one of the teacher's classes. The class's language is used automatically.
 
+import type { StartGameResult } from './game'
 import { SessionEndedError } from './sessionEnded'
 
 export interface AssignedHunt {
@@ -7,27 +8,49 @@ export interface AssignedHunt {
   class_id: string
   language_code: string
   difficulty: string
+  building: string | null
   due_date: string | null
 }
 
 // dueDate is "YYYY-MM-DD", or "" when the teacher leaves it empty.
-export async function assignHunt(classId: string, difficulty: string, dueDate: string): Promise<AssignedHunt> {
+export async function assignHunt(classId: string, difficulty: string, dueDate: string, building?: string): Promise<AssignedHunt> {
   const res = await fetch(`/api/teacher/classes/${encodeURIComponent(classId)}/hunts`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ difficulty, due_date: dueDate || null }),
+    body: JSON.stringify({ difficulty, due_date: dueDate || null, building }),
   }).catch(() => { throw new Error('Could not assign the hunt, please try again') })
 
   if (res.status === 401) throw new SessionEndedError()
-  if (res.status === 422) throw new Error("Due date can't be in the past")
+  if (res.status === 422) {
+    const { detail } = await res.json()
+    if (Array.isArray(detail) && detail.some((issue) => issue.loc?.includes('due_date'))) {
+      throw new Error("Choose a valid due date that's today or later")
+    }
+    throw new Error('Check the difficulty and building selection')
+  }
+  if (res.status === 409) {
+    const { detail } = await res.json()
+    throw new Error(detail)
+  }
   if (res.status === 403 || res.status === 404) throw new Error("You can't assign hunts to this class")
   if (!res.ok) throw new Error('Could not assign the hunt, please try again')
 
   return res.json() as Promise<AssignedHunt>
 }
 
+export async function getHuntBuildings(classId: string): Promise<string[]> {
+  const res = await fetch(`/api/teacher/classes/${encodeURIComponent(classId)}/hunt-buildings`)
+    .catch(() => { throw new Error('Could not load buildings, please try again') })
+
+  if (res.status === 401) throw new SessionEndedError()
+  if (!res.ok) throw new Error('Could not load buildings, please try again')
+
+  return res.json() as Promise<string[]>
+}
+
 export interface ClassHunt {
   id: string
   difficulty: string
+  building: string | null
   due_date: string | null
   assigned_at: string
 }
@@ -78,4 +101,20 @@ export async function getStudentHunts(): Promise<StudentHunt[]> {
   if (!res.ok) throw new Error('Could not load your assigned hunts, please try again')
 
   return res.json() as Promise<StudentHunt[]>
+}
+
+
+export async function startAssignedHunt(huntId: string): Promise<StartGameResult> {
+  const res = await fetch(`/api/student/hunts/${encodeURIComponent(huntId)}/start`, { method: 'POST' })
+    .catch(() => { throw new Error('Could not start the assigned hunt, please try again') })
+
+  if (res.status === 401) throw new SessionEndedError()
+  if (res.status === 404) throw new Error('This hunt is no longer assigned to you')
+  if (res.status === 409) {
+    const { detail } = await res.json()
+    throw new Error(detail)
+  }
+  if (!res.ok) throw new Error('Could not start the assigned hunt, please try again')
+
+  return res.json() as Promise<StartGameResult>
 }

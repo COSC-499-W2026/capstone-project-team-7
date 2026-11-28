@@ -41,7 +41,12 @@ def create_game(student_id, info: StartGameRequest, hunt_id=None):
     """Start a game for the student. hunt_id links it to an assigned hunt; normal games have none."""
     try:
         with get_connection() as connection:
-            location_ids = pick_locations(ready_location_ids(connection, info.language_code, info.difficulty))
+            building = assigned_hunt_building(connection, hunt_id)
+            if building is None:
+                ready = ready_location_ids(connection, info.language_code, info.difficulty)
+            else:
+                ready = ready_location_ids(connection, info.language_code, info.difficulty, building)
+            location_ids = pick_locations(ready)
             game = connection.execute(
                 """INSERT INTO game_sessions (student_id, language_code, difficulty)
                 VALUES (%s, %s, %s) RETURNING id, language_code, difficulty, current_position""",
@@ -49,7 +54,10 @@ def create_game(student_id, info: StartGameRequest, hunt_id=None):
             ).fetchone()
             # Same transaction as the insert, so a hunt game is never saved without its hunt.
             if hunt_id is not None:
-                connection.execute("UPDATE game_sessions SET hunt_id = %s WHERE id = %s", (hunt_id, game["id"]))
+                connection.execute(
+                    "UPDATE game_sessions SET hunt_id = %s, hunt_building = %s WHERE id = %s",
+                    (hunt_id, building, game["id"]),
+                )
             for position, location_id in enumerate(location_ids, start=1):
                 connection.execute(
                     """INSERT INTO game_session_locations (game_session_id, position, location_id)
@@ -57,7 +65,9 @@ def create_game(student_id, info: StartGameRequest, hunt_id=None):
                     (game["id"], position, location_id),
                 )
     except NotEnoughLocations:
-        raise HTTPException(status_code=409, detail="Not enough locations for this language yet") from None
+        detail = ("Not enough ready locations in this building for this hunt"
+                  if building is not None else "Not enough locations for this language yet")
+        raise HTTPException(status_code=409, detail=detail) from None
     except (psycopg.Error, RuntimeError):
         raise database_unavailable() from None
     # Locations stay hidden so the response does not give away the answers.
@@ -68,6 +78,17 @@ def create_game(student_id, info: StartGameRequest, hunt_id=None):
         "current_position": game["current_position"],
         "total_locations": LOCATIONS_PER_HUNT,
     }
+
+
+def assigned_hunt_building(connection, hunt_id):
+    if hunt_id is None:
+        return None
+    hunt = connection.execute(
+        "SELECT building FROM assigned_hunts WHERE id = %s FOR KEY SHARE", (hunt_id,),
+    ).fetchone()
+    if hunt is None:
+        raise HTTPException(status_code=404, detail="Hunt not found")
+    return hunt["building"]
 
 
 @router.get("/ongoing", summary="Your unfinished games, newest first")
@@ -175,7 +196,7 @@ def skip_location(game_id: UUID, position: Annotated[int, Query(ge=1, le=LOCATIO
                 (game_id, position, location["location_id"]),
             ).fetchone()
             game = connection.execute(
-                """SELECT id FROM game_sessions WHERE id = %s AND current_position = %s
+                """SELECT hunt_building FROM game_sessions WHERE id = %s AND current_position = %s
                 AND finished_at IS NULL AND quit_at IS NULL FOR UPDATE""", (game_id, position),
             ).fetchone()
             if spot is None or game is None:
@@ -183,10 +204,11 @@ def skip_location(game_id: UUID, position: Annotated[int, Query(ge=1, le=LOCATIO
             candidates = connection.execute(
                 """SELECT locations.* FROM locations JOIN location_clues ON location_clues.location_id = locations.id
                 WHERE location_clues.language_code = %s AND locations.latitude IS NOT NULL
+                  AND (%s::text IS NULL OR locations.building = %s)
                   AND NOT EXISTS (SELECT 1 FROM game_session_locations AS used
                     WHERE used.game_session_id = %s
                     AND (used.location_id = locations.id OR locations.id = ANY(used.skipped_location_ids)))
-                ORDER BY random()""", (location["language_code"], game_id),
+                ORDER BY random()""", (location["language_code"], game["hunt_building"], game["hunt_building"], game_id),
             ).fetchall()
             replacement = next((candidate for candidate in candidates
                                 if audio_path(location["language_code"], candidate, location["difficulty"]).is_file()), None)

@@ -174,3 +174,29 @@ def test_must_be_logged_in_with_the_right_role(db, client):
     assert client.post(start).status_code == 403
     login(client, "student")
     assert client.get(completion_url).status_code == 403
+
+
+@pytest.mark.parametrize("building, expected", [("EME", 201), ("LIB", 409)])
+def test_basic_hunt_uses_only_its_building(db, client, building, expected):
+    with get_connection() as conn:
+        conn.execute("UPDATE assigned_hunts SET difficulty = 'basic', building = %s WHERE id = %s",
+                     (building, db["hunt"]))
+        location = conn.execute("""INSERT INTO locations (building, room_number, latitude, longitude, radius_metres)
+            VALUES ('LIB', '123', 49.94, -119.4, 50) RETURNING id""").fetchone()
+        conn.execute("""INSERT INTO location_clues (location_id, language_code, number_text, description_text)
+            VALUES (%s, 'fr', 'cent', 'une salle')""", (location["id"],))
+    add_clips()
+    login(client, "student")
+    response = client.post(f"/api/student/hunts/{db['hunt']}/start")
+    assert response.status_code == expected, response.text
+    with get_connection() as conn:
+        spots = conn.execute("""SELECT building FROM game_session_locations
+            JOIN locations ON locations.id = game_session_locations.location_id""").fetchall()
+        if expected == 409:
+            assert not spots
+            assert conn.execute("SELECT id FROM game_sessions").fetchone() is None
+            return
+        assert spots == [{"building": "EME"}] * 5
+        conn.execute("DELETE FROM assigned_hunts WHERE id = %s", (db["hunt"],))
+    game_id = response.json()["game_id"]
+    assert client.post(f"/api/game/{game_id}/skip?position=1&revision=0").status_code == 409
