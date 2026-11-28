@@ -194,7 +194,7 @@ No schema migration is required. Integration tests use `TEST_DATABASE_URL` and t
 Signed-in admins see forms to approve teacher signup emails and reassign a class using its UUID and an approved teacher's email.
 Approval permits signup; the teacher must register before receiving a class. Reassignment preserves enrollments and progress.
 Requests show success/errors, preserve input on failure for retry, and disable actions while saving. Expired sessions return to login.
-Uses the existing admin APIs; account lists, account creation/editing/deletion are outside this dashboard's scope.
+Admins can also select another admin account and confirm its permanent deletion.
 Tests: `cd src/frontend && npm test && npm run build`.
 
 ### Admin accounts API
@@ -203,6 +203,9 @@ A logged-in administrator can add another admin with `POST /api/admin/admins`, s
 Fields follow the teacher signup rules. Success returns 201 with `id`, `email`, `username`, and `role: "admin"`; the new admin can log in right away.
 Missing, invalid, or expired sessions return 401; non-admins get 403; a taken email or username gets 409; invalid input gets 422; database failures get 503.
 Run `python -m pytest tests/backend/test_admin_creation.py -v`; the login integration test runs when `DATABASE_URL` is set.
+
+`GET /api/admin/admins` lists other admin accounts by ID, username and email. `DELETE /api/admin/admins/{admin_id}` deletes an admin and their sessions and returns 204. Deleting your own account or the last admin returns 409. An unknown ID or an ID belonging to another role returns 404. Both endpoints require an admin session.
+Run `python -m pytest tests/backend/test_admin_deletion.py -v` with `TEST_DATABASE_URL` set.
 
 ### Password reset email API
 

@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 
 from admin import router as admin_router
 from admin_creation import router as admin_creation_router
+from admin_deletion import router as admin_deletion_router
 from auth import router as auth_router
 from class_enrollment import router as class_enrollment_router
 from class_roster import router as class_roster_router
@@ -51,6 +52,7 @@ app.include_router(admin_enrollment_router)
 app.include_router(teacher_approval_router)
 app.include_router(admin_router)
 app.include_router(admin_creation_router)
+app.include_router(admin_deletion_router)
 app.include_router(teacher_access_router)
 app.include_router(student_deletion_router)
 app.include_router(teacher_deletion_router)
