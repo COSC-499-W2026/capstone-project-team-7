@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, 
 from utils.passwords import validate_password
 
 RequiredText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+Username = Annotated[RequiredText, Field(max_length=50)]
 
 
 class StudentSignupRequest(BaseModel):
@@ -17,7 +18,7 @@ class StudentSignupRequest(BaseModel):
     first_name: RequiredText
     last_name: RequiredText
     student_number: Annotated[RequiredText, Field(max_length=30)]
-    username: Annotated[RequiredText, Field(max_length=50)]
+    username: Username
 
     @field_validator("email")
     @classmethod
